@@ -38,6 +38,9 @@ let service: ImageGenerationService | undefined;
 let bridge: ReturnType<typeof registerImageIpc> | undefined;
 let devServerProcess: ChildProcess | undefined;
 
+/** 关窗之后、进程退出之前，macOS 的 activate 事件不应该被当成"应用已就绪"。 */
+let quitting = false;
+
 // 单实例：重复启动时聚焦已有窗口，避免两个进程写同一份作品库。
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -57,32 +60,25 @@ function start(): void {
   app.whenReady().then(() => {
     // 离线假 provider 永远在；真实 provider 只在配置了密钥时出现（见 config.ts）。
     const store = new MemoryJobStore();
-    service = new ImageGenerationService({
+    const imageService = new ImageGenerationService({
       providers: createProviders(),
       store,
       emit: (event) => bridge?.sendEvent(event),
       notify: (notification) => bridge?.sendNotification(notification),
     });
+    service = imageService;
 
-    // IPC 必须先于窗口注册：renderer 的 preload 一加载就会取 bootstrap，
-    // 晚注册会让首批调用直接失败，再弹一个窗口也不会有句柄（activate 分支）。
+    // service 与 bridge 必须先于窗口就位：renderer 的 preload 一加载就会取 bootstrap。
+    // 仍然保留 activate 补建，保证"窗口没建出来"时用户还有一次机会，而不是面对一个死进程。
     bridge = registerImageIpc({
-      service,
+      service: imageService,
       getWindowWebContents: () => mainWindow?.webContents,
     });
-    mainWindow = createWindow();
-
-    app.on("activate", () => {
-      // 没有存活窗口才新建：避免 macOS 上出两个主窗口、状态各走一份。
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.focus();
-        return;
-      }
-      mainWindow = createWindow();
-    });
+    openMainWindow();
   });
 
   app.on("window-all-closed", () => {
+    quitting = true;
     stopDevServer();
     bridge?.dispose();
     if (process.platform !== "darwin") app.quit();
@@ -98,6 +94,35 @@ function stopDevServer(): void {
   devServerProcess?.kill();
   devServerProcess = undefined;
 }
+
+/**
+ * 主窗口的唯一入口：保留引用、去重、并在窗口关闭后清空。
+ *
+ * 之前是在 whenReady 里直接 createWindow()、activate 里另建一个——窗口一旦被销毁，
+ * mainWindow 仍指向死对象，activate 会以为"还活着"而不重建，界面就永远回不来。
+ */
+function openMainWindow(): BrowserWindow {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+    return mainWindow;
+  }
+  const window = createWindow();
+  mainWindow = window;
+  window.on("closed", () => {
+    if (mainWindow === window) mainWindow = undefined;
+  });
+  return window;
+}
+
+/**
+ * 应用被激活（macOS 点 Dock 图标）时确保有主窗口。
+ * 只在 ready 之后、且不是正在退出时才重建，避免退出过程中又弹出一个空窗口。
+ */
+app.on("activate", () => {
+  if (quitting || !app.isReady()) return;
+  openMainWindow();
+});
 
 /**
  * 组装 provider 列表。

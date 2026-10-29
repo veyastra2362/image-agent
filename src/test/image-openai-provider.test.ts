@@ -7,7 +7,12 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-import { OpenAICompatibleProvider, sizeForAspect, toProviderError } from "../main/image-generation/providers/openai-compatible";
+import {
+  OpenAICompatibleProvider,
+  parseJsonMaybe,
+  sizeForAspect,
+  toProviderError,
+} from "../main/image-generation/providers/openai-compatible";
 
 const PNG = readFileSync(path.join(process.cwd(), "fixtures", "fake-square-a.png"));
 const PNG_B64 = PNG.toString("base64");
@@ -130,6 +135,30 @@ test("HTTP 错误映射为可区分的错误码，且不回显密钥", () => {
   assert.equal(throttled.code, "provider-unavailable");
   assert.equal(throttled.retryable, true);
   assert.equal(toProviderError(503, {}, "").retryable, true);
+});
+
+test("上游回显的尺寸与请求不一致时明确报错，而不是静默接受", async () => {
+  const { provider } = makeProvider(() => jsonResponse(200, { data: [{ b64_json: PNG_B64, size: "512x512" }] }));
+  await assert.rejects(
+    () => provider.submit(request, new AbortController().signal),
+    /512x512 与请求的 1024x1024 不一致/,
+  );
+});
+
+test("尺寸一致时正常通过（真实网关会回显 size 字段）", async () => {
+  const { provider } = makeProvider(() =>
+    jsonResponse(200, { data: [{ b64_json: PNG_B64, size: "1024x1024", revised_prompt: "a cat" }] }),
+  );
+  const result = await provider.submit(request, new AbortController().signal);
+  assert.equal(result.state, "completed");
+});
+
+test("parseJsonMaybe 同时接受普通 JSON 与 SSE 包裹的 JSON", () => {
+  assert.deepEqual(parseJsonMaybe('{"data":[{"b64_json":"x"}]}'), { data: [{ b64_json: "x" }] });
+  const sse = 'data: {"created":1,"data":[{"b64_json":"y"}]}\n\ndata: [DONE]\n';
+  assert.deepEqual(parseJsonMaybe(sse), { created: 1, data: [{ b64_json: "y" }] });
+  assert.equal(parseJsonMaybe(""), undefined);
+  assert.equal(parseJsonMaybe("not json at all"), undefined);
 });
 
 test("4xx 时 submit 抛出连带服务商说明的错误", async () => {

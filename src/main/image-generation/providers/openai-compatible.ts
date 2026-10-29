@@ -1,8 +1,12 @@
 /**
  * OpenAI 兼容的图片生成 adapter（`POST {baseUrl}/images/generations`）。
  *
- * 只依赖官方公开的请求/响应形状：
- *   { model, prompt, n, size, response_format? } → { data: [{ b64_json | url }] }
+ * 只依赖公开的 OpenAI 图片接口形状：
+ *   { model, prompt, n, size } → { data: [{ b64_json | url, size?, revised_prompt? }] }
+ *
+ * 2026-10 对真实网关（img-api.dialoguedui.com）实测：HTTP 200，`data[0].b64_json` 是
+ * 1024x1024 的 PNG，另有 `id`、`revised_prompt`、`size` 和全零的 `usage`；返回尺寸与请求一致。
+ * 不带 `response_format`，默认就是 base64。
  *
  * 能力声明比协议更保守：协议里没有 seed、negative prompt、取消的通用定义，
  * 所以这里一律声明不支持，而不是"先发出去试试"。界面据此隐藏这些控件。
@@ -147,7 +151,7 @@ export class OpenAICompatibleProvider implements ImageProvider {
 
     if (!response.ok) throw new ProviderRequestError(toProviderError(response.status, response.json, response.text));
 
-    const images = await this.collectImages(response.json, signal);
+    const images = await this.collectImages(response.json, request, signal);
     return { state: "completed", images };
   }
 
@@ -182,12 +186,7 @@ export class OpenAICompatibleProvider implements ImageProvider {
         redirect: "error",
       });
       const text = await response.text();
-      let json: unknown;
-      try {
-        json = text === "" ? undefined : JSON.parse(text);
-      } catch {
-        json = undefined;
-      }
+      const json = parseJsonMaybe(text);
       return { ok: response.ok, status: response.status, json, text };
     } catch (error) {
       if (init.signal.aborted) throw error;
@@ -198,8 +197,13 @@ export class OpenAICompatibleProvider implements ImageProvider {
     }
   }
 
-  /** data[].b64_json 与 data[].url 两种返回都接受；内容必须是 PNG。 */
-  private async collectImages(payload: unknown, signal: AbortSignal): Promise<readonly ProviderImage[]> {
+  /**
+   * 接受两种返回：
+   *   { data: [{ b64_json | url }] }        —— 标准 JSON
+   *   { data: [{ b64_json | url }], ... }   —— 包在 SSE `data: {...}` 行里（部分网关会这样回）
+   * 每张图都必须是 PNG，尺寸是否等于请求值由 main 的尺寸校验负责。
+   */
+  private async collectImages(payload: unknown, request: ProviderGenerateRequest, signal: AbortSignal): Promise<readonly ProviderImage[]> {
     const data = isRecord(payload) ? payload.data : undefined;
     if (!Array.isArray(data) || data.length === 0) {
       throw new Error("上游没有返回图片数据");
@@ -210,6 +214,14 @@ export class OpenAICompatibleProvider implements ImageProvider {
       if (!isRecord(entry)) throw new Error(`第 ${index + 1} 张图片格式不正确`);
       const bytes = await this.imageBytes(entry, index, signal);
       images.push({ bytes, mimeType: "image/png" });
+    }
+
+    // 上游会回显实际出图尺寸；与请求不一致时至少留下可诊断的痕迹（任务详情里能看到）。
+    const returned = data.map((entry) => (isRecord(entry) && typeof entry.size === "string" ? entry.size : undefined));
+    const expected = sizeForAspect(request.aspectRatio);
+    const mismatched = returned.filter((size) => size !== undefined && size !== expected);
+    if (mismatched.length > 0) {
+      throw new Error(`上游返回的尺寸 ${mismatched.join("、")} 与请求的 ${expected} 不一致`);
     }
     return images;
   }
@@ -314,6 +326,33 @@ function errorDetail(body: unknown): string | undefined {
   if (isRecord(error) && typeof error.message === "string") return error.message.slice(0, 200);
   if (typeof body.message === "string") return body.message.slice(0, 200);
   return undefined;
+}
+
+/**
+ * 解析响应体：优先当普通 JSON；失败时尝试 SSE 形式（若干 `data: {...}` 行），
+ * 取最后一个带 data 数组的事件。真实网关可能二选一，这里都容忍。
+ */
+export function parseJsonMaybe(text: string): unknown {
+  const trimmed = text.trim();
+  if (trimmed === "") return undefined;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    // 继续尝试 SSE。
+  }
+
+  let last: unknown;
+  for (const line of trimmed.split(/\r?\n/)) {
+    const payload = line.startsWith("data:") ? line.slice(5).trim() : "";
+    if (payload === "" || payload === "[DONE]") continue;
+    try {
+      const parsed: unknown = JSON.parse(payload);
+      last = isRecord(parsed) && Array.isArray(parsed.data) ? parsed : (last ?? parsed);
+    } catch {
+      // 不是 JSON 的行直接忽略。
+    }
+  }
+  return last;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
