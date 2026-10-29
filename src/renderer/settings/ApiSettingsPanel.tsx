@@ -22,6 +22,7 @@ import {
   PROVIDER_KIND_LABELS,
   PROVIDER_KINDS,
   effectivePartialImages,
+  normalizeDefaultModel,
   supportsPartialImages,
   validateProviderProfile,
   type ApiFlavor,
@@ -225,9 +226,7 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
       // 只动"来自上游列表"的那些：手动加的模型不受影响。
       const kept = current.models.filter((id) => !upstreamIds.has(id) || picked.includes(id));
       const models = [...kept, ...picked.filter((id) => !kept.includes(id))].slice(0, MAX_MODELS);
-      const defaultModel =
-        current.defaultModel !== undefined && models.includes(current.defaultModel) ? current.defaultModel : models[0];
-      return { ...current, models, ...(defaultModel === undefined ? {} : { defaultModel }) };
+      return { ...current, models, defaultModel: normalizeDefaultModel(models, current.defaultModel) };
     });
     setPickerModels(undefined);
   }
@@ -236,9 +235,7 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
     setDraft((current) => {
       if (!current) return current;
       const models = current.models.map((id, i) => (i === index ? value : id));
-      const defaultModel =
-        current.defaultModel !== undefined && models.includes(current.defaultModel) ? current.defaultModel : models[0];
-      return { ...current, models, ...(defaultModel === undefined ? {} : { defaultModel }) };
+      return { ...current, models, defaultModel: normalizeDefaultModel(models, current.defaultModel) };
     });
   }
 
@@ -246,9 +243,7 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
     setDraft((current) => {
       if (!current) return current;
       const models = current.models.filter((_, i) => i !== index);
-      const defaultModel =
-        current.defaultModel !== undefined && models.includes(current.defaultModel) ? current.defaultModel : models[0];
-      return { ...current, models, ...(defaultModel === undefined ? {} : { defaultModel }) };
+      return { ...current, models, defaultModel: normalizeDefaultModel(models, current.defaultModel) };
     });
   }
 
@@ -263,7 +258,7 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
     setDraft((current) => {
       if (!current) return current;
       const models = [...current.models, id].slice(0, MAX_MODELS);
-      return { ...current, models, defaultModel: current.defaultModel ?? models[0] };
+      return { ...current, models, defaultModel: normalizeDefaultModel(models, current.defaultModel) };
     });
     setNewModelId("");
     setAddOpen(false);

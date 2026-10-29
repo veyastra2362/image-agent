@@ -97,6 +97,19 @@ const MAX_LABEL_LENGTH = 40;
 export const DEFAULT_PROFILE_ID = "default";
 export const DEFAULT_PROFILE_LABEL = "默认服务商";
 
+/**
+ * 模型列表变动后重算默认模型。
+ *
+ * 关键点：列表为空时必须返回 undefined，而不是"保留旧的默认模型"——
+ * 否则删光模型后 profile 里还留着一个不在列表里的 defaultModel，
+ * 校验会报"默认模型必须来自已启用的模型列表"，连测试连通性都点不了。
+ */
+export function normalizeDefaultModel(models: readonly string[], preferred?: string): string | undefined {
+  if (models.length === 0) return undefined;
+  if (preferred !== undefined && models.includes(preferred)) return preferred;
+  return models[0];
+}
+
 /** 校验界面提交的单个 profile：id + label + 字段。 */
 export function validateProviderProfile(
   raw: unknown,

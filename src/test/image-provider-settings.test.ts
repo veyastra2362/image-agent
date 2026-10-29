@@ -7,7 +7,9 @@ import test from "node:test";
 import {
   DEFAULT_PROVIDER_SETTINGS,
   effectivePartialImages,
+  normalizeDefaultModel,
   supportsPartialImages,
+  validateProviderProfile,
   validateProviderSettings,
   type ProviderSettings,
 } from "../shared/provider-settings";
@@ -77,6 +79,28 @@ test("末端斜杠被去掉，模型 ID 允许常见分隔符", () => {
   const result = validateProviderSettings({ ...valid, baseUrl: "https://x.com/v1///", models: ["fal-ai/flux/dev", "gpt-image-2.5-flare"] });
   assert.equal(result.ok, true);
   if (result.ok) assert.equal(result.value.baseUrl, "https://x.com/v1");
+});
+
+test("删光模型后默认模型必须清空（否则校验会拦住测试/获取模型）", () => {
+  assert.equal(normalizeDefaultModel([], "gpt-image-2"), undefined);
+  assert.equal(normalizeDefaultModel(["a"], undefined), "a");
+  assert.equal(normalizeDefaultModel(["a", "b"], "b"), "b");
+  assert.equal(normalizeDefaultModel(["a", "b"], "不在列表里"), "a");
+
+  // 复现用户路径：先有模型，再全部删掉，然后去点"测试连通性"。
+  const base = { ...valid, id: "default", label: "默认服务商", baseUrl: "https://api.example.com/v1", models: ["m1"] };
+  const withModel = { ...base, defaultModel: normalizeDefaultModel(base.models, undefined) };
+  assert.equal(validateProviderProfile(withModel).ok, true);
+
+  const cleared = { ...base, models: [] as string[], defaultModel: normalizeDefaultModel([], withModel.defaultModel) };
+  const result = validateProviderProfile(cleared);
+  assert.equal(result.ok, true, JSON.stringify(result));
+  if (result.ok) assert.equal(result.value.defaultModel, undefined);
+
+  // 反证：如果保留旧的 defaultModel，就会被判非法——这正是之前的 bug。
+  const stale = validateProviderProfile({ ...base, models: [], defaultModel: "m1" });
+  assert.equal(stale.ok, false);
+  if (!stale.ok) assert.match(stale.error, /默认模型/);
 });
 
 test("partial_images 只在 流式 + Responses 时生效", () => {
