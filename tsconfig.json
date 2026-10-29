@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "ES2024",
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": false,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "paths": { "@shared/*": ["./src/shared/*"] },
+    "types": ["node", "vite/client"]
+  },
+  "include": [
+    "src/shared",
+    "src/renderer",
+    "src/test",
+    "src/main/preload.ts",
+    "src/main/image-generation",
+    "src/main/dev-server-url.ts",
+    "vite.config.ts"
+  ]
+}

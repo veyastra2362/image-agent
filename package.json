@@ -1,0 +1,29 @@
+{
+  "name": "image-agent",
+  "productName": "Image Agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "本地优先的自然语言生图桌面应用（Electron + React + TypeScript + Vite）",
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "out/main/main.js",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "node scripts/build-main.mjs && vite build",
+    "typecheck": "node scripts/run-tsc.mjs -p tsconfig.json --noEmit && node scripts/run-tsc.mjs -p tsconfig.main.json --noEmit",
+    "test": "node --import ./scripts/test-main-ts-hooks.mjs --test --test-concurrency=1 \"src/test/image-*.test.ts\"",
+    "start": "electron .",
+    "smoke": "node scripts/ui-smoke.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "electron": "^45.1.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5"
+  }
+}

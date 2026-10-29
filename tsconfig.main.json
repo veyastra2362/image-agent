@@ -1,0 +1,30 @@
+{
+  // 主进程按**构建后的目录布局**写相对路径，这样 tsc 的 CommonJS 产物可以零改动运行：
+  //   out/main/main.js、ipc.js、preload.js        → "./shared/..."    （与 out/main/shared 同级）
+  //   out/main/image-generation/*.js              → "../shared/..."
+  //   out/main/image-generation/providers/*.js    → "../../shared/..."
+  // src/main 与 src/shared 的源码层级不同，所以下面用 paths 把这些运行时路径映射回 src/shared。
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "CommonJS",
+    "moduleResolution": "Bundler",
+    "paths": {
+      "@shared/*": ["./src/shared/*"],
+      "../shared/*": ["./src/shared/*"],
+      "../../shared/*": ["./src/shared/*"],
+      "../../../shared/*": ["./src/shared/*"]
+    },
+    "esModuleInterop": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+    "outDir": "out/main/src",
+    "rootDir": "src",
+    "sourceMap": true,
+    "inlineSources": true,
+    "types": ["node", "electron"]
+  },
+  "include": ["src/main", "src/shared"]
+}

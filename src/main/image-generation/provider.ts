@@ -1,0 +1,71 @@
+/**
+ * Provider 合约：每个厂商的请求/响应格式只留在自己的 adapter 里。
+ *
+ * 能力是模型级的（`getCapabilities(model)`），不是 provider 级；
+ * 可选模型列表来自 provider 自己，main 不猜测"看起来相似"的模型。
+ */
+import type { AspectRatio, ImageCapabilities, ImageError } from "@shared/image-generation";
+
+export interface ProviderModel {
+  readonly id: string;
+  readonly displayName: string;
+  readonly capabilities: ImageCapabilities;
+  /** 每张图的费用；undefined 表示上游未提供价格，界面不得估算。 */
+  readonly costPerImage?: number;
+  readonly currency?: string;
+}
+
+export interface ProviderDescriptor {
+  readonly id: string;
+  readonly displayName: string;
+  readonly description: string;
+  readonly defaultModel: string;
+  readonly models: readonly ProviderModel[];
+  /** 参考图是否需要上传给远端服务。本地 provider 为 false。 */
+  readonly uploadsUserAssets: boolean;
+  /** 调用是否产生费用。本地 provider 为 false，预算与费用统计据此跳过。 */
+  readonly billable: boolean;
+}
+
+export interface ProviderGenerateRequest {
+  readonly model: string;
+  readonly prompt: string;
+  readonly referenceAssetIds: readonly string[];
+  readonly aspectRatio: AspectRatio;
+  readonly count: number;
+  readonly seed?: number;
+  readonly negativePrompt?: string;
+}
+
+export interface ProviderImage {
+  readonly bytes: Uint8Array;
+  readonly mimeType: string;
+}
+
+export type ProviderSubmitResult =
+  | {
+      readonly state: "completed";
+      readonly images: readonly ProviderImage[];
+    }
+  | {
+      readonly state: "running";
+      readonly remoteTaskId: string;
+      readonly pollAfterMs: number;
+    };
+
+export type ProviderPollResult =
+  | { readonly state: "running"; readonly pollAfterMs: number }
+  | { readonly state: "completed"; readonly images: readonly ProviderImage[] }
+  | { readonly state: "failed"; readonly error: ImageError }
+  | { readonly state: "cancelled" };
+
+export interface ImageProvider {
+  readonly descriptor: ProviderDescriptor;
+  getModel(model: string): ProviderModel | undefined;
+  getCapabilities(model: string): ImageCapabilities | undefined;
+  submit(request: ProviderGenerateRequest, signal: AbortSignal): Promise<ProviderSubmitResult>;
+  /** 只有 `capabilities.async` 为 true 时才调用。 */
+  poll(remoteTaskId: string, signal: AbortSignal): Promise<ProviderPollResult>;
+  /** 只有 `capabilities.cancel` 为 true 时才调用；返回上游是否确认已停止。 */
+  cancel(remoteTaskId: string): Promise<boolean>;
+}
