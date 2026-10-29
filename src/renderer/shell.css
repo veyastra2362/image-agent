@@ -2075,3 +2075,42 @@ code {
 .titlebar__icon svg {
   display: block;
 }
+
+/* ---------------------------------------------------------------- 居中与配色统一 */
+
+/*
+ * 悬停与选中用同一族的暖灰（surface-hover / surface），只差一档亮度。
+ * 之前选中用中性 color-mix，边缘抗锯齿在深底上显得比旁边"高一点点"。
+ */
+.menubar__button:hover,
+.navitem:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.menubar__button.is-open,
+.navitem.is-active {
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* 服务商"＋"按钮：文字 ＋ 在不同字体下不居中，换成 SVG 并强制 flex 居中 */
+.profile-tab--add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  line-height: 1;
+}
+
+/* 模型行的"默认/设为默认"胶囊：固定高度 + flex 居中，文字不再偏上 */
+.chosen-models__item .chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  padding: 0 10px;
+  line-height: 1;
+}

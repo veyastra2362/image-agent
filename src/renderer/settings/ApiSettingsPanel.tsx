@@ -335,8 +335,11 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
           onClick={() => void handleCreate()}
           disabled={busy !== "idle" || view.profiles.length >= MAX_PROFILES}
           title={view.profiles.length >= MAX_PROFILES ? `最多 ${MAX_PROFILES} 个` : "新建服务商"}
+          aria-label="新建服务商"
         >
-          ＋
+          <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+            <path d="M8 3.5v9M3.5 8h9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+          </svg>
         </button>
       </div>
 
