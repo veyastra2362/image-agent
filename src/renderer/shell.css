@@ -1641,15 +1641,29 @@ code {
   color: var(--text);
 }
 
-.select__option > svg {
-  margin-left: auto;
-  flex: 0 0 auto;
-}
-
+/* 名称占满剩余宽度，过长省略；尺寸单独一列右对齐；勾选位定宽 */
 .select__option-label {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.select__option-meta {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.select__option-mark {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 12px;
 }
 
 .select--compact {

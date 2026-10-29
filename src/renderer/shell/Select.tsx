@@ -15,6 +15,8 @@ export interface SelectOption {
   readonly disabled?: boolean;
   /** 选项左侧的小缩略图（参考图之类）。 */
   readonly thumbnail?: string;
+  /** 右侧的次要信息（例如尺寸），固定成一列。 */
+  readonly meta?: string;
 }
 
 export interface SelectProps {
@@ -35,6 +37,8 @@ export interface SelectProps {
   readonly keepOpenOnSelect?: boolean;
   /** 悬停选项 1.5 秒后，在菜单右侧浮出大图预览。 */
   readonly previewOnHover?: boolean;
+  /** 菜单最小宽度：带缩略图 + 尺寸两列时给名字留够地方。 */
+  readonly menuMinWidth?: number;
 }
 
 interface MenuRect {
@@ -82,6 +86,7 @@ export function Select({
   selectedValues,
   keepOpenOnSelect = false,
   previewOnHover = false,
+  menuMinWidth,
 }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [rect, setRect] = useState<MenuRect>();
@@ -98,7 +103,8 @@ export function Select({
   const openMenu = () => {
     const trigger = rootRef.current?.querySelector<HTMLButtonElement>(".select__trigger");
     if (!trigger) return;
-    setRect(measure(trigger, options.length));
+    const measured = measure(trigger, options.length);
+    setRect(menuMinWidth === undefined ? measured : { ...measured, width: Math.max(measured.width, menuMinWidth) });
     setActiveIndex(options.findIndex((option) => option.value === value));
     setOpen(true);
     onOpenChange?.(true);
@@ -245,11 +251,15 @@ export function Select({
                     <span className="select__option-thumb select__option-thumb--empty" aria-hidden="true" />
                   ) : null}
                   <span className="select__option-label">{option.label}</span>
-                  {isChecked && (
-                    <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                      <path d="M3 8.5 6.5 12 13 4.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
+                  {option.meta !== undefined && <span className="select__option-meta">{option.meta}</span>}
+                  {/* 勾选位固定占宽：没选中的行也留出同样的空间，右侧信息才对得齐 */}
+                  <span className="select__option-mark">
+                    {isChecked && (
+                      <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                        <path d="M3 8.5 6.5 12 13 4.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    )}
+                  </span>
                 </button>
               </li>
               );

@@ -132,6 +132,7 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
           selectedValues={references.map((item) => item.id)}
           keepOpenOnSelect
           previewOnHover
+          menuMinWidth={300}
           disabled={!caps?.imageToImage || referenceOptions.length === 0 || references.length >= referenceLimit}
           onChange={(next) => {
             // 多选：已选中的再点一次就取消。
@@ -149,6 +150,7 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
             ...referenceOptions.map((option) => ({
               value: option.id,
               label: option.label,
+              meta: option.meta,
               thumbnail: option.previewUrl,
             })),
           ]}

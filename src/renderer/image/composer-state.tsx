@@ -65,7 +65,12 @@ export interface ComposerValue {
   readonly negativePrompt: string;
   readonly setNegativePrompt: (value: string) => void;
 
-  readonly referenceOptions: readonly { readonly id: string; readonly label: string; readonly previewUrl: string }[];
+  readonly referenceOptions: readonly {
+    readonly id: string;
+    readonly label: string;
+    readonly meta: string;
+    readonly previewUrl: string;
+  }[];
   /** 当前参考图：可多张，数量受能力位限制。 */
   readonly references: readonly ReferenceImage[];
   readonly setReferenceFromAsset: (id: string | undefined) => void;
@@ -301,12 +306,13 @@ export function resolveModel(models: readonly ProviderRef[], key: string | undef
 }
 
 export function referenceSources(state: ImageAgentState) {
-  const options = new Map<string, { id: string; label: string; previewUrl: string }>();
+  const options = new Map<string, { id: string; label: string; meta: string; previewUrl: string }>();
   for (const entry of state.jobs) {
     for (const asset of entry.assets) {
       options.set(asset.id, {
         id: asset.id,
-        label: `${asset.prompt.slice(0, 14)} · ${asset.width}×${asset.height}`,
+        label: asset.prompt,
+        meta: `${asset.width}×${asset.height}`,
         previewUrl: asset.previewUrl,
       });
     }
@@ -315,7 +321,8 @@ export function referenceSources(state: ImageAgentState) {
     if (!options.has(asset.id)) {
       options.set(asset.id, {
         id: asset.id,
-        label: `${asset.prompt.slice(0, 14)} · 历史记忆`,
+        label: asset.prompt,
+        meta: "历史记忆",
         previewUrl: asset.previewUrl,
       });
     }
