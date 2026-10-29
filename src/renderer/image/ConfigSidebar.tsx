@@ -7,6 +7,7 @@ import { LIMITS } from "../../shared/image-generation.ts";
 import { FORMAT_LABELS } from "../lib/output-spec.ts";
 import { useComposer } from "./composer-state.tsx";
 import { SizeDialog } from "./SizeDialog.tsx";
+import { PanelLeftIcon } from "../shell/PanelLeftIcon.tsx";
 
 export interface ConfigSidebarProps {
   readonly onCollapse: () => void;
@@ -56,7 +57,7 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
           aria-label="收起侧栏"
           title="收起侧栏（Ctrl+B）"
         >
-          ‹
+          <PanelLeftIcon size={14} />
         </button>
       </div>
 

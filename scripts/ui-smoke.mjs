@@ -191,16 +191,32 @@ async function run() {
   await sleep(250);
   check("收起后侧栏不可见", !(await js("Boolean(document.querySelector('.sidebar') && document.querySelector('.sidebar').offsetParent)")), "");
   const collapsedWidth = await js("document.querySelector('.canvas').getBoundingClientRect().width");
+  await shot("14-sidebar-collapsed");
   await js("document.querySelector('.titlebar__toggle').click(); true");
   await sleep(250);
   check("展开后侧栏回来", (await js("Boolean(document.querySelector('.sidebar') && document.querySelector('.sidebar').offsetParent)")) === true, "");
   check("展开后画布变窄", (await js("document.querySelector('.canvas').getBoundingClientRect().width")) < collapsedWidth, JSON.stringify({ collapsedWidth }));
 
-  // 导航和应用/编辑同一套文字按钮样式
+  // 导航和应用/编辑同一套文字按钮样式（比未选中项，选中项本来就有底色）
   const navStyle = await js(
-    "(() => { const n = document.querySelector('.navitem'); const m = document.querySelector('.menubar__button'); const a = getComputedStyle(n); const b = getComputedStyle(m); return { nav: [a.fontSize, a.borderTopWidth, a.backgroundColor], menu: [b.fontSize, b.borderTopWidth, b.backgroundColor] }; })()",
+    "(() => { const n = document.querySelectorAll('.navitem')[1]; const m = document.querySelector('.menubar__button'); const a = getComputedStyle(n); const b = getComputedStyle(m); return { nav: [a.fontSize, a.borderTopWidth, a.backgroundColor], menu: [b.fontSize, b.borderTopWidth, b.backgroundColor] }; })()",
   );
   check("导航与菜单按钮同款样式", JSON.stringify(navStyle.nav) === JSON.stringify(navStyle.menu), navStyle);
+
+  // 选中态：淡填充，而不是下划线
+  const activeStyle = await js(
+    "(() => { const n = document.querySelector('.navitem.is-active'); const s = getComputedStyle(n); return { bg: s.backgroundColor, weight: s.fontWeight, shadow: s.boxShadow }; })()",
+  );
+  check("选中项是淡填充而非下划线", activeStyle.shadow === "none" && activeStyle.bg !== "rgba(0, 0, 0, 0)", activeStyle);
+
+  // 侧栏开关必须在拖拽区之外，否则真实鼠标点不动
+  const dragProbe = await js(
+    "(() => { const s = getComputedStyle(document.querySelector('.titlebar__toggle')); return s.getPropertyValue('-webkit-app-region') || s.webkitAppRegion || ''; })()",
+  );
+  check("侧栏开关不在窗口拖拽区", dragProbe === "no-drag", dragProbe);
+
+  // 顶栏不再显示应用名
+  check("顶栏没有应用名字幕", (await js("!document.querySelector('.titlebar__name')")) === true, "");
 
   const navItems = await js("[...document.querySelectorAll('.titlebar__nav .navitem')].map((n) => n.textContent)");
   check("导航只剩文字", JSON.stringify(navItems) === JSON.stringify(["创作", "作品库", "服务商"]), navItems);

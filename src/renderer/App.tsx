@@ -16,6 +16,7 @@ import { ResultCanvas } from "./image/ResultCanvas.tsx";
 import { useImageAgent } from "./image/use-image-agent.ts";
 import { SettingsDialog, type SettingsTab } from "./settings/SettingsDialog.tsx";
 import { MenuBar } from "./shell/MenuBar.tsx";
+import { PanelLeftIcon } from "./shell/PanelLeftIcon.tsx";
 
 type View = "create" | "library" | "providers";
 
@@ -94,9 +95,8 @@ export function App() {
             title={`${appearance.sidebarCollapsed ? "展开" : "收起"}侧栏（Ctrl+B）`}
             onClick={() => setAppearance((current) => ({ ...current, sidebarCollapsed: !current.sidebarCollapsed }))}
           >
-            ☰
+            <PanelLeftIcon />
           </button>
-          <span className="titlebar__name">Image Agent</span>
           <MenuBar
             onOpenSettings={() => setSettingsTab("api")}
             onOpenLibraryFolder={() => void window.appLibrary?.openDir()}

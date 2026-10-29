@@ -76,9 +76,8 @@
 }
 
 .navitem.is-active {
-  background: var(--surface);
+  background: color-mix(in srgb, var(--text) 10%, transparent);
   color: var(--text);
-  box-shadow: inset 0 -2px 0 var(--accent);
 }
 
 .titlebar__actions {
@@ -1302,18 +1301,23 @@ code {
 
 /* ---------------------------------------------------------------- 侧栏开关 */
 
-/* 顶栏左侧的开关：和应用/编辑同一套文字按钮的视觉。 */
+/*
+ * 顶栏左侧的侧栏开关。
+ * 必须显式 no-drag：标题栏整体是拖拽区，不标的话真实鼠标点击会被窗口拖拽吃掉
+ * （冒烟用 JS click 绕过命中测试，所以之前"只有收起能用、展开点不动"）。
+ */
 .titlebar__toggle {
+  -webkit-app-region: no-drag;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
+  width: 26px;
   height: 24px;
+  padding: 0;
   border: 0;
   border-radius: var(--radius-sm);
   background: none;
-  color: var(--text-muted);
-  font-size: var(--fs-md);
+  color: var(--text-faint);
   line-height: 1;
   cursor: pointer;
 }
@@ -1323,7 +1327,15 @@ code {
   color: var(--text);
 }
 
+.titlebar__toggle:active {
+  background: var(--border);
+}
+
 .titlebar__toggle.is-open {
+  color: var(--text-muted);
+}
+
+.titlebar__toggle.is-open:hover {
   color: var(--text);
 }
 
@@ -1336,19 +1348,21 @@ code {
 }
 
 .sidebar__collapse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 24px;
-  height: 24px;
-  border: 1px solid var(--border);
+  height: 22px;
+  padding: 0;
+  border: 0;
   border-radius: var(--radius-sm);
   background: none;
   color: var(--text-faint);
-  font-size: var(--fs-md);
-  line-height: 1;
   cursor: pointer;
 }
 
 .sidebar__collapse:hover {
-  border-color: var(--border-strong);
+  background: var(--surface-hover);
   color: var(--text);
 }
 
@@ -1372,20 +1386,26 @@ code {
 /* ---------------------------------------------------------------- 导航与菜单同款 */
 
 /*
- * 顶部导航按"应用 / 编辑"的样式做：纯文字按钮、透明底、悬停才出背景，
- * 当前页用文字颜色和一条下划线区分，不再用胶囊块。
+ * 顶部导航：和应用/编辑同一套文字按钮。
+ * 选中态用"极淡的填充 + 正文色 + 一档字重"，不用下划线——下划线在自绘标题栏里
+ * 会和窗口边缘撞在一起，显得又重又脏。
  */
 .navitem {
   display: inline-flex;
   align-items: center;
+  gap: 4px;
   padding: 3px var(--space-3);
   border: 0;
   border-radius: var(--radius-sm);
   background: none;
   color: var(--text-muted);
   font-size: var(--fs-sm);
+  line-height: 18px;
   cursor: pointer;
   white-space: nowrap;
+  transition:
+    background-color 100ms ease,
+    color 100ms ease;
 }
 
 .navitem:hover {
@@ -1394,8 +1414,11 @@ code {
 }
 
 .navitem.is-active {
-  background: none;
+  background: color-mix(in srgb, var(--text) 10%, transparent);
   color: var(--text);
-  font-weight: 600;
-  box-shadow: inset 0 -2px 0 var(--accent);
+  font-weight: 500;
+}
+
+.navitem.is-active:hover {
+  background: color-mix(in srgb, var(--text) 14%, transparent);
 }
