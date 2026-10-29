@@ -13,6 +13,7 @@
  *
  * 密钥只存在于这个对象的私有字段里，不写日志、不进错误信息、不返回给调用方。
  */
+import { PRESET_RATIOS } from "@shared/image-generation";
 import type { AspectRatio, ImageCapabilities, ImageError } from "@shared/image-generation";
 import type {
   ImageProvider,
@@ -115,11 +116,12 @@ const CAPABILITIES: ImageCapabilities = {
   // 一次性请求/响应：任务在 main 里等结果，没有可轮询的远端任务，也就无法取消。
   async: false,
   cancel: false,
-  // 不带 size 让上游自己定：协议上允许，但本网关未实测，先声明不支持。
-  autoSize: false,
-  // 自定义宽高不在固定尺寸表里，上游会拒绝，先声明不支持。
-  customSize: false,
-  sizes: SUPPORTED_SIZES,
+  // 实测（2026-10-29，gpt-image-2）：不传 size 时上游自己返回 1254×1254，故支持自动尺寸。
+  autoSize: true,
+  // 实测：1792×1024、1024×1792、2048×2048 都原样返回，说明不限尺寸。
+  customSize: true,
+  // 没有固定尺寸表：比例/像素都原样发出去。
+  sizes: [],
   // jpeg/webp 由 main 用 sharp 在本地转码，不依赖上游。
   transcode: true,
 };

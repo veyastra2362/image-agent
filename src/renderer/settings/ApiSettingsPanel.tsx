@@ -599,12 +599,7 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
         <p className="field__hint field__hint--warn">还差一步：{validation.error}</p>
       )}
 
-      <p className="field__hint">
-        「重新读取」= 丢弃未保存的改动，从磁盘重新加载配置。切换配置、导入备份或在外部改过文件之后用它。
-        <button type="button" className="button button--tiny" onClick={onRefresh} style={{ marginLeft: 8 }}>
-          重新读取
-        </button>
-      </p>
+
 
       {/* 获取上游模型的结果：二级弹窗勾选 */}
       {pickerModels !== undefined && (

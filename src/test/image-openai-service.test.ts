@@ -163,26 +163,46 @@ test("未知模型在 main 就被拒绝，不会打到上游", async () => {
   assert.equal(seen.length, 0);
 });
 
-test("自定义宽高：上游固定尺寸表不支持，回到 main 就被拒", async () => {
+test("自定义宽高原样发给上游（实测上游不限尺寸）", async () => {
   seen.length = 0;
-  const { service, store } = createService();
+  const { service } = createService();
   const created = await service.createJob({
     requestId: "req-openai-0005",
     providerId: "openai-images",
     model: "model-a",
-    prompt: "format test",
+    prompt: "custom size test",
     count: 1,
     sizeMode: "custom",
-    width: 512,
-    height: 512,
-    format: "jpeg",
-    compression: 80,
+    width: 1536,
+    height: 640,
   });
-  // 上游只认固定尺寸表，自定义宽高在 main 的能力校验里就被拒，根本不会发请求。
-  assert.equal(created.ok, false);
-  if (created.ok) return;
-  assert.equal(created.error.code, "unsupported-capability");
-  assert.equal(seen.length, 0, "被拒绝的请求不能打到上游");
+  assert.equal(created.ok, true, JSON.stringify(created));
+  if (!created.ok) return;
+  const job = await waitForTerminal(service, created.event.job.id);
+  assert.equal(job.status, "succeeded");
+  const call = seen.find((entry) => entry.url === "/v1/images/generations");
+  assert.ok(call, "应当发过请求");
+  assert.equal(call.body.size, "1536x640");
+});
+
+test("自动尺寸不传 size 字段", async () => {
+  seen.length = 0;
+  const { service } = createService();
+  const created = await service.createJob({
+    requestId: "req-openai-0006",
+    providerId: "openai-images",
+    model: "model-a",
+    prompt: "auto size test",
+    count: 1,
+    sizeMode: "auto",
+  });
+  assert.equal(created.ok, true, JSON.stringify(created));
+  if (!created.ok) return;
+  const job = await waitForTerminal(service, created.event.job.id);
+  assert.equal(job.status, "succeeded");
+  const call = seen.find((entry) => entry.url === "/v1/images/generations");
+  assert.ok(call);
+  assert.equal("size" in call.body, false, "auto 时不应带 size");
 });
 
 test("不支持的参数（seed/负面词）在 main 被能力校验拦下", async () => {
