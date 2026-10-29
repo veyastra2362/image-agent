@@ -98,10 +98,12 @@ export function registerSettingsIpc(deps: SettingsIpcDeps): () => void {
 
   ipcMain.handle(
     SETTINGS_CHANNELS.create,
-    (event): { readonly ok: true; readonly profile: unknown } | { readonly ok: false; readonly message: string } => {
+    (event, raw?: unknown): { readonly ok: true; readonly profile: unknown } | { readonly ok: false; readonly message: string } => {
       if (!isTrustedSender(deps, event)) return { ok: false, message: "来源窗口不可信" };
       try {
-        const profile = deps.store.create();
+        const purpose =
+          typeof raw === "object" && raw !== null && (raw as { purpose?: unknown }).purpose === "text" ? "text" : "image";
+        const profile = deps.store.create(undefined, purpose);
         const applied = deps.applyProviders();
         if (!applied.ok) return { ok: false, message: applied.error };
         return { ok: true, profile };

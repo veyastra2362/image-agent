@@ -44,6 +44,7 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
     referenceValid,
     agentOptimize,
     setAgentOptimize,
+    agentAvailable,
     prompt,
   } = useComposer();
 
@@ -197,18 +198,18 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
             <span className="switch-field__text">
               <span className="field__label">Agent 优化提示词</span>
               <span className="field__hint">
-                {model?.agentModel === undefined
-                  ? "需要先在 设置 → API 设置 里填写「Agent 模型」才能用"
-                  : `生成前用 ${model.agentModel} 改写这句提示词`}
+                {agentAvailable
+                  ? "生成前先用语言模型改写这句提示词"
+                  : "需要先在 设置 → API 设置 → 语言模型 里配置一个模型"}
               </span>
             </span>
             <input
               type="checkbox"
-              className="switch"
+              className="toggle-switch"
               role="switch"
               aria-label="Agent 优化提示词"
               checked={agentOptimize}
-              disabled={model?.agentModel === undefined}
+              disabled={!agentAvailable}
               onChange={(event) => setAgentOptimize(event.target.checked)}
             />
           </label>

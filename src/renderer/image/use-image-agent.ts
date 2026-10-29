@@ -27,6 +27,8 @@ export interface ImageAgentState {
   readonly status: "loading" | "ready" | "unavailable" | "error";
   readonly loadError?: string;
   readonly models: readonly ProviderRef[];
+  /** 是否配置了语言模型（Agent 改写提示词用）。 */
+  readonly agentAvailable: boolean;
   readonly jobs: readonly ImageTaskEvent[];
   readonly toasts: readonly ToastItem[];
   readonly remembered: readonly RememberedAsset[];
@@ -58,6 +60,7 @@ export function useImageAgent(): ImageAgentState {
   const [status, setStatus] = useState<ImageAgentState["status"]>("loading");
   const [loadError, setLoadError] = useState<string>();
   const [models, setModels] = useState<readonly ProviderRef[]>([]);
+  const [agentAvailable, setAgentAvailable] = useState(false);
   const [jobs, setJobs] = useState<readonly ImageTaskEvent[]>([]);
   const [toasts, setToasts] = useState<readonly ToastItem[]>([]);
   const [remembered, setRemembered] = useState<readonly RememberedAsset[]>([]);
@@ -109,6 +112,7 @@ export function useImageAgent(): ImageAgentState {
         .then((bootstrap: ImageBootstrap) => {
           if (disposed) return;
           setModels(bootstrap.providers);
+          setAgentAvailable(bootstrap.agentAvailable === true);
           setJobs(bootstrap.jobs);
           jobsRef.current = bootstrap.jobs;
           const known = new Set(bootstrap.jobs.flatMap((entry) => entry.assets.map((asset) => asset.id)));
@@ -184,6 +188,7 @@ export function useImageAgent(): ImageAgentState {
     status,
     ...(loadError === undefined ? {} : { loadError }),
     models,
+    agentAvailable,
     jobs,
     toasts,
     remembered,

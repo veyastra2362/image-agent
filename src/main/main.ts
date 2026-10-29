@@ -109,7 +109,9 @@ function start(): void {
       getSettings: () => settingsStore as ProviderSettingsStore,
       applyProviders: () => {
         try {
-          service?.setProviders(createProviders(settingsStore as ProviderSettingsStore));
+          const store = settingsStore as ProviderSettingsStore;
+          service?.setProviders(createProviders(store, "image"));
+          service?.setAgentProviders(createProviders(store, "text"));
         } catch (error) {
           console.warn("[image-agent] 重建 provider 失败：", (error as Error).message);
         }
@@ -127,9 +129,11 @@ function start(): void {
     // 连接配置全部由应用自己管理（userData/provider-settings.json），不再读 .env。
     settingsStore = new ProviderSettingsStore({ dir: userData, cipher: await systemCipher() });
     settingsStore.load();
-    const providers = createProviders(settingsStore);
+    const providers = createProviders(settingsStore, "image");
+    const agentProviders = createProviders(settingsStore, "text");
     const imageService = new ImageGenerationService({
       providers,
+      agentProviders,
       store,
       emit: (event) => bridge?.sendEvent(event),
       notify: (notification) => bridge?.sendNotification(notification),
@@ -244,11 +248,15 @@ let providerSummary: { baseUrl: string; models: string[]; count: number } | unde
  * 每个"有地址 + 有密钥 + 有模型"的配置都会变成一个独立 provider，因此多个服务商可以并存。
  * 配置与密钥都由应用自己保存（Settings 里的 API 设置），不再从 .env 读取。
  */
-function createProviders(store: ProviderSettingsStore): (FakeProvider | OpenAICompatibleProvider)[] {
+function createProviders(
+  store: ProviderSettingsStore,
+  purpose: "image" | "text" = "image",
+): (FakeProvider | OpenAICompatibleProvider)[] {
   const providers: (FakeProvider | OpenAICompatibleProvider)[] = [];
   const summary: { baseUrl: string; models: string[] }[] = [];
 
   for (const profile of store.profiles) {
+    if ((profile.purpose ?? "image") !== purpose) continue;
     const apiKey = store.keyFor(profile.id);
     if (apiKey === undefined || apiKey === "" || profile.baseUrl === "" || profile.models.length === 0) continue;
 

@@ -28,6 +28,7 @@ import {
   type ApiFlavor,
   type ProviderKind,
   type ProviderProfile,
+  type ProviderPurpose,
   type ProviderSettingsView,
   type UpstreamModel,
 } from "../../shared/provider-settings.ts";
@@ -51,6 +52,7 @@ export interface ApiSettingsPanelProps {
 export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: ApiSettingsPanelProps) {
   const [draft, setDraft] = useState<ProviderProfile | undefined>();
   const [apiKey, setApiKey] = useState("");
+  const [purpose, setPurpose] = useState<ProviderPurpose>("image");
   const [busy, setBusy] = useState<Busy>("idle");
   const [notice, setNotice] = useState<{ readonly kind: "ok" | "error" | "info"; readonly text: string }>();
   const [pickerModels, setPickerModels] = useState<readonly UpstreamModel[]>();
@@ -85,7 +87,8 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
   // 外部刷新或切换服务商后把草稿对齐到落盘值。
   useEffect(() => {
     if (view === undefined) return;
-    const active = view.profiles.find((profile) => profile.id === view.activeId) ?? view.profiles[0];
+    const samePurpose = view.profiles.filter((profile) => (profile.purpose ?? "image") === purpose);
+    const active = samePurpose.find((profile) => profile.id === view.activeId) ?? samePurpose[0];
     setDraft(active === undefined ? undefined : { ...active });
     setApiKey("");
     setAddOpen(false);
@@ -162,7 +165,7 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
 
   async function handleCreate() {
     setBusy("creating");
-    const created = await window.appSettings?.create();
+    const created = await window.appSettings?.create({ purpose });
     setBusy("idle");
     if (created?.ok) {
       flash("ok", "已新建一个服务商配置，填好后点保存。");
@@ -293,8 +296,24 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
         </p>
       )}
 
+      <div className="segmented segmented--purpose" role="tablist" aria-label="接口用途">
+        {(["image", "text"] as const).map((entry) => (
+          <button
+            key={entry}
+            type="button"
+            role="tab"
+            aria-selected={purpose === entry}
+            className={`segmented__item ${purpose === entry ? "is-active" : ""}`}
+            onClick={() => setPurpose(entry)}
+          >
+            <span className="segmented__label">{entry === "image" ? "图片模型" : "语言模型"}</span>
+            <span className="segmented__hint">{entry === "image" ? "出图用的图片接口" : "改写提示词等文本任务"}</span>
+          </button>
+        ))}
+      </div>
+
       <div className="profile-tabs" role="tablist" aria-label="服务商配置">
-        {view.profiles.map((profile) => (
+        {view.profiles.filter((profile) => (profile.purpose ?? "image") === purpose).map((profile) => (
           <div
             key={profile.id}
             className={`profile-tab ${profile.id === draft.id ? "is-active" : ""}`}

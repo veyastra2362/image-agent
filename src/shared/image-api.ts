@@ -35,7 +35,7 @@ declare global {
       }) => Promise<{ readonly ok: true } | { readonly ok: false; readonly message: string }>;
       readonly remove: (id: string) => Promise<{ readonly ok: true } | { readonly ok: false; readonly message: string }>;
       readonly activate: (id: string) => Promise<{ readonly ok: true } | { readonly ok: false; readonly message: string }>;
-      readonly create: () => Promise<
+      readonly create: (payload?: { readonly purpose?: "image" | "text" }) => Promise<
         { readonly ok: true; readonly profile: ProviderProfile } | { readonly ok: false; readonly message: string }
       >;
       readonly test: (payload?: {

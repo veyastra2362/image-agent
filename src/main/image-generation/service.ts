@@ -31,6 +31,8 @@ import { toTaskEvent } from "./store";
 
 export interface ServiceDependencies {
   readonly providers: readonly ImageProvider[];
+  /** 语言模型 provider：目前只用于改写提示词。 */
+  readonly agentProviders?: readonly ImageProvider[];
   readonly store: JobStore;
   readonly emit: (event: ImageTaskEvent) => void;
   readonly notify: (notification: Notification) => void;
@@ -63,6 +65,7 @@ export class ImageGenerationService {
    * 因此不会被中途换掉。
    */
   private providers: Map<string, ImageProvider>;
+  private agentProviders = new Map<string, ImageProvider>();
   private readonly store: JobStore;
   private readonly emit: (event: ImageTaskEvent) => void;
   private readonly notify: (notification: Notification) => void;
@@ -73,6 +76,7 @@ export class ImageGenerationService {
 
   constructor(deps: ServiceDependencies) {
     this.providers = new Map(deps.providers.map((provider) => [provider.descriptor.id, provider]));
+    this.agentProviders = new Map((deps.agentProviders ?? []).map((provider) => [provider.descriptor.id, provider]));
     this.store = deps.store;
     this.emit = deps.emit;
     this.notify = deps.notify;
@@ -86,9 +90,14 @@ export class ImageGenerationService {
     this.providers = new Map(providers.map((provider) => [provider.descriptor.id, provider]));
   }
 
+  setAgentProviders(providers: readonly ImageProvider[]): void {
+    this.agentProviders = new Map(providers.map((provider) => [provider.descriptor.id, provider]));
+  }
+
   getBootstrap(): ImageBootstrap {
     return {
       providers: this.providerRefs(),
+      agentAvailable: this.agentProviders.size > 0,
       jobs: this.store.listJobs().map((job) => toTaskEvent(job, this.store)),
     };
   }
@@ -288,10 +297,19 @@ export class ImageGenerationService {
     if (typeof providerId !== "string" || typeof prompt !== "string" || prompt.trim() === "") {
       return { ok: false, error: { code: "invalid-request", message: "请先写好提示词", retryable: false } };
     }
-    const provider = this.providers.get(providerId);
-    if (!provider) {
-      return { ok: false, error: { code: "unknown-provider", message: "服务商不存在，请先在设置里配置", retryable: false } };
+    const agentProvider =
+      this.agentProviders.get(providerId) ?? this.agentProviders.values().next().value;
+    if (agentProvider === undefined) {
+      return {
+        ok: false,
+        error: {
+          code: "unsupported-capability",
+          message: "还没有配置语言模型：请在 设置 → API 设置 → 语言模型 里添加",
+          retryable: false,
+        },
+      };
     }
+    const provider = agentProvider;
     const optimize = (provider as { optimizePrompt?: (p: string, m: string, s: AbortSignal) => Promise<string> })
       .optimizePrompt;
     if (typeof optimize !== "function") {
@@ -300,7 +318,10 @@ export class ImageGenerationService {
         error: { code: "unsupported-capability", message: "该服务商不支持提示词优化", retryable: false },
       };
     }
-    const chatModel = typeof model === "string" && model.length > 0 ? model : provider.descriptor.models[0]?.id ?? "";
+    const chatModel =
+      typeof model === "string" && model.length > 0
+        ? model
+        : provider.descriptor.defaultModel;
     const controller = new AbortController();
     try {
       const rewritten = await optimize.call(provider, prompt, chatModel, controller.signal);

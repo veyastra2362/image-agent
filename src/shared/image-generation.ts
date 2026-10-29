@@ -308,6 +308,8 @@ export interface Notification {
 export interface ImageBootstrap {
   readonly providers: readonly ProviderRef[];
   readonly jobs: readonly ImageTaskEvent[];
+  /** 是否配置了语言模型（可用于 Agent 改写提示词）。 */
+  readonly agentAvailable?: boolean;
 }
 
 export type Unsubscribe = () => void;

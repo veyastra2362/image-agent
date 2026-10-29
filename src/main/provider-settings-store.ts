@@ -21,6 +21,7 @@ import {
   validateProviderProfile,
   type ProviderKeyStatus,
   type ProviderProfile,
+  type ProviderPurpose,
   type ProviderSettingsView,
 } from "@shared/provider-settings";
 
@@ -208,13 +209,14 @@ export class ProviderSettingsStore {
   }
 
   /** 新建一个空配置并切换过去。 */
-  create(label?: string): ProviderProfile {
+  create(label?: string, purpose: ProviderPurpose = "image"): ProviderProfile {
     if (this.#profiles.length >= MAX_PROFILES) throw new Error(`最多 ${MAX_PROFILES} 个服务商`);
     const id = this.#uniqueId();
     const profile: ProviderProfile = {
       ...DEFAULT_PROVIDER_SETTINGS,
       id,
-      label: label?.trim() || `服务商 ${this.#profiles.length + 1}`,
+      purpose,
+      label: label?.trim() || `${purpose === "text" ? "语言模型" : "服务商"} ${this.#profiles.length + 1}`,
     };
     this.#profiles = [...this.#profiles, profile];
     this.#activeId = id;

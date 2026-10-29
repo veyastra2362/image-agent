@@ -84,6 +84,8 @@ export interface ComposerValue {
   readonly agentOptimize: boolean;
   readonly setAgentOptimize: (value: boolean) => void;
   readonly optimizing: boolean;
+  /** 是否配置了语言模型（决定开关能不能用）。 */
+  readonly agentAvailable: boolean;
 
 
   readonly validation: ReturnType<typeof validateCreateJobInput>;
@@ -244,13 +246,9 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
 
     // 开了 Agent 优化就先让服务商改写提示词；失败则退回原提示词，不阻断生成。
     let payload = validation.value;
-    if (agentOptimize && model?.agentModel !== undefined && prompt.trim() !== "") {
+    if (agentOptimize && state.agentAvailable && prompt.trim() !== "") {
       setOptimizing(true);
-      const optimized = await window.imageAgent.optimizePrompt({
-        providerId: model.id,
-        model: model.agentModel,
-        prompt,
-      });
+      const optimized = await window.imageAgent.optimizePrompt({ prompt });
       setOptimizing(false);
       if (optimized.ok) payload = { ...payload, agentPrompt: optimized.prompt, prompt };
       else setSubmitError(`提示词优化失败，已按原文生成：${optimized.error.message}`);
@@ -304,6 +302,7 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
     agentOptimize,
     setAgentOptimize,
     optimizing,
+    agentAvailable: state.agentAvailable,
     validation,
     canSubmit,
     pending,

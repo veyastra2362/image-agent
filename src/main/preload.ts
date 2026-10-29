@@ -105,7 +105,7 @@ const settings = {
   save: (payload: unknown) => ipcRenderer.invoke(SETTINGS.save, payload),
   remove: (id: string) => ipcRenderer.invoke(SETTINGS.remove, id),
   activate: (id: string) => ipcRenderer.invoke(SETTINGS.activate, id),
-  create: () => ipcRenderer.invoke(SETTINGS.create),
+  create: (payload?: unknown) => ipcRenderer.invoke(SETTINGS.create, payload),
   test: (payload?: unknown) => ipcRenderer.invoke(SETTINGS.test, payload),
   fetchModels: (payload?: unknown) => ipcRenderer.invoke(SETTINGS.fetchModels, payload),
 };

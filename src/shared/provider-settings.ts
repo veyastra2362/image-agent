@@ -54,6 +54,9 @@ export interface ProviderSettings {
   readonly agentModel?: string;
 }
 
+export const PROVIDER_PURPOSES = ["image", "text"] as const;
+export type ProviderPurpose = (typeof PROVIDER_PURPOSES)[number];
+
 /** 上游探测到的单个模型。 */
 export interface UpstreamModel {
   readonly id: string;
@@ -72,6 +75,8 @@ export type ModelFetchResult =
 export interface ProviderProfile extends ProviderSettings {
   readonly id: string;
   readonly label: string;
+  /** 用法：image = 图片接口（默认），text = 语言模型。旧配置没有这个字段，按 image 处理。 */
+  readonly purpose?: ProviderPurpose;
 }
 
 /** 单个 profile 在界面上的密钥状态；永远没有密钥本体。 */
@@ -132,12 +137,14 @@ export function validateProviderProfile(
   }
   const validated = validateProviderSettings(record);
   if (!validated.ok) return validated;
+  const purpose = record.purpose === "text" ? "text" : "image";
   return {
     ok: true,
     value: {
       ...validated.value,
       id: record.id,
       label,
+      purpose,
       ...(agentModelRaw === "" ? {} : { agentModel: agentModelRaw }),
     },
   };
