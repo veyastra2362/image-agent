@@ -27,6 +27,8 @@ const DEFAULT_SPEC: OutputSpec = {
 export interface ComposerValue {
   readonly state: ImageAgentState;
   readonly models: readonly ProviderRef[];
+  /** 界面里可选的模型：有真实服务时不再出现离线假模型。 */
+  readonly visibleModels: readonly ProviderRef[];
   readonly model: ProviderRef | undefined;
   readonly caps: ImageCapabilities | undefined;
   readonly modelKey: string | undefined;
@@ -112,7 +114,14 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
     if (focusPromptToken > 0) promptRef.current?.focus();
   }, [focusPromptToken]);
 
-  const model = useMemo(() => resolveModel(models, modelKey), [models, modelKey]);
+  // 只要配置了真实服务，就把离线假模型从选择器里去掉；全都没配时仍然保留，
+  // 否则页面会没有任何可用模型。
+  const visibleModels = useMemo(() => {
+    const real = models.filter((candidate) => !candidate.id.includes("fake"));
+    return real.length > 0 ? real : models;
+  }, [models]);
+
+  const model = useMemo(() => resolveModel(visibleModels, modelKey), [visibleModels, modelKey]);
   const caps = model?.capabilities;
   const supportedRatios = caps?.aspectRatios ?? [];
 
@@ -172,6 +181,7 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
   const value: ComposerValue = {
     state,
     models,
+    visibleModels,
     model,
     caps,
     modelKey,

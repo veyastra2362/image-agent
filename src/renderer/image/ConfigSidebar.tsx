@@ -8,6 +8,7 @@ import { FORMAT_LABELS } from "../lib/output-spec.ts";
 import { useComposer } from "./composer-state.tsx";
 import { SizeDialog } from "./SizeDialog.tsx";
 import { PanelLeftIcon } from "../shell/PanelLeftIcon.tsx";
+import { Select } from "../shell/Select.tsx";
 
 export interface ConfigSidebarProps {
   readonly onCollapse: () => void;
@@ -15,7 +16,7 @@ export interface ConfigSidebarProps {
 
 export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
   const {
-    models,
+    visibleModels,
     model,
     setModelKey,
     caps,
@@ -63,14 +64,16 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
 
       <label className="field">
         <span className="field__label">服务与模型</span>
-        <select className="field__input" value={model ? `${model.id}:${model.model}` : ""} onChange={(event) => setModelKey(event.target.value)}>
-          {models.length === 0 && <option value="">没有可用模型</option>}
-          {models.map((candidate) => (
-            <option key={`${candidate.id}:${candidate.model}`} value={`${candidate.id}:${candidate.model}`}>
-              {candidate.displayName}
-            </option>
-          ))}
-        </select>
+        <Select
+          ariaLabel="服务与模型"
+          value={model ? `${model.id}:${model.model}` : ""}
+          onChange={setModelKey}
+          placeholder={visibleModels.length === 0 ? "没有可用模型" : "选择模型"}
+          options={visibleModels.map((candidate) => ({
+            value: `${candidate.id}:${candidate.model}`,
+            label: candidate.displayName,
+          }))}
+        />
       </label>
 
       <div className="field">
@@ -120,19 +123,16 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
           参考图
           {!caps?.imageToImage && <span className="field__meta">当前模型不支持</span>}
         </span>
-        <select
-          className="field__input"
-          value={referenceValid ? referenceAssetId : ""}
+        <Select
+          ariaLabel="参考图"
+          value={referenceValid ? (referenceAssetId ?? "") : ""}
           disabled={!caps?.imageToImage || referenceOptions.length === 0}
-          onChange={(event) => setReferenceAssetId(event.target.value || undefined)}
-        >
-          <option value="">不使用参考图</option>
-          {referenceOptions.map((option) => (
-            <option key={option.id} value={option.id}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+          onChange={(next) => setReferenceAssetId(next === "" ? undefined : next)}
+          options={[
+            { value: "", label: "不使用参考图" },
+            ...referenceOptions.map((option) => ({ value: option.id, label: option.label })),
+          ]}
+        />
         {caps?.imageToImage && referenceOptions.length === 0 && (
           <span className="field__hint">生成第一张图后，可以从作品库选一张作为参考图继续修改。</span>
         )}

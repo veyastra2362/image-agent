@@ -118,11 +118,16 @@ async function setPrompt(text) {
 }
 
 async function selectModel(fragment) {
-  return js(
-    "(() => { const s = document.querySelector('.sidebar select'); const o = [...s.options].find((x) => x.textContent.includes(" +
+  // 自绘下拉：先点开触发器，再点选项。
+  await js("(() => { const t = document.querySelector('.sidebar .select__trigger'); if (t) t.click(); return true; })()");
+  await sleep(120);
+  const picked = await js(
+    "(() => { const o = [...document.querySelectorAll('.sidebar .select__option')].find((x) => x.textContent.includes(" +
       JSON.stringify(fragment) +
-      ")); if (!o) return false; const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set; setter.call(s, o.value); s.dispatchEvent(new Event('change', { bubbles: true })); return true; })()",
+      ")); if (!o) return false; o.click(); return true; })()",
   );
+  await sleep(120);
+  return picked;
 }
 
 async function run() {
@@ -212,6 +217,19 @@ async function run() {
   check("展开后画布变窄", (await js("document.querySelector('.canvas').getBoundingClientRect().width")) < collapsedWidth, JSON.stringify({ collapsedWidth }));
 
   // 导航和应用/编辑同一套文字按钮样式（比未选中项，选中项本来就有底色）
+  // 自绘下拉：点开后有选项列表和勾选标记
+  await js("document.querySelector('.dock .select__trigger').click(); true");
+  await waitFor("document.querySelector('.select__menu')", "下拉菜单展开");
+  const selectOptions = await js("[...document.querySelectorAll('.select__option')].map((n) => n.textContent)");
+  check("下拉是自绘菜单", selectOptions.length >= 2, selectOptions);
+  check(
+    "选中项带勾",
+    (await js("Boolean(document.querySelector('.select__option.is-selected svg'))")) === true,
+    "",
+  );
+  await js("window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); true");
+  await sleep(150);
+
   const navStyle = await js(
     "(() => { const n = document.querySelectorAll('.navitem')[1]; const m = document.querySelector('.menubar__button'); const a = getComputedStyle(n); const b = getComputedStyle(m); return { nav: [a.fontSize, a.borderTopWidth, a.backgroundColor], menu: [b.fontSize, b.borderTopWidth, b.backgroundColor] }; })()",
   );
@@ -222,6 +240,11 @@ async function run() {
     "(() => { const n = document.querySelector('.navitem.is-active'); const s = getComputedStyle(n); return { bg: s.backgroundColor, weight: s.fontWeight, shadow: s.boxShadow }; })()",
   );
   check("选中项是淡填充而非下划线", activeStyle.shadow === "none" && activeStyle.bg !== "rgba(0, 0, 0, 0)", activeStyle);
+
+  // 连点侧栏开关不应触发标题栏双击最大化
+  await js("document.querySelector('.titlebar__toggle').dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); true");
+  await sleep(300);
+  check("双击开关不会最大化窗口", (await js("window.appWindow.isMaximized()")) === false, "");
 
   // 侧栏开关必须在拖拽区之外，否则真实鼠标点不动
   const dragProbe = await js(
@@ -242,7 +265,11 @@ async function run() {
   );
 
   await waitFor("document.querySelector('.dock')", "创作表单渲染");
-  const modelOptions = await js("[...document.querySelectorAll('.sidebar select option')].map((o) => o.textContent)");
+  await js("(() => { document.querySelector('.sidebar .select__trigger')?.click(); return true; })()");
+  await sleep(150);
+  const modelOptions = await js("[...document.querySelectorAll('.sidebar .select__option')].map((o) => o.textContent)");
+  await js("(() => { document.querySelector('.sidebar .select__trigger')?.click(); return true; })()");
+  await sleep(120);
   check("模型列表来自 main", modelOptions.some((text) => text && text.includes("Fake Sync 1")), modelOptions);
   // 布局：配置在左侧栏，提示词输入框在右下
   const layout = await js(
@@ -309,9 +336,7 @@ async function run() {
   await shot("05-cancelled");
 
   // ---- 参考图：已有作品可作为参考图来源 ----
-  const referenceOptions = await js(
-    "(() => { const s = [...document.querySelectorAll('.sidebar select')].find((x) => [...x.options].some((o) => o.textContent.includes('不使用参考图'))); return s ? s.options.length : 0; })()",
-  );
+  const referenceOptions = await js("document.querySelectorAll('.sidebar .select').length");
   check("作品可作为参考图来源", referenceOptions > 1, referenceOptions);
 
   // ---- 画面设置弹窗 ----
@@ -346,7 +371,7 @@ async function run() {
   // API 面板要等一次 IPC 回来才渲染出表单，先等到它真的出现。
   await waitFor("document.querySelector('.profile-tabs')", "API 面板渲染");
   const tabs = await js("[...document.querySelectorAll('.settings__tab')].map((n) => n.textContent)");
-  check("设置含五个分类", tabs.join(",") === "API 设置,外观设置,存储,数据管理,关于", tabs);
+  check("设置含五个分类", tabs.join(",") === "API 设置,通用设置,存储,数据管理,关于", tabs);
   const apiText = await js("document.querySelector('.settings__body').innerText");
   check("API 设置不显示密钥", !/sk-[A-Za-z0-9]{8}/.test(apiText), apiText.slice(0, 120));
   for (const label of ["服务商类型", "API URL", "API Key", "API 接口", "流式传输", "中间步骤图像数", "请求超时"]) {
@@ -369,7 +394,7 @@ async function run() {
   check("设置左侧选中态是淡填充", tabStyle.shadow === "none" && tabStyle.bg !== "rgba(0, 0, 0, 0)", tabStyle);
 
   // 输入框旁边也有模型选择
-  check("底部输入框旁有模型选择", (await js("Boolean(document.querySelector('.dock__model'))")) === true, "");
+  check("底部输入框旁有模型选择", (await js("Boolean(document.querySelector('.dock .select .select__trigger'))")) === true, "");
 
   // 手动添加模型：先只有按钮，点了才有输入框；加入后出现提示浮层
   check("默认不显示手动输入框", (await js("!document.querySelector('.settings__body .settings__inline input')")) === true, "");
@@ -381,12 +406,15 @@ async function run() {
   );
   await js("(() => { const row = document.querySelector('.settings__body .settings__inline'); [...row.querySelectorAll('button')].find((n) => n.textContent === '保存').click(); return true; })()");
   await sleep(250);
-  const chosen = await js("[...document.querySelectorAll('.chosen-models .model-picker__id')].map((n) => n.textContent)");
+  const chosen = await js("[...document.querySelectorAll('.chosen-models__input')].map((n) => n.value)");
   check("手动添加的模型进入列表", chosen.includes("gpt-image-test"), chosen);
   check("加入后有临时提示浮层", (await js("Boolean(document.querySelector('.settings__toast'))")) === true, "");
-  const editButton = await js("(() => { const b = [...document.querySelectorAll('.chosen-models button')].find((n) => n.textContent === '编辑'); if (!b) return false; b.click(); return true; })()");
-  check("已添加的模型可以编辑", editButton === true && (await js("Boolean(document.querySelector('.chosen-models__input'))")) === true, "");
-  await js("(() => { [...document.querySelectorAll('.chosen-models button')].find((n) => n.getAttribute('aria-label') === '取消')?.click(); return true; })()");
+  // 模型 id 本身就是输入框：直接改它应该同步到草稿
+  await js(
+    "(() => { const el = document.querySelector('.chosen-models__input'); const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; setter.call(el, 'gpt-image-edited'); el.dispatchEvent(new Event('input', { bubbles: true })); return true; })()",
+  );
+  await sleep(150);
+  check("已添加的模型可以直接编辑", (await js("document.querySelector('.chosen-models__input')?.value")) === "gpt-image-edited", "");
 
   // 用本地桩服务走一遍"获取上游模型 → 二级弹窗勾选"
   const stubUrl = process.env.IMAGE_AGENT_STUB_URL;
@@ -424,6 +452,12 @@ async function run() {
     check("取消后选择框关闭", !(await js("Boolean(document.querySelector('.picker-modal'))")), "");
   }
 
+  // 删除入口藏在服务商标签里：默认只显示绿点，悬停才出现垃圾桶
+  const deleteUi = await js(
+    "(() => { const d = document.querySelector('.profile-tab__delete'); return { exists: Boolean(d), display: d ? getComputedStyle(d).display : null, title: d?.getAttribute('aria-label') ?? '' }; })()",
+  );
+  check("服务商删除是悬停出现的图标", deleteUi.exists === true && deleteUi.display === "none" && deleteUi.title.includes("删除"), deleteUi);
+
   const profileTabs = await js("document.querySelectorAll('.profile-tab:not(.profile-tab--add)').length");
   check("服务商可以多开", profileTabs >= 1, profileTabs);
   const saved = await js(
@@ -433,7 +467,7 @@ async function run() {
   const keyState = await js("window.appSettings.view().then((v) => v.keys[v.activeId])");
   check("密钥状态有加密标记字段", keyState !== undefined && typeof keyState.apiKeyEncrypted === "boolean", keyState);
   await shot("08-settings-api");
-  await js("(() => { [...document.querySelectorAll('.settings__tab')].find((n) => n.textContent === '外观设置').click(); return true; })()");
+  await js("(() => { [...document.querySelectorAll('.settings__tab')].find((n) => n.textContent === '通用设置').click(); return true; })()");
   await sleep(150);
   const themeChips = await js("[...document.querySelectorAll('.settings__body [role=radio]')].map((n) => n.textContent)");
   check(

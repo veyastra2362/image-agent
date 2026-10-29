@@ -8,6 +8,7 @@
  *  - 手动添加模型先只显示按钮，点了才出现输入框；已添加的模型可以直接改
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Select } from "../shell/Select.tsx";
 
 import {
   API_FLAVOR_LABELS,
@@ -53,7 +54,6 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
   const [pickerChecked, setPickerChecked] = useState<readonly string[]>([]);
   const [addOpen, setAddOpen] = useState(false);
   const [newModelId, setNewModelId] = useState("");
-  const [editingModel, setEditingModel] = useState<{ readonly index: number; readonly value: string }>();
 
   // 提示自动消失：操作结果看一眼就够，不该长期占着版面。
   const flash = useCallback((kind: "ok" | "error" | "info", text: string) => {
@@ -72,7 +72,6 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
     setDraft(active === undefined ? undefined : { ...active });
     setApiKey("");
     setAddOpen(false);
-    setEditingModel(undefined);
   }, [view]);
 
   const keyStatus = draft === undefined ? undefined : view?.keys[draft.id];
@@ -154,14 +153,12 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
     }
   }
 
-  async function handleRemove() {
-    if (draft === undefined) return;
-    const label = draft.label;
+  async function removeProfile(profile: { readonly id: string; readonly label: string }) {
     setBusy("removing");
-    const removed = await window.appSettings?.remove(draft.id);
+    const removed = await window.appSettings?.remove(profile.id);
     setBusy("idle");
     if (removed?.ok) {
-      flash("ok", `已删除「${label}」。`);
+      flash("ok", `已删除「${profile.label}」。`);
       onRefresh();
     } else {
       flash("error", removed?.message ?? "删除失败");
@@ -277,17 +274,37 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
 
       <div className="profile-tabs" role="tablist" aria-label="服务商配置">
         {view.profiles.map((profile) => (
-          <button
+          <div
             key={profile.id}
-            type="button"
+            className={`profile-tab ${profile.id === draft.id ? "is-active" : ""}`}
             role="tab"
             aria-selected={profile.id === draft.id}
-            className={`profile-tab ${profile.id === draft.id ? "is-active" : ""}`}
-            onClick={() => void switchTo(profile.id)}
           >
-            <span className="profile-tab__label">{profile.label}</span>
+            <button type="button" className="profile-tab__select" onClick={() => void switchTo(profile.id)}>
+              <span className="profile-tab__label">{profile.label}</span>
+            </button>
+            {/* 有密钥时显示绿点；鼠标移上去变成垃圾桶，删除就放在这里。 */}
             <span className={`profile-tab__dot ${view.keys[profile.id]?.hasApiKey ? "is-on" : ""}`} aria-hidden="true" />
-          </button>
+            <button
+              type="button"
+              className="profile-tab__delete"
+              disabled={view.profiles.length <= 1 || busy !== "idle"}
+              aria-label={`删除「${profile.label}」`}
+              title={view.profiles.length <= 1 ? "至少要保留一个配置" : "删除这个配置"}
+              onClick={() => void removeProfile(profile)}
+            >
+              <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <path
+                  d="M3 4.5h10M6.5 4.5V3a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v1.5M5 4.5l.6 8a1 1 0 0 0 1 .95h3.8a1 1 0 0 0 1-.95l.6-8"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.1"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          </div>
         ))}
         <button
           type="button"
@@ -300,40 +317,24 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
         </button>
       </div>
 
-      <div className="settings__field-row">
-        <label className="field">
-          <span className="field__label">名称</span>
-          <input
-            className="field__input"
-            value={draft.label}
-            maxLength={40}
-            onChange={(event) => patch({ label: event.target.value })}
-          />
-        </label>
-        <button
-          type="button"
-          className="button button--ghost"
-          disabled={busy !== "idle" || view.profiles.length <= 1}
-          onClick={() => void handleRemove()}
-          title={view.profiles.length <= 1 ? "至少要保留一个配置" : "删除这个配置"}
-        >
-          删除
-        </button>
-      </div>
+      <label className="field">
+        <span className="field__label">名称</span>
+        <input
+          className="field__input"
+          value={draft.label}
+          maxLength={40}
+          onChange={(event) => patch({ label: event.target.value })}
+        />
+      </label>
 
       <label className="field">
         <span className="field__label">服务商类型</span>
-        <select
-          className="field__input"
+        <Select
+          ariaLabel="服务商类型"
           value={draft.kind}
-          onChange={(event) => patch({ kind: event.target.value as ProviderKind })}
-        >
-          {PROVIDER_KINDS.map((kind) => (
-            <option key={kind} value={kind}>
-              {PROVIDER_KIND_LABELS[kind]}
-            </option>
-          ))}
-        </select>
+          onChange={(next) => patch({ kind: next as ProviderKind })}
+          options={PROVIDER_KINDS.map((kind) => ({ value: kind, label: PROVIDER_KIND_LABELS[kind] }))}
+        />
         {draft.kind === "fal" && <span className="field__hint">{FAL_QUEUE_NOTE}</span>}
       </label>
 
@@ -407,75 +408,34 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
 
       {draft.models.length > 0 ? (
         <ul className="chosen-models">
-          {draft.models.map((id, index) => {
-            const editing = editingModel?.index === index;
-            return (
-              <li key={`${id}-${index}`} className="chosen-models__item">
-                {editing ? (
-                  <>
-                    <input
-                      className="field__input chosen-models__input"
-                      value={editingModel?.value ?? ""}
-                      autoFocus
-                      onChange={(event) => setEditingModel({ index, value: event.target.value })}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          const next = editingModel?.value.trim() ?? "";
-                          if (next !== "") setModelAt(index, next);
-                          setEditingModel(undefined);
-                        }
-                        if (event.key === "Escape") setEditingModel(undefined);
-                      }}
-                    />
-                    <button
-                      type="button"
-                      className="button button--tiny"
-                      onClick={() => {
-                        const next = editingModel?.value.trim() ?? "";
-                        if (next !== "") setModelAt(index, next);
-                        setEditingModel(undefined);
-                      }}
-                    >
-                      保存
-                    </button>
-                    <button type="button" className="modal__close" onClick={() => setEditingModel(undefined)} aria-label="取消">
-                      ×
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <span className="model-picker__id" title={id}>
-                      {id}
-                    </span>
-                    <button
-                      type="button"
-                      className={`chip ${draft.defaultModel === id ? "is-active" : ""}`}
-                      onClick={() => patch({ defaultModel: id })}
-                      title="设为默认模型"
-                    >
-                      {draft.defaultModel === id ? "默认" : "设为默认"}
-                    </button>
-                    <button
-                      type="button"
-                      className="button button--tiny"
-                      onClick={() => setEditingModel({ index, value: id })}
-                    >
-                      编辑
-                    </button>
-                    <button
-                      type="button"
-                      className="modal__close"
-                      aria-label={`移除 ${id}`}
-                      onClick={() => removeModelAt(index)}
-                    >
-                      ×
-                    </button>
-                  </>
-                )}
-              </li>
-            );
-          })}
+          {draft.models.map((id, index) => (
+            <li key={`${id}-${index}`} className="chosen-models__item">
+              {/* 模型 ID 本身就是输入框：点进去就能改，不用先点"编辑"。 */}
+              <input
+                className="chosen-models__input"
+                value={id}
+                aria-label={`模型 ${index + 1}`}
+                spellCheck={false}
+                onChange={(event) => setModelAt(index, event.target.value)}
+              />
+              <button
+                type="button"
+                className={`chip ${draft.defaultModel === id ? "is-active" : ""}`}
+                onClick={() => patch({ defaultModel: id })}
+                title="设为默认模型"
+              >
+                {draft.defaultModel === id ? "默认" : "设为默认"}
+              </button>
+              <button
+                type="button"
+                className="modal__close"
+                aria-label={`移除 ${id}`}
+                onClick={() => removeModelAt(index)}
+              >
+                ×
+              </button>
+            </li>
+          ))}
         </ul>
       ) : (
         <p className="field__hint">还没有启用任何模型；保存后这个服务商不会出现在创作页。</p>

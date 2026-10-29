@@ -6,6 +6,7 @@
 import { useId } from "react";
 import { LIMITS } from "../../shared/image-generation.ts";
 import { useComposer } from "./composer-state.tsx";
+import { Select } from "../shell/Select.tsx";
 
 export function PromptDock() {
   const formId = useId();
@@ -22,6 +23,7 @@ export function PromptDock() {
     sizeSummary,
     caps,
     models,
+    visibleModels,
     model,
     setModelKey,
   } = useComposer();
@@ -62,20 +64,18 @@ export function PromptDock() {
       <div className="dock__bar">
         <div className="dock__meta">
           {/* 在这里也能换模型：改完提示词不用再回到左侧栏 */}
-          <select
-            className="dock__model"
-            aria-label="选择模型"
+          <Select
+            compact
+            ariaLabel="选择模型"
             value={model ? `${model.id}:${model.model}` : ""}
-            disabled={models.length === 0}
-            onChange={(event) => setModelKey(event.target.value)}
-          >
-            {models.length === 0 && <option value="">没有可用模型</option>}
-            {models.map((candidate) => (
-              <option key={`${candidate.id}:${candidate.model}`} value={`${candidate.id}:${candidate.model}`}>
-                {candidate.displayName}
-              </option>
-            ))}
-          </select>
+            disabled={visibleModels.length === 0}
+            onChange={setModelKey}
+            placeholder="没有可用模型"
+            options={visibleModels.map((candidate) => ({
+              value: `${candidate.id}:${candidate.model}`,
+              label: candidate.displayName,
+            }))}
+          />
           <span className="dock__chip">{sizeSummary}</span>
           {caps?.imageToImage === false && <span className="dock__chip dock__chip--muted">无参考图</span>}
           <span className="dock__count">

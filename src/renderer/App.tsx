@@ -79,9 +79,16 @@ export function App() {
     setMaximized(next === true);
   }, []);
 
-  const handleDoubleClick = useCallback(() => {
-    void toggleMaximize();
-  }, [toggleMaximize]);
+  // 快速连点开关时，第二次点击会被当成标题栏双击 → 最大化。
+  // 交互控件上的双击必须忽略，否则"收起点太快"会变成"全屏"。
+  const handleDoubleClick = useCallback(
+    (event: React.MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (target.closest("button, input, textarea, select, .menubar, .select") !== null) return;
+      void toggleMaximize();
+    },
+    [toggleMaximize],
+  );
 
   return (
     <div className="app">
@@ -204,6 +211,10 @@ export function App() {
           density={appearance.density}
           onThemeChange={(theme) => setAppearance((current) => ({ ...current, theme }))}
           onDensityChange={(density) => setAppearance((current) => ({ ...current, density }))}
+          fontSize={appearance.fontSize}
+          onFontSizeChange={(size) => setAppearance((current) => ({ ...current, fontSize: size }))}
+          fontFamily={appearance.fontFamily}
+          onFontFamilyChange={(fontFamily) => setAppearance((current) => ({ ...current, fontFamily }))}
           onClose={() => setSettingsTab(undefined)}
         />
       )}

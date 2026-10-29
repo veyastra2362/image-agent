@@ -1559,3 +1559,240 @@ code {
   flex: 0 0 auto;
   min-width: 120px;
 }
+
+/* ---------------------------------------------------------------- 下拉选择器 */
+
+.select {
+  position: relative;
+  min-width: 0;
+  width: 100%;
+}
+
+.select__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 32px;
+  padding: 0 var(--space-2) 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.select__trigger:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.select__trigger.is-open,
+.select__trigger:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.select__trigger:disabled {
+  color: var(--text-faint);
+  cursor: not-allowed;
+}
+
+/* 箭头留出固定内边距，不再贴着边框。 */
+.select__chevron {
+  flex: 0 0 auto;
+  margin-right: 4px;
+  color: var(--text-faint);
+}
+
+.select__value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.select__value.is-placeholder {
+  color: var(--text-faint);
+}
+
+.select__menu {
+  position: absolute;
+  z-index: 70;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 280px;
+  overflow-y: auto;
+  margin: 0;
+  padding: var(--space-1);
+  list-style: none;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  box-shadow: 0 14px 32px rgb(0 0 0 / 45%);
+}
+
+.select__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  padding: 6px var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.select__option.is-active {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.select__option.is-selected {
+  color: var(--text);
+}
+
+.select__option-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.select--compact {
+  width: auto;
+  max-width: 260px;
+}
+
+.select--compact .select__trigger {
+  min-height: 26px;
+  padding: 0 2px 0 var(--space-2);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.select--compact .select__menu {
+  min-width: 220px;
+  right: auto;
+}
+
+/* 服务商标签：平时是绿点，悬停时绿点换成垃圾桶（删除就藏在这里）。 */
+.profile-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 4px 0 0;
+}
+
+.profile-tab__select {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  padding: 0 2px 0 0;
+  cursor: pointer;
+}
+
+.profile-tab__dot {
+  margin-right: 6px;
+}
+
+.profile-tab__delete {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-right: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+
+.profile-tab:hover .profile-tab__dot,
+.profile-tab:focus-within .profile-tab__dot {
+  display: none;
+}
+
+.profile-tab:hover .profile-tab__delete,
+.profile-tab:focus-within .profile-tab__delete {
+  display: inline-flex;
+}
+
+.profile-tab__delete:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 22%, transparent);
+  color: var(--danger);
+}
+
+.profile-tab__delete:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* 模型 ID 输入框：平时像文本，hover/聚焦才显出输入框的样子。 */
+.chosen-models__input {
+  flex: 1;
+  min-width: 0;
+  min-height: 26px;
+  padding: 2px var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+
+.chosen-models__input:hover {
+  border-color: var(--border);
+}
+
+.chosen-models__input:focus {
+  border-color: var(--accent);
+  background: var(--bg-sunken);
+  outline: none;
+}
+
+/* 设置弹窗高度固定，各页签切换时不再忽高忽低。 */
+.settings {
+  height: min(560px, 68vh);
+  min-height: 0;
+}
+
+.settings__body {
+  height: 100%;
+  max-height: none;
+  min-height: 0;
+}
+
+/* 字号 + 单位行 */
+.settings__row--field {
+  align-items: flex-start;
+}
+
+.font-size-control {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.font-size-control__input {
+  width: 72px;
+  text-align: right;
+}
+
+.font-size-control__unit {
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+}

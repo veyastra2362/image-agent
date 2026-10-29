@@ -10,6 +10,8 @@ import type { ProviderSettingsView } from "../../shared/provider-settings.ts";
 import { ApiSettingsPanel, type FooterAction } from "./ApiSettingsPanel.tsx";
 import { LibrarySettingsPanel } from "./LibrarySettingsPanel.tsx";
 import { DataSettingsPanel } from "./DataSettingsPanel.tsx";
+import { Select } from "../shell/Select.tsx";
+import { FONT_OPTIONS, FONT_SIZE_RANGE, type FontPreference as FontFamily } from "../lib/appearance.ts";
 
 export type SettingsTab = "api" | "appearance" | "storage" | "data" | "about";
 
@@ -22,12 +24,16 @@ export interface SettingsDialogProps {
   readonly onThemeChange: (theme: "auto" | "light" | "dark") => void;
   readonly density: "comfortable" | "compact";
   readonly onDensityChange: (density: "comfortable" | "compact") => void;
+  readonly fontSize: number;
+  readonly onFontSizeChange: (size: number) => void;
+  readonly fontFamily: FontFamily;
+  readonly onFontFamilyChange: (family: FontFamily) => void;
   readonly onClose: () => void;
 }
 
 const TABS: readonly { readonly id: SettingsTab; readonly label: string }[] = [
   { id: "api", label: "API 设置" },
-  { id: "appearance", label: "外观设置" },
+  { id: "appearance", label: "通用设置" },
   { id: "storage", label: "存储" },
   { id: "data", label: "数据管理" },
   { id: "about", label: "关于" },
@@ -42,6 +48,10 @@ export function SettingsDialog({
   onThemeChange,
   density,
   onDensityChange,
+  fontSize,
+  onFontSizeChange,
+  fontFamily,
+  onFontFamilyChange,
   onClose,
 }: SettingsDialogProps) {
   const [tab, setTab] = useState<SettingsTab>(initialTab);
@@ -184,7 +194,36 @@ export function SettingsDialog({
                     </button>
                   ))}
                 </div>
-                <p className="field__hint">\n                  「跟随系统」会随操作系统的浅色/深色设置自动切换。外观只保存在本机页面存储里，不影响生成结果。\n                </p>
+                <div className="settings__row settings__row--field">
+                  <div>
+                    <div className="field__label">字号大小</div>
+                    <div className="field__hint">影响界面文字的基准大小，12–18 px</div>
+                  </div>
+                  <div className="font-size-control">
+                    <input
+                      className="field__input font-size-control__input"
+                      type="number"
+                      min={FONT_SIZE_RANGE.min}
+                      max={FONT_SIZE_RANGE.max}
+                      value={fontSize}
+                      aria-label="字号大小"
+                      onChange={(event) => onFontSizeChange(Number(event.target.value))}
+                    />
+                    <span className="font-size-control__unit">px</span>
+                  </div>
+                </div>
+                <label className="field">
+                  <span className="field__label">字体</span>
+                  <Select
+                    ariaLabel="字体"
+                    value={fontFamily}
+                    onChange={(next) => onFontFamilyChange(next as FontFamily)}
+                    options={FONT_OPTIONS.map((option) => ({ value: option.value, label: option.label }))}
+                  />
+                </label>
+                <p className="field__hint">
+                  「跟随系统」会随操作系统的浅色/深色设置自动切换。外观只保存在本机页面存储里，不影响生成结果。
+                </p>
               </section>
             )}
 
