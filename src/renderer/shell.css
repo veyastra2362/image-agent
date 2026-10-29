@@ -1796,3 +1796,94 @@ code {
   color: var(--text-faint);
   font-size: var(--fs-sm);
 }
+
+/* ---------------------------------------------------------------- 本轮修复 */
+
+/* 服务商标签：文字和绿点别挤在一起 */
+.profile-tab {
+  gap: 6px;
+  padding: 0 6px 0 10px;
+}
+
+.profile-tab__label {
+  min-width: 0;
+  max-width: 120px;
+}
+
+/* 提示浮层居中显示 */
+.settings__toast {
+  left: 50%;
+  right: auto;
+  translate: -50% 0;
+  text-align: center;
+}
+
+/* 模型行：ID 输入框 + 默认 + 参数箭头 + 垃圾桶，图标都居中 */
+.chosen-models__item {
+  flex-wrap: wrap;
+  row-gap: var(--space-1);
+}
+
+.chosen-models__detail-toggle,
+.chosen-models__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.chosen-models__detail-toggle:hover,
+.chosen-models__remove:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.chosen-models__remove:hover {
+  color: var(--danger);
+}
+
+.chosen-models__details {
+  flex: 1 0 100%;
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 2px 0 4px 4px;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.chosen-models__details > div {
+  display: grid;
+  grid-template-columns: 60px minmax(0, 1fr);
+  gap: var(--space-2);
+}
+
+.chosen-models__details dt {
+  color: var(--text-faint);
+}
+
+.chosen-models__details dd {
+  margin: 0;
+  word-break: break-word;
+}
+
+/* 通用设置里的字号/字体控件要和背景区分开 */
+.settings__section .select__trigger,
+.font-size-control__input {
+  background: var(--surface);
+  border-color: var(--border-strong);
+}
+
+.font-size-control__input {
+  width: 84px;
+  text-align: right;
+  font-family: var(--font-mono);
+}

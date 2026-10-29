@@ -7,6 +7,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import type { EditAction } from "../../shared/app-shell.ts";
+import { useT } from "../lib/i18n.ts";
 
 type MenuId = "app" | "edit";
 
@@ -26,6 +27,7 @@ export interface MenuBarProps {
 }
 
 export function MenuBar({ onOpenSettings, onOpenLibraryFolder, onQuit }: MenuBarProps) {
+  const t = useT();
   const [open, setOpen] = useState<MenuId>();
   const barRef = useRef<HTMLDivElement>(null);
 
@@ -65,24 +67,24 @@ export function MenuBar({ onOpenSettings, onOpenLibraryFolder, onQuit }: MenuBar
   const menus: readonly { id: MenuId; label: string; items: readonly MenuItem[] }[] = [
     {
       id: "app",
-      label: "应用",
+      label: t("app.file"),
       items: [
-        { id: "settings", label: "设置…", shortcut: "Ctrl+,", action: () => { onOpenSettings(); setOpen(undefined); } },
-        { id: "folder", label: "打开作品文件夹", action: () => { onOpenLibraryFolder(); setOpen(undefined); }, separatorBefore: true },
-        { id: "quit", label: "退出", shortcut: "Alt+F4", action: onQuit, separatorBefore: true },
+        { id: "settings", label: t("menu.settings"), shortcut: "Ctrl+,", action: () => { onOpenSettings(); setOpen(undefined); } },
+        { id: "folder", label: t("menu.openLibrary"), action: () => { onOpenLibraryFolder(); setOpen(undefined); }, separatorBefore: true },
+        { id: "quit", label: t("menu.quit"), shortcut: "Alt+F4", action: onQuit, separatorBefore: true },
       ],
     },
     {
       id: "edit",
-      label: "编辑",
+      label: t("app.edit"),
       items: [
-        { id: "undo", label: "撤销", shortcut: "Ctrl+Z", action: () => runEdit("undo") },
-        { id: "redo", label: "重做", shortcut: "Ctrl+Y", action: () => runEdit("redo") },
-        { id: "cut", label: "剪切", shortcut: "Ctrl+X", action: () => runEdit("cut"), separatorBefore: true },
-        { id: "copy", label: "复制", shortcut: "Ctrl+C", action: () => runEdit("copy") },
-        { id: "paste", label: "粘贴", shortcut: "Ctrl+V", action: () => runEdit("paste") },
-        { id: "delete", label: "删除", shortcut: "Del", action: () => runEdit("delete") },
-        { id: "selectAll", label: "全选", shortcut: "Ctrl+A", action: () => runEdit("selectAll"), separatorBefore: true },
+        { id: "undo", label: t("menu.undo"), shortcut: "Ctrl+Z", action: () => runEdit("undo") },
+        { id: "redo", label: t("menu.redo"), shortcut: "Ctrl+Y", action: () => runEdit("redo") },
+        { id: "cut", label: t("menu.cut"), shortcut: "Ctrl+X", action: () => runEdit("cut"), separatorBefore: true },
+        { id: "copy", label: t("menu.copy"), shortcut: "Ctrl+C", action: () => runEdit("copy") },
+        { id: "paste", label: t("menu.paste"), shortcut: "Ctrl+V", action: () => runEdit("paste") },
+        { id: "delete", label: t("menu.delete"), shortcut: "Del", action: () => runEdit("delete") },
+        { id: "selectAll", label: t("menu.selectAll"), shortcut: "Ctrl+A", action: () => runEdit("selectAll"), separatorBefore: true },
       ],
     },
   ];

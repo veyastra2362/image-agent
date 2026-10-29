@@ -9,6 +9,8 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Select } from "../shell/Select.tsx";
+import { ChevronIcon, TrashIcon } from "../shell/icons.tsx";
+import type { ImageCapabilities } from "../../shared/image-generation.ts";
 
 import {
   API_FLAVOR_LABELS,
@@ -53,6 +55,8 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
   const [pickerModels, setPickerModels] = useState<readonly UpstreamModel[]>();
   const [pickerChecked, setPickerChecked] = useState<readonly string[]>([]);
   const [addOpen, setAddOpen] = useState(false);
+  const [capsByModel, setCapsByModel] = useState<Record<string, ImageCapabilities>>({});
+  const [expandedModel, setExpandedModel] = useState<number>();
   const [newModelId, setNewModelId] = useState("");
 
   // 提示自动消失：操作结果看一眼就够，不该长期占着版面。
@@ -64,6 +68,18 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
     const timer = setTimeout(() => setNotice(undefined), notice.kind === "error" ? 7000 : 3200);
     return () => clearTimeout(timer);
   }, [notice]);
+
+  // 模型的能力由 provider 声明；这里只是把它读出来展示，不在界面上猜测。
+  useEffect(() => {
+    void window.imageAgent
+      ?.getBootstrap()
+      .then((bootstrap) => {
+        const map: Record<string, ImageCapabilities> = {};
+        for (const ref of bootstrap.providers) map[`${ref.id}:${ref.model}`] = ref.capabilities;
+        setCapsByModel(map);
+      })
+      .catch(() => undefined);
+  }, [view]);
 
   // 外部刷新或切换服务商后把草稿对齐到落盘值。
   useEffect(() => {
@@ -100,6 +116,8 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
       setApiKey("");
       flash("ok", "已保存，创作页的模型列表已更新。");
       onRefresh();
+      // 主界面（侧栏/底部）的模型列表要跟着刷新，否则删了模型还能选到。
+      window.dispatchEvent(new Event("image-agent:data-changed"));
     } else {
       flash("error", result?.message ?? "保存失败");
     }
@@ -112,7 +130,7 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
       return;
     }
     onFooterChange({
-      label: busy === "saving" ? "保存中…" : dirty ? "保存" : "没有改动",
+      label: busy === "saving" ? "保存中…" : "保存",
       disabled: busy !== "idle" || !validation.ok || !dirty,
       onClick: () => void handleSave(),
     });
@@ -148,6 +166,7 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
     if (created?.ok) {
       flash("ok", "已新建一个服务商配置，填好后点保存。");
       onRefresh();
+      window.dispatchEvent(new Event("image-agent:data-changed"));
     } else {
       flash("error", created?.message ?? "新建失败");
     }
@@ -160,6 +179,7 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
     if (removed?.ok) {
       flash("ok", `已删除「${profile.label}」。`);
       onRefresh();
+      window.dispatchEvent(new Event("image-agent:data-changed"));
     } else {
       flash("error", removed?.message ?? "删除失败");
     }
@@ -408,34 +428,65 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
 
       {draft.models.length > 0 ? (
         <ul className="chosen-models">
-          {draft.models.map((id, index) => (
-            <li key={`${id}-${index}`} className="chosen-models__item">
-              {/* 模型 ID 本身就是输入框：点进去就能改，不用先点"编辑"。 */}
-              <input
-                className="chosen-models__input"
-                value={id}
-                aria-label={`模型 ${index + 1}`}
-                spellCheck={false}
-                onChange={(event) => setModelAt(index, event.target.value)}
-              />
-              <button
-                type="button"
-                className={`chip ${draft.defaultModel === id ? "is-active" : ""}`}
-                onClick={() => patch({ defaultModel: id })}
-                title="设为默认模型"
-              >
-                {draft.defaultModel === id ? "默认" : "设为默认"}
-              </button>
-              <button
-                type="button"
-                className="modal__close"
-                aria-label={`移除 ${id}`}
-                onClick={() => removeModelAt(index)}
-              >
-                ×
-              </button>
-            </li>
-          ))}
+          {draft.models.map((id, index) => {
+            const open = expandedModel === index;
+            const caps = capsByModel[`${draft.id}:${id}`];
+            return (
+              <li key={`${id}-${index}`} className={`chosen-models__item ${open ? "is-open" : ""}`}>
+                {/* 模型 ID 本身就是输入框：点进去就能改，不用先点"编辑"。 */}
+                <input
+                  className="chosen-models__input"
+                  value={id}
+                  aria-label={`模型 ${index + 1}`}
+                  spellCheck={false}
+                  onChange={(event) => setModelAt(index, event.target.value)}
+                />
+                <button
+                  type="button"
+                  className={`chip ${draft.defaultModel === id ? "is-active" : ""}`}
+                  onClick={() => patch({ defaultModel: id })}
+                  title="设为默认模型"
+                >
+                  {draft.defaultModel === id ? "默认" : "设为默认"}
+                </button>
+                <button
+                  type="button"
+                  className="chosen-models__detail-toggle"
+                  aria-expanded={open}
+                  aria-label={open ? "收起参数" : "查看参数"}
+                  title="查看这个模型的参数"
+                  onClick={() => setExpandedModel(open ? undefined : index)}
+                >
+                  <ChevronIcon open={open} />
+                </button>
+                <button
+                  type="button"
+                  className="chosen-models__remove"
+                  aria-label={`移除 ${id}`}
+                  title="移除"
+                  onClick={() => removeModelAt(index)}
+                >
+                  <TrashIcon />
+                </button>
+                {open && (
+                  <dl className="chosen-models__details">
+                    <div>
+                      <dt>能力</dt>
+                      <dd>{describeCapabilities(caps)}</dd>
+                    </div>
+                    <div>
+                      <dt>尺寸</dt>
+                      <dd>{describeSizes(caps)}</dd>
+                    </div>
+                    <div>
+                      <dt>输出格式</dt>
+                      <dd>{caps === undefined ? "未知（未加载）" : caps.transcode ? "PNG / JPEG / WebP" : "仅 PNG"}</dd>
+                    </div>
+                  </dl>
+                )}
+              </li>
+            );
+          })}
         </ul>
       ) : (
         <p className="field__hint">还没有启用任何模型；保存后这个服务商不会出现在创作页。</p>
@@ -594,4 +645,32 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
       )}
     </section>
   );
+}
+
+function describeCapabilities(caps: ImageCapabilities | undefined): string {
+  if (caps === undefined) return "未知（未加载）";
+  return [
+    caps.textToImage ? "文生图" : "",
+    caps.imageToImage ? `参考图（≤${caps.referenceImageLimit}）` : "不支持参考图",
+    caps.seed ? "可固定 seed" : "无 seed",
+    caps.negativePrompt ? "支持负面词" : "无负面词",
+    caps.async ? "异步任务" : "同步返回",
+    caps.cancel ? "可取消" : "不可取消",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/**
+ * 尺寸说明：这里显示的是 provider 适配器声明的能力，不是从上游猜的。
+ * sizes 为空表示按比例自由推导；有值时只能发这几个固定尺寸。
+ */
+function describeSizes(caps: ImageCapabilities | undefined): string {
+  if (caps === undefined) return "未知（未加载）";
+  const parts: string[] = [];
+  if (caps.autoSize) parts.push("支持自动尺寸");
+  if (caps.customSize) parts.push("支持自定义宽高");
+  if (caps.sizes.length > 0) parts.push(`固定尺寸 ${caps.sizes.join("、")}`);
+  else if (caps.aspectRatios.length > 0) parts.push(`比例 ${caps.aspectRatios.join("、")}`);
+  return parts.length === 0 ? "未声明" : parts.join(" · ");
 }

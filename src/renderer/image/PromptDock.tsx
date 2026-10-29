@@ -7,9 +7,11 @@ import { useId } from "react";
 import { LIMITS } from "../../shared/image-generation.ts";
 import { useComposer } from "./composer-state.tsx";
 import { Select } from "../shell/Select.tsx";
+import { useT } from "../lib/i18n.ts";
 
 export function PromptDock() {
   const formId = useId();
+  const t = useT();
   const {
     prompt,
     setPrompt,
@@ -70,7 +72,7 @@ export function PromptDock() {
             value={model ? `${model.id}:${model.model}` : ""}
             disabled={visibleModels.length === 0}
             onChange={setModelKey}
-            placeholder="没有可用模型"
+            placeholder={t("dock.noModel")}
             options={visibleModels.map((candidate) => ({
               value: `${candidate.id}:${candidate.model}`,
               label: candidate.displayName,
@@ -83,7 +85,7 @@ export function PromptDock() {
           </span>
         </div>
         <button type="submit" className="button button--primary dock__submit" disabled={!canSubmit}>
-          {pending ? "提交中…" : `生成 ${effectiveCount} 张`}
+          {pending ? t("dock.generating") : `${t("dock.generate")} ${effectiveCount}`}
         </button>
       </div>
 

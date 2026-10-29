@@ -4,6 +4,7 @@
 export type ThemePreference = "auto" | "light" | "dark";
 export type DensityPreference = "comfortable" | "compact";
 export type FontPreference = "system" | "serif" | "mono";
+export type LanguagePreference = "zh" | "en";
 
 export const FONT_OPTIONS: readonly { readonly value: FontPreference; readonly label: string; readonly stack: string }[] = [
   {
@@ -27,6 +28,8 @@ export interface Appearance {
   /** 界面字号（px）。 */
   readonly fontSize: number;
   readonly fontFamily: FontPreference;
+  /** 界面语言。 */
+  readonly language: LanguagePreference;
 }
 
 const DEFAULT: Appearance = {
@@ -35,6 +38,7 @@ const DEFAULT: Appearance = {
   sidebarCollapsed: false,
   fontSize: FONT_SIZE_RANGE.default,
   fontFamily: "system",
+  language: "zh",
 };
 
 export function loadAppearance(): Appearance {
@@ -51,6 +55,7 @@ export function loadAppearance(): Appearance {
       sidebarCollapsed: (parsed as { sidebarCollapsed?: unknown }).sidebarCollapsed === true,
       fontSize: clampFontSize((parsed as { fontSize?: unknown }).fontSize),
       fontFamily: parseFont((parsed as { fontFamily?: unknown }).fontFamily),
+      language: (parsed as { language?: unknown }).language === "en" ? "en" : "zh",
     };
   } catch {
     return DEFAULT;

@@ -6,11 +6,12 @@
 import { useCallback, useEffect, useState } from "react";
 import type { AppEnvironment } from "../shared/app-shell.ts";
 import { applyAppearance, loadAppearance, saveAppearance, type Appearance } from "./lib/appearance.ts";
+import { setLang, useT } from "./lib/i18n.ts";
 import { ComposerProvider } from "./image/composer-state.tsx";
 import { ConfigSidebar } from "./image/ConfigSidebar.tsx";
 import { DetailsDrawer } from "./image/DetailsDrawer.tsx";
 import { JobList } from "./image/JobList.tsx";
-import { LibraryView, ProviderView } from "./image/LibraryView.tsx";
+import { LibraryView } from "./image/LibraryView.tsx";
 import { PromptDock } from "./image/PromptDock.tsx";
 import { ResultCanvas } from "./image/ResultCanvas.tsx";
 import { useImageAgent } from "./image/use-image-agent.ts";
@@ -18,16 +19,17 @@ import { SettingsDialog, type SettingsTab } from "./settings/SettingsDialog.tsx"
 import { MenuBar } from "./shell/MenuBar.tsx";
 import { PanelLeftIcon } from "./shell/PanelLeftIcon.tsx";
 
-type View = "create" | "library" | "providers";
+type View = "create" | "library";
 
-const VIEWS: readonly { readonly id: View; readonly label: string }[] = [
-  { id: "create", label: "创作" },
-  { id: "library", label: "作品库" },
-  { id: "providers", label: "服务商" },
+// 服务商页已下线：参数改在「设置 → API 设置」的模型条目里展开查看。
+const VIEWS: readonly { readonly id: View; readonly labelKey: "nav.create" | "nav.library" }[] = [
+  { id: "create", labelKey: "nav.create" },
+  { id: "library", labelKey: "nav.library" },
 ];
 
 export function App() {
   const state = useImageAgent();
+  const t = useT();
   const [view, setView] = useState<View>("create");
   const [focusPrompt, setFocusPrompt] = useState(0);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>();
@@ -38,6 +40,7 @@ export function App() {
   useEffect(() => {
     applyAppearance(appearance);
     saveAppearance(appearance);
+    setLang(appearance.language);
   }, [appearance]);
 
   useEffect(() => {
@@ -120,7 +123,7 @@ export function App() {
               aria-current={view === entry.id ? "page" : undefined}
               onClick={() => setView(entry.id)}
             >
-              {entry.label}
+              {t(entry.labelKey)}
             </button>
           ))}
         </nav>
@@ -193,11 +196,6 @@ export function App() {
         </main>
       )}
 
-      {view === "providers" && (
-        <main className="workspace workspace--page">
-          <ProviderView models={state.models} state={state} />
-        </main>
-      )}
 
       {state.selectedAssetId && <DetailsDrawer state={state} onClose={state.closeDrawer} />}
 
@@ -215,6 +213,8 @@ export function App() {
           onFontSizeChange={(size) => setAppearance((current) => ({ ...current, fontSize: size }))}
           fontFamily={appearance.fontFamily}
           onFontFamilyChange={(fontFamily) => setAppearance((current) => ({ ...current, fontFamily }))}
+          language={appearance.language}
+          onLanguageChange={(language) => setAppearance((current) => ({ ...current, language }))}
           onClose={() => setSettingsTab(undefined)}
         />
       )}

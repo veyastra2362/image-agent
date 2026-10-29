@@ -11,7 +11,8 @@ import { ApiSettingsPanel, type FooterAction } from "./ApiSettingsPanel.tsx";
 import { LibrarySettingsPanel } from "./LibrarySettingsPanel.tsx";
 import { DataSettingsPanel } from "./DataSettingsPanel.tsx";
 import { Select } from "../shell/Select.tsx";
-import { FONT_OPTIONS, FONT_SIZE_RANGE, type FontPreference as FontFamily } from "../lib/appearance.ts";
+import { FONT_OPTIONS, FONT_SIZE_RANGE, type FontPreference as FontFamily, type LanguagePreference } from "../lib/appearance.ts";
+import { LANGUAGES, useT, type I18nKey } from "../lib/i18n.ts";
 
 export type SettingsTab = "api" | "appearance" | "storage" | "data" | "about";
 
@@ -28,15 +29,17 @@ export interface SettingsDialogProps {
   readonly onFontSizeChange: (size: number) => void;
   readonly fontFamily: FontFamily;
   readonly onFontFamilyChange: (family: FontFamily) => void;
+  readonly language: LanguagePreference;
+  readonly onLanguageChange: (language: LanguagePreference) => void;
   readonly onClose: () => void;
 }
 
-const TABS: readonly { readonly id: SettingsTab; readonly label: string }[] = [
-  { id: "api", label: "API 设置" },
-  { id: "appearance", label: "通用设置" },
-  { id: "storage", label: "存储" },
-  { id: "data", label: "数据管理" },
-  { id: "about", label: "关于" },
+const TABS: readonly { readonly id: SettingsTab; readonly labelKey: I18nKey }[] = [
+  { id: "api", labelKey: "settings.tab.api" },
+  { id: "appearance", labelKey: "settings.tab.general" },
+  { id: "storage", labelKey: "settings.tab.storage" },
+  { id: "data", labelKey: "settings.tab.data" },
+  { id: "about", labelKey: "settings.tab.about" },
 ];
 
 export function SettingsDialog({
@@ -52,6 +55,8 @@ export function SettingsDialog({
   onFontSizeChange,
   fontFamily,
   onFontFamilyChange,
+  language,
+  onLanguageChange,
   onClose,
 }: SettingsDialogProps) {
   const [tab, setTab] = useState<SettingsTab>(initialTab);
@@ -60,6 +65,7 @@ export function SettingsDialog({
   const [settingsLoading, setSettingsLoading] = useState(true);
   // API 面板把"保存"注册到这里，统一放在弹窗底部（关闭按钮旁边）。
   const [footerAction, setFooterAction] = useState<FooterAction>();
+  const t = useT();
 
   const refreshProviderView = useCallback(() => {
     setSettingsLoading(true);
@@ -90,7 +96,7 @@ export function SettingsDialog({
     <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <div className="modal modal--wide" role="dialog" aria-modal="true" aria-label="设置">
         <header className="modal__head">
-          <h2>设置</h2>
+          <h2>{t("settings.title")}</h2>
           <button ref={closeRef} type="button" className="modal__close" onClick={onClose} aria-label="关闭">
             ×
           </button>
@@ -106,7 +112,7 @@ export function SettingsDialog({
                 aria-current={tab === entry.id ? "page" : undefined}
                 onClick={() => setTab(entry.id)}
               >
-                {entry.label}
+                {t(entry.labelKey)}
               </button>
             ))}
           </nav>
@@ -152,14 +158,14 @@ export function SettingsDialog({
               </>
             )}
             {tab === "appearance" && (
-              <section className="settings__section" aria-label="外观设置">
-                <h3>主题</h3>
-                <div className="chips" role="radiogroup" aria-label="主题">
+              <section className="settings__section" aria-label="通用设置">
+                <h3>{t("general.theme")}</h3>
+                <div className="chips" role="radiogroup" aria-label={t("general.theme")}>
                   {(
                     [
-                      { value: "auto", label: "跟随系统" },
-                      { value: "light", label: "白天" },
-                      { value: "dark", label: "黑夜" },
+                      { value: "auto", label: t("general.theme.auto") },
+                      { value: "light", label: t("general.theme.light") },
+                      { value: "dark", label: t("general.theme.dark") },
                     ] as const
                   ).map((option) => (
                     <button
@@ -174,12 +180,12 @@ export function SettingsDialog({
                     </button>
                   ))}
                 </div>
-                <h3>密度</h3>
-                <div className="chips" role="radiogroup" aria-label="密度">
+                <h3>{t("general.density")}</h3>
+                <div className="chips" role="radiogroup" aria-label={t("general.density")}>
                   {(
                     [
-                      { value: "comfortable", label: "宽松" },
-                      { value: "compact", label: "紧凑" },
+                      { value: "comfortable", label: t("general.density.comfortable") },
+                      { value: "compact", label: t("general.density.compact") },
                     ] as const
                   ).map((option) => (
                     <button
@@ -196,8 +202,8 @@ export function SettingsDialog({
                 </div>
                 <div className="settings__row settings__row--field">
                   <div>
-                    <div className="field__label">字号大小</div>
-                    <div className="field__hint">影响界面文字的基准大小，12–18 px</div>
+                    <div className="field__label">{t("general.fontSize")}</div>
+                    <div className="field__hint">{t("general.fontSizeHint")}</div>
                   </div>
                   <div className="font-size-control">
                     <input
@@ -213,7 +219,7 @@ export function SettingsDialog({
                   </div>
                 </div>
                 <label className="field">
-                  <span className="field__label">字体</span>
+                  <span className="field__label">{t("general.font")}</span>
                   <Select
                     ariaLabel="字体"
                     value={fontFamily}
@@ -221,9 +227,17 @@ export function SettingsDialog({
                     options={FONT_OPTIONS.map((option) => ({ value: option.value, label: option.label }))}
                   />
                 </label>
-                <p className="field__hint">
-                  「跟随系统」会随操作系统的浅色/深色设置自动切换。外观只保存在本机页面存储里，不影响生成结果。
-                </p>
+                <label className="field">
+                  <span className="field__label">{t("general.language")}</span>
+                  <Select
+                    ariaLabel={t("general.language")}
+                    value={language}
+                    onChange={(next) => onLanguageChange(next as LanguagePreference)}
+                    options={LANGUAGES.map((option) => ({ value: option.value, label: option.label }))}
+                  />
+                  <span className="field__hint">{t("general.languageHint")}</span>
+                </label>
+                <p className="field__hint">{t("general.themeHint")}</p>
               </section>
             )}
 
@@ -276,7 +290,7 @@ export function SettingsDialog({
             </button>
           )}
           <button type="button" className="button button--ghost" onClick={onClose}>
-            关闭
+            {t("settings.close")}
           </button>
         </footer>
       </div>

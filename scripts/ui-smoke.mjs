@@ -256,8 +256,8 @@ async function run() {
   check("顶栏没有应用名字幕", (await js("!document.querySelector('.titlebar__name')")) === true, "");
 
   const navItems = await js("[...document.querySelectorAll('.titlebar__nav .navitem')].map((n) => n.textContent)");
-  check("导航只剩文字", JSON.stringify(navItems) === JSON.stringify(["创作", "作品库", "服务商"]), navItems);
-  check("标题栏含三个导航项", navItems.length === 3, navItems);
+  check("导航只剩文字", JSON.stringify(navItems) === JSON.stringify(["创作", "作品库"]), navItems);
+  check("标题栏含两个导航项（服务商页已下线）", navItems.length === 2, navItems);
   check(
     "导航项都可以点击",
     (await js("[...document.querySelectorAll('.titlebar__nav .navitem')].every((n) => !n.disabled)")) === true,
@@ -515,13 +515,30 @@ async function run() {
   const libraryCards = await js("document.querySelectorAll('.library-card').length");
   check("作品库显示已有作品", libraryCards >= 1, libraryCards);
   await shot("11-library");
-  await js("(() => { [...document.querySelectorAll('.navitem')].find((n) => n.textContent.includes('服务商')).click(); return true; })()");
-  await waitFor("document.querySelector('.provider-card')", "服务商页面");
-  const providerCards = await js("document.querySelectorAll('.provider-card').length");
-  check("服务商页列出服务", providerCards >= 1, providerCards);
-  await shot("12-providers");
   await js("(() => { [...document.querySelectorAll('.navitem')].find((n) => n.textContent.includes('创作')).click(); return true; })()");
   await waitFor("document.querySelector('.dock')", "回到创作页");
+
+  // ---- 模型参数：箭头展开后显示能力/尺寸/格式 ----
+  await js("document.querySelector('.titlebar__icon').click(); true");
+  await waitFor("document.querySelector('.profile-tabs')", "API 面板");
+  const hasDetailToggle = await js("Boolean(document.querySelector('.chosen-models__detail-toggle'))");
+  if (hasDetailToggle) {
+    await js("document.querySelector('.chosen-models__detail-toggle').click(); true");
+    await sleep(200);
+    const details = await js("document.querySelector('.chosen-models__details')?.innerText ?? ''");
+    check("模型参数可以展开", /能力/.test(details) && /尺寸/.test(details), details.slice(0, 80));
+    check("删除是垃圾桶图标", (await js("Boolean(document.querySelector('.chosen-models__remove svg'))")) === true, "");
+  }
+  await js("(() => { [...document.querySelectorAll('.settings__tab')].find((n) => n.textContent === '通用设置').click(); return true; })()");
+  await sleep(200);
+  const langSelect = await js(
+    "(() => { const s = [...document.querySelectorAll('.settings__body .select__trigger')].map((n) => n.textContent); return s; })()",
+  );
+  check("通用设置有语言选择", langSelect.some((text) => text.includes("简体中文")), langSelect);
+  await js("(() => { [...document.querySelectorAll('.settings__tab')].find((n) => n.textContent === 'API 设置').click(); return true; })()");
+  await sleep(150);
+  await js("window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); true");
+  await sleep(200);
 
   // ---- 失败态（main 边界拒绝）：篡改提交参数 ----
   const reject = await js(
