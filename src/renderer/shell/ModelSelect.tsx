@@ -1,11 +1,12 @@
 /**
  * 模型选择器：按服务商分组的列表。
  *
- * 和通用的 Select 分开，是因为模型列表天然是"服务商 → 模型"两级的，
- * 平铺一排 "服务商 · 模型" 读起来很累。分组标题 + 当前项打勾，
- * 触发器的箭头在展开时会旋转。
+ * 和通用的 Select 一样用 portal 渲染菜单（避免被滚动容器裁剪），
+ * 区别是内容分两级：服务商标题 + 该服务商下的模型。
  */
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+
 import type { ProviderRef } from "../../shared/image-generation.ts";
 
 export interface ModelSelectProps {
@@ -17,8 +18,21 @@ export interface ModelSelectProps {
   readonly compact?: boolean;
 }
 
+const MENU_MAX = 320;
+
 function modelKey(model: ProviderRef): string {
   return `${model.id}:${model.model}`;
+}
+
+function measure(trigger: HTMLElement) {
+  const rect = trigger.getBoundingClientRect();
+  const below = window.innerHeight - rect.bottom;
+  const above = rect.top;
+  const openUp = below < 220 && above > below;
+  const maxHeight = Math.max(140, Math.min(MENU_MAX, (openUp ? above : below) - 8));
+  return openUp
+    ? { left: rect.left, width: Math.max(rect.width, 240), bottom: window.innerHeight - rect.top + 4, maxHeight }
+    : { left: rect.left, width: Math.max(rect.width, 240), top: rect.bottom + 4, maxHeight };
 }
 
 export function ModelSelect({
@@ -30,22 +44,32 @@ export function ModelSelect({
   compact = false,
 }: ModelSelectProps) {
   const [open, setOpen] = useState(false);
+  const [rect, setRect] = useState<ReturnType<typeof measure>>();
   const rootRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLUListElement>(null);
   const selected = models.find((model) => modelKey(model) === value);
 
   useEffect(() => {
     if (!open) return;
     const onDown = (event: MouseEvent) => {
-      if (rootRef.current?.contains(event.target as Node) !== true) setOpen(false);
+      const target = event.target as Node;
+      if (rootRef.current?.contains(target) === true) return;
+      if (menuRef.current?.contains(target) === true) return;
+      setOpen(false);
     };
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
     };
+    const onScroll = () => setOpen(false);
     window.addEventListener("mousedown", onDown);
     window.addEventListener("keydown", onKey);
+    window.addEventListener("resize", onScroll);
+    window.addEventListener("scroll", onScroll, true);
     return () => {
       window.removeEventListener("mousedown", onDown);
       window.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", onScroll);
+      window.removeEventListener("scroll", onScroll, true);
     };
   }, [open]);
 
@@ -65,7 +89,17 @@ export function ModelSelect({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={ariaLabel}
-        onClick={() => setOpen((current) => !current)}
+        disabled={models.length === 0}
+        onClick={() => {
+          if (open) {
+            setOpen(false);
+            return;
+          }
+          const trigger = rootRef.current?.querySelector<HTMLButtonElement>(".select__trigger");
+          if (!trigger) return;
+          setRect(measure(trigger));
+          setOpen(true);
+        }}
       >
         <span className={`select__value ${selected === undefined ? "is-placeholder" : ""}`}>
           {selected?.displayName ?? placeholder}
@@ -83,43 +117,57 @@ export function ModelSelect({
         </svg>
       </button>
 
-      {open && (
-        <ul className={`select__menu model-select__menu ${compact ? "model-select__menu--up" : ""}`} role="listbox" aria-label={ariaLabel}>
-          {groups.map((group) => (
-            <li key={group.provider} className="model-select__group">
-              <div className="model-select__group-title">{group.provider}</div>
-              <ul className="model-select__group-list">
-                {group.items.map((model) => {
-                  const key = modelKey(model);
-                  const active = key === value;
-                  return (
-                    <li key={key}>
-                      <button
-                        type="button"
-                        role="option"
-                        aria-selected={active}
-                        className={`select__option model-select__option ${active ? "is-selected" : ""}`}
-                        onClick={() => {
-                          onChange(key);
-                          setOpen(false);
-                        }}
-                      >
-                        <span className="select__option-label">{model.modelDisplayName || model.model}</span>
-                        {model.default && <span className="model-select__badge">默认</span>}
-                        {active && (
-                          <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                            <path d="M3 8.5 6.5 12 13 4.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        )}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </li>
-          ))}
-        </ul>
-      )}
+      {open &&
+        rect !== undefined &&
+        createPortal(
+          <ul
+            className="select__menu select__menu--portal model-select__menu"
+            role="listbox"
+            aria-label={ariaLabel}
+            ref={menuRef}
+            style={{
+              left: rect.left,
+              width: rect.width,
+              maxHeight: rect.maxHeight,
+              ...(rect.top === undefined ? { bottom: rect.bottom } : { top: rect.top }),
+            }}
+          >
+            {groups.map((group) => (
+              <li key={group.provider} className="model-select__group">
+                <div className="model-select__group-title">{group.provider}</div>
+                <ul className="model-select__group-list">
+                  {group.items.map((model) => {
+                    const key = modelKey(model);
+                    const active = key === value;
+                    return (
+                      <li key={key}>
+                        <button
+                          type="button"
+                          role="option"
+                          aria-selected={active}
+                          className={`select__option model-select__option ${active ? "is-selected" : ""}`}
+                          onClick={() => {
+                            onChange(key);
+                            setOpen(false);
+                          }}
+                        >
+                          <span className="select__option-label">{model.modelDisplayName || model.model}</span>
+                          {model.default && <span className="model-select__badge">默认</span>}
+                          {active && (
+                            <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                              <path d="M3 8.5 6.5 12 13 4.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          )}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </li>
+            ))}
+          </ul>,
+          document.body,
+        )}
     </div>
   );
 }

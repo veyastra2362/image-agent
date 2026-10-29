@@ -122,7 +122,7 @@ async function selectModel(fragment) {
   await js("(() => { const t = document.querySelector('.sidebar .select__trigger'); if (t) t.click(); return true; })()");
   await sleep(120);
   const picked = await js(
-    "(() => { const o = [...document.querySelectorAll('.sidebar .select__option')].find((x) => x.textContent.includes(" +
+    "(() => { const o = [...document.querySelectorAll('.select__option')].find((x) => x.textContent.includes(" +
       JSON.stringify(fragment) +
       ")); if (!o) return false; o.click(); return true; })()",
   );
@@ -272,7 +272,7 @@ async function run() {
   await waitFor("document.querySelector('.dock')", "创作表单渲染");
   await js("(() => { document.querySelector('.sidebar .select__trigger')?.click(); return true; })()");
   await sleep(150);
-  const modelOptions = await js("[...document.querySelectorAll('.sidebar .select__option')].map((o) => o.textContent)");
+  const modelOptions = await js("[...document.querySelectorAll('.select__option')].map((o) => o.textContent)");
   await js("(() => { document.querySelector('.sidebar .select__trigger')?.click(); return true; })()");
   await sleep(120);
   check("模型列表来自 main", modelOptions.some((text) => text && text.includes("Fake Sync 1")), modelOptions);
@@ -546,6 +546,17 @@ async function run() {
     "(() => { const s = [...document.querySelectorAll('.settings__body .select__trigger')].map((n) => n.textContent); return s; })()",
   );
   check("通用设置有语言选择", langSelect.some((text) => text.includes("简体中文")), langSelect);
+  // 设置里的下拉必须能真的展开（之前被滚动容器裁掉，看起来点了没反应）
+  await js(
+    "(() => { const b = [...document.querySelectorAll('.settings__body .select__trigger')].find((n) => n.textContent.includes('简体中文')); if (b) b.click(); return true; })()",
+  );
+  await waitFor("document.querySelector('.select__menu--portal')", "设置里的下拉菜单");
+  const langOptions = await js("[...document.querySelectorAll('.select__option')].map((n) => n.textContent)");
+  check("设置里的下拉能展开", langOptions.some((text) => text.includes("English")), langOptions);
+  await shot("18-settings-select");
+  // 用点击收起菜单（Escape 会连设置弹窗一起关掉）
+  await js("document.querySelector('.modal__head')?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); true");
+  await sleep(200);
   await js("(() => { [...document.querySelectorAll('.settings__tab')].find((n) => n.textContent === 'API 设置').click(); return true; })()");
   await sleep(150);
   await js("window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); true");

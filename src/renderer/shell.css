@@ -2026,3 +2026,12 @@ code {
   font-size: 10px;
   flex: 0 0 auto;
 }
+
+/* portal 里的菜单用 fixed 定位：由 JS 按触发器位置算坐标 */
+.select__menu--portal {
+  position: fixed;
+  right: auto;
+  bottom: auto;
+  z-index: 90;
+  margin: 0;
+}

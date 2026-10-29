@@ -1,11 +1,13 @@
 /**
  * 统一的下拉选择器。
  *
- * 系统原生 <select> 的箭头和边距在各平台/DPI 下不可控（用户反馈"图标贴边、间距难受"），
- * 所以自绘：外壳是一个圆角按钮，展开后是浮层菜单，选中项带勾。
- * 键盘：↑/↓ 移动，Enter 选中，Esc 关闭；点击外部关闭。
+ * 原生 <select> 的箭头与内边距不可控，所以自绘。菜单用 portal 渲染到 body：
+ * 设置面板的滚动容器会裁剪 `overflow: hidden` 里的绝对定位元素，之前就是
+ * "点了没反应"（其实菜单被裁掉了）。portal + fixed 定位后不会再被裁剪，
+ * 下方空间不够时自动向上展开；箭头在展开时旋转。
  */
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 export interface SelectOption {
   readonly value: string;
@@ -19,10 +21,30 @@ export interface SelectProps {
   readonly onChange: (value: string) => void;
   readonly ariaLabel?: string;
   readonly placeholder?: string;
-  /** 紧凑版：用在底部输入框那一行。 */
   readonly compact?: boolean;
   readonly disabled?: boolean;
   readonly className?: string;
+}
+
+interface MenuRect {
+  readonly left: number;
+  readonly width: number;
+  readonly top?: number;
+  readonly bottom?: number;
+  readonly maxHeight: number;
+}
+
+const MENU_MAX = 300;
+
+function measure(trigger: HTMLElement): MenuRect {
+  const rect = trigger.getBoundingClientRect();
+  const below = window.innerHeight - rect.bottom;
+  const above = rect.top;
+  const openUp = below < Math.min(MENU_MAX, 180) && above > below;
+  const maxHeight = Math.max(120, Math.min(MENU_MAX, (openUp ? above : below) - 8));
+  return openUp
+    ? { left: rect.left, width: Math.max(rect.width, 200), bottom: window.innerHeight - rect.top + 4, maxHeight }
+    : { left: rect.left, width: Math.max(rect.width, 200), top: rect.bottom + 4, maxHeight };
 }
 
 export function Select({
@@ -36,27 +58,45 @@ export function Select({
   className,
 }: SelectProps) {
   const [open, setOpen] = useState(false);
+  const [rect, setRect] = useState<MenuRect>();
   const [activeIndex, setActiveIndex] = useState(0);
-  // 贴近窗口底部时向上展开，否则菜单会被裁掉。
-  const [placement, setPlacement] = useState<"down" | "up">("down");
   const rootRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLUListElement>(null);
   const listId = useId();
   const selected = options.find((option) => option.value === value);
+
+  const openMenu = () => {
+    const trigger = rootRef.current?.querySelector<HTMLButtonElement>(".select__trigger");
+    if (!trigger) return;
+    setRect(measure(trigger));
+    setActiveIndex(Math.max(0, options.findIndex((option) => option.value === value)));
+    setOpen(true);
+  };
 
   useEffect(() => {
     if (!open) return;
     const onDown = (event: MouseEvent) => {
-      if (rootRef.current?.contains(event.target as Node) !== true) setOpen(false);
+      const target = event.target as Node;
+      if (rootRef.current?.contains(target) === true) return;
+      if (menuRef.current?.contains(target) === true) return;
+      setOpen(false);
     };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    // 滚动/缩放时直接收起，避免菜单跟触发器错位。
+    const onScroll = () => setOpen(false);
     window.addEventListener("mousedown", onDown);
-    return () => window.removeEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("resize", onScroll);
+    window.addEventListener("scroll", onScroll, true);
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", onScroll);
+      window.removeEventListener("scroll", onScroll, true);
+    };
   }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const index = options.findIndex((option) => option.value === value);
-    setActiveIndex(index >= 0 ? index : 0);
-  }, [open, options, value]);
 
   function commit(option: SelectOption) {
     if (option.disabled === true) return;
@@ -65,13 +105,9 @@ export function Select({
   }
 
   function onKeyDown(event: React.KeyboardEvent) {
-    if (event.key === "Escape") {
-      setOpen(false);
-      return;
-    }
     if (!open && (event.key === "Enter" || event.key === " " || event.key === "ArrowDown")) {
       event.preventDefault();
-      setOpen(true);
+      openMenu();
       return;
     }
     if (!open) return;
@@ -98,48 +134,64 @@ export function Select({
         aria-controls={open ? listId : undefined}
         aria-label={ariaLabel}
         disabled={disabled}
-        onClick={() => {
-          if (!open && rootRef.current) {
-            const rect = rootRef.current.getBoundingClientRect();
-            const below = window.innerHeight - rect.bottom;
-            setPlacement(below < 300 && rect.top > below ? "up" : "down");
-          }
-          setOpen((current) => !current);
-        }}
+        onClick={() => (open ? setOpen(false) : openMenu())}
         onKeyDown={onKeyDown}
       >
         <span className={`select__value ${selected === undefined ? "is-placeholder" : ""}`}>
           {selected?.label ?? placeholder}
         </span>
-        <svg className="select__chevron" width="10" height="10" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+        <svg
+          className="select__chevron"
+          width="10"
+          height="10"
+          viewBox="0 0 16 16"
+          aria-hidden="true"
+          focusable="false"
+          style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 120ms ease" }}
+        >
           <path d="M4 6.5 8 10.5 12 6.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
 
-      {open && (
-        <ul className={`select__menu ${placement === "up" ? "select__menu--up" : ""}`} role="listbox" id={listId} aria-label={ariaLabel}>
-          {options.map((option, index) => (
-            <li key={option.value}>
-              <button
-                type="button"
-                role="option"
-                aria-selected={option.value === value}
-                className={`select__option ${option.value === value ? "is-selected" : ""} ${index === activeIndex ? "is-active" : ""}`}
-                disabled={option.disabled === true}
-                onMouseEnter={() => setActiveIndex(index)}
-                onClick={() => commit(option)}
-              >
-                <span className="select__option-label">{option.label}</span>
-                {option.value === value && (
-                  <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                    <path d="M3 8.5 6.5 12 13 4.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                )}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      {open &&
+        rect !== undefined &&
+        createPortal(
+          <ul
+            className="select__menu select__menu--portal"
+            role="listbox"
+            id={listId}
+            aria-label={ariaLabel}
+            ref={menuRef}
+            style={{
+              left: rect.left,
+              width: rect.width,
+              maxHeight: rect.maxHeight,
+              ...(rect.top === undefined ? { bottom: rect.bottom } : { top: rect.top }),
+            }}
+          >
+            {options.map((option, index) => (
+              <li key={option.value}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={option.value === value}
+                  className={`select__option ${option.value === value ? "is-selected" : ""} ${index === activeIndex ? "is-active" : ""}`}
+                  disabled={option.disabled === true}
+                  onMouseEnter={() => setActiveIndex(index)}
+                  onClick={() => commit(option)}
+                >
+                  <span className="select__option-label">{option.label}</span>
+                  {option.value === value && (
+                    <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                      <path d="M3 8.5 6.5 12 13 4.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>,
+          document.body,
+        )}
     </div>
   );
 }
