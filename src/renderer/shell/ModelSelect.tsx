@@ -18,7 +18,7 @@ export interface ModelSelectProps {
   readonly compact?: boolean;
 }
 
-const MENU_MAX = 320;
+const MENU_MAX = 360;
 
 function modelKey(model: ProviderRef): string {
   return `${model.id}:${model.model}`;
@@ -31,7 +31,8 @@ function measure(trigger: HTMLElement, itemCount: number) {
   const above = rect.top;
   const estimate = Math.min(MENU_MAX, itemCount * 34 + 16);
   const openUp = below < 220 && above > below;
-  const maxHeight = Math.max(140, Math.min(MENU_MAX, (openUp ? above : below) - 8));
+  // 最小 200：三个服务商 × 三个模型时也不至于只剩两行就滚动。
+  const maxHeight = Math.max(200, Math.min(MENU_MAX, (openUp ? above : below) - 12));
   const height = Math.min(estimate, maxHeight);
   return {
     left: rect.left,

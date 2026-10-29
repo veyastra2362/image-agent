@@ -33,7 +33,7 @@ interface MenuRect {
   readonly maxHeight: number;
 }
 
-const MENU_MAX = 300;
+const MENU_MAX = 340;
 
 /**
  * 只用 top 定位。
@@ -47,7 +47,7 @@ function measure(trigger: HTMLElement, itemCount: number): MenuRect {
   const above = rect.top;
   const estimate = Math.min(MENU_MAX, itemCount * 34 + 12);
   const openUp = below < Math.min(MENU_MAX, 180) && above > below;
-  const maxHeight = Math.max(120, Math.min(MENU_MAX, (openUp ? above : below) - 8));
+  const maxHeight = Math.max(160, Math.min(MENU_MAX, (openUp ? above : below) - 12));
   const height = Math.min(estimate, maxHeight);
   return {
     left: rect.left,

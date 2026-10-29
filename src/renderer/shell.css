@@ -1568,7 +1568,10 @@ code {
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  max-height: 280px;
+  max-height: 340px;
+  /* 滚到底不要把下层页面带着滚；预留滚动条位置，出现时条目不会左右跳 */
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   overflow-y: auto;
   margin: 0;
   padding: var(--space-1);
@@ -1932,7 +1935,7 @@ code {
 
 .model-select__menu {
   min-width: 240px;
-  max-height: 320px;
+  max-height: 360px;
 }
 
 /* 底部输入框里的模型菜单向上展开，避免被窗口底边裁掉。 */

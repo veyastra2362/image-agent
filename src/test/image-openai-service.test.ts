@@ -182,7 +182,7 @@ test("自定义宽高原样发给上游（实测上游不限尺寸）", async ()
   assert.equal(job.status, "succeeded");
   const call = seen.find((entry) => entry.url === "/v1/images/generations");
   assert.ok(call, "应当发过请求");
-  assert.equal(call.body.size, "1536x640");
+  assert.equal((call.body as { size?: string }).size, "1536x640");
 });
 
 test("自动尺寸不传 size 字段", async () => {
@@ -202,7 +202,7 @@ test("自动尺寸不传 size 字段", async () => {
   assert.equal(job.status, "succeeded");
   const call = seen.find((entry) => entry.url === "/v1/images/generations");
   assert.ok(call);
-  assert.equal("size" in call.body, false, "auto 时不应带 size");
+  assert.equal("size" in (call.body as object), false, "auto 时不应带 size");
 });
 
 test("不支持的参数（seed/负面词）在 main 被能力校验拦下", async () => {
