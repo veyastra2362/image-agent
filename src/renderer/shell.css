@@ -2035,3 +2035,15 @@ code {
   z-index: 90;
   margin: 0;
 }
+
+/* 下拉的悬停反馈：触发器变底色，菜单项高亮（主界面与设置统一） */
+.select__trigger:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+
+.select__option:hover:not(:disabled),
+.select__option.is-active {
+  background: var(--surface-hover);
+  color: var(--text);
+}
