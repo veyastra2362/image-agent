@@ -1618,7 +1618,10 @@ code {
   justify-content: flex-start;
   gap: var(--space-3);
   width: 100%;
-  padding: 6px var(--space-3);
+  /* 固定行高 + 零纵向内边距：hover 背景上下留白完全对称 */
+  height: 32px;
+  padding: 0 var(--space-3);
+  line-height: 1;
   border: 0;
   border-radius: var(--radius-sm);
   background: none;
