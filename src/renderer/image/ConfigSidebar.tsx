@@ -42,6 +42,8 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
     clearReference,
     referenceLimit,
     referenceValid,
+    agentOptimize,
+    setAgentOptimize,
     prompt,
   } = useComposer();
 
@@ -191,18 +193,25 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
             </label>
           )}
 
-          <div className="composer__summary" aria-live="polite">
-            <dl>
-              <div>
-                <dt>上传</dt>
-                <dd>
-                  {referenceValid && model?.uploadsUserAssets
-                    ? `参考图将发送到「${model.displayName}」`
-                    : "参考图不离开本机"}
-                </dd>
-              </div>
-            </dl>
-          </div>
+          <label className="switch-field">
+            <span className="switch-field__text">
+              <span className="field__label">Agent 优化提示词</span>
+              <span className="field__hint">
+                {model?.agentModel === undefined
+                  ? "需要先在 设置 → API 设置 里填写「Agent 模型」才能用"
+                  : `生成前用 ${model.agentModel} 改写这句提示词`}
+              </span>
+            </span>
+            <input
+              type="checkbox"
+              className="switch"
+              role="switch"
+              aria-label="Agent 优化提示词"
+              checked={agentOptimize}
+              disabled={model?.agentModel === undefined}
+              onChange={(event) => setAgentOptimize(event.target.checked)}
+            />
+          </label>
         </div>
       </details>
 

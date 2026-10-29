@@ -50,6 +50,8 @@ export interface ProviderSettings {
   readonly partialImages: number;
   /** 单次请求超时（秒）。 */
   readonly timeoutSeconds: number;
+  /** 用于 Agent 改写提示词的 chat 模型（同一服务商）；留空表示不启用该功能。 */
+  readonly agentModel?: string;
 }
 
 /** 上游探测到的单个模型。 */
@@ -93,6 +95,7 @@ export interface ProviderSettingsView {
 export const MAX_PROFILES = 8;
 const PROFILE_ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,47}$/;
 const MAX_LABEL_LENGTH = 40;
+const MAX_MODEL_ID_LENGTH = 128;
 
 export const DEFAULT_PROFILE_ID = "default";
 export const DEFAULT_PROFILE_LABEL = "默认服务商";
@@ -123,9 +126,21 @@ export function validateProviderProfile(
   if (label === "" || label.length > MAX_LABEL_LENGTH) {
     return { ok: false, error: `名称不能为空，且不超过 ${MAX_LABEL_LENGTH} 个字符` };
   }
+  const agentModelRaw = typeof record.agentModel === "string" ? record.agentModel.trim() : "";
+  if (agentModelRaw.length > MAX_MODEL_ID_LENGTH) {
+    return { ok: false, error: `Agent 模型名不能超过 ${MAX_MODEL_ID_LENGTH} 个字符` };
+  }
   const validated = validateProviderSettings(record);
   if (!validated.ok) return validated;
-  return { ok: true, value: { ...validated.value, id: record.id, label } };
+  return {
+    ok: true,
+    value: {
+      ...validated.value,
+      id: record.id,
+      label,
+      ...(agentModelRaw === "" ? {} : { agentModel: agentModelRaw }),
+    },
+  };
 }
 
 /** 校验整份文件（多个 profile + activeId）。 */

@@ -80,6 +80,10 @@ export interface ComposerValue {
   readonly referenceBusy: boolean;
   readonly referenceValid: boolean;
   readonly referenceLimit: number;
+  /** 生成前先用 Agent 改写提示词。 */
+  readonly agentOptimize: boolean;
+  readonly setAgentOptimize: (value: boolean) => void;
+  readonly optimizing: boolean;
 
 
   readonly validation: ReturnType<typeof validateCreateJobInput>;
@@ -117,6 +121,8 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
   const [negativePrompt, setNegativePrompt] = useState("");
   const [references, setReferences] = useState<readonly ReferenceImage[]>([]);
   const [referenceBusy, setReferenceBusy] = useState(false);
+  const [agentOptimize, setAgentOptimize] = useState(false);
+  const [optimizing, setOptimizing] = useState(false);
   const [submitError, setSubmitError] = useState<string>();
   const [pending, setPending] = useState(false);
   // 每次提交换一个 requestId：同一个 id 重提会被 main 当成重复请求（幂等保护）。
@@ -235,7 +241,22 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
     if (!validation.ok || pending) return;
     setPending(true);
     setSubmitError(undefined);
-    const result = await state.submit(validation.value);
+
+    // 开了 Agent 优化就先让服务商改写提示词；失败则退回原提示词，不阻断生成。
+    let payload = validation.value;
+    if (agentOptimize && model?.agentModel !== undefined && prompt.trim() !== "") {
+      setOptimizing(true);
+      const optimized = await window.imageAgent.optimizePrompt({
+        providerId: model.id,
+        model: model.agentModel,
+        prompt,
+      });
+      setOptimizing(false);
+      if (optimized.ok) payload = { ...payload, agentPrompt: optimized.prompt, prompt };
+      else setSubmitError(`提示词优化失败，已按原文生成：${optimized.error.message}`);
+    }
+
+    const result = await state.submit(payload);
     setPending(false);
     if (!result.ok) setSubmitError(result.message ?? "提交失败");
     else {
@@ -280,6 +301,9 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
     referenceBusy,
     referenceValid,
     referenceLimit,
+    agentOptimize,
+    setAgentOptimize,
+    optimizing,
     validation,
     canSubmit,
     pending,

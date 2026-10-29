@@ -20,6 +20,8 @@ export interface ProviderDescriptor {
   readonly models: readonly ProviderModel[];
   /** 参考图是否需要上传给远端服务。本地 provider 为 false。 */
   readonly uploadsUserAssets: boolean;
+  /** 用于改写提示词的 chat 模型；没配就表示不能做 Agent 优化。 */
+  readonly agentModel?: string;
 }
 
 export interface ProviderGenerateRequest {

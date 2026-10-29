@@ -205,6 +205,8 @@ export interface ProviderRef {
   readonly capabilities: ImageCapabilities;
   /** 参考图是否会上传离开本机；UI 在提交前提示用户。 */
   readonly uploadsUserAssets: boolean;
+  /** 该服务商用于改写提示词的 chat 模型；有值才允许开 Agent 优化。 */
+  readonly agentModel?: string;
 }
 
 export interface CreateImageJobInput {
@@ -321,6 +323,11 @@ export type UploadReferenceResult =
   | { readonly ok: true; readonly assetId: string; readonly width: number; readonly height: number }
   | { readonly ok: false; readonly error: ImageError };
 
+/** Agent 改写提示词的结果。 */
+export type OptimizePromptResult =
+  | { readonly ok: true; readonly prompt: string }
+  | { readonly ok: false; readonly error: ImageError };
+
 export type ImageRequestResult =
   | { readonly ok: true; readonly event: ImageTaskEvent }
   | { readonly ok: false; readonly error: ImageError };
@@ -329,6 +336,7 @@ export interface ImageAgentApi {
   readonly getBootstrap: () => Promise<ImageBootstrap>;
   readonly createJob: (input: unknown) => Promise<ImageRequestResult>;
   readonly uploadReference: (input: unknown) => Promise<UploadReferenceResult>;
+  readonly optimizePrompt: (input: unknown) => Promise<OptimizePromptResult>;
   readonly cancelJob: (jobId: string) => Promise<ImageRequestResult>;
   readonly onTaskEvent: (listener: (event: ImageTaskEvent) => void) => Unsubscribe;
   readonly onNotification: (listener: (notification: Notification) => void) => Unsubscribe;

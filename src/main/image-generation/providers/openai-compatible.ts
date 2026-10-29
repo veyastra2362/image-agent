@@ -45,6 +45,8 @@ export interface OpenAICompatibleOptions {
   readonly timeoutMs?: number;
   /** 下载返回 URL 图片的超时，默认 60s。 */
   readonly downloadTimeoutMs?: number;
+  /** 用于改写提示词的 chat 模型（同一服务商）；不填就不能做 Agent 优化。 */
+  readonly agentModel?: string;
 }
 
 /**
@@ -160,6 +162,7 @@ export class OpenAICompatibleProvider implements ImageProvider {
         capabilities: CAPABILITIES,
       })),
       uploadsUserAssets: false,
+      ...(options.agentModel === undefined ? {} : { agentModel: options.agentModel }),
     };
   }
 
@@ -205,6 +208,40 @@ export class OpenAICompatibleProvider implements ImageProvider {
 
     const images = await this.collectImages(response.json, request, signal);
     return { state: "completed", images };
+  }
+
+  /**
+   * 用同一个服务商的 chat 接口把提示词改写得更适合出图。
+   * 走的是 OpenAI 兼容的 /chat/completions；不支持的服务商会 404，由上层提示。
+   */
+  async optimizePrompt(prompt: string, model: string, signal: AbortSignal): Promise<string> {
+    const response = await this.request(`${this.baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${this.apiKey}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        model,
+        temperature: 0.7,
+        messages: [
+          {
+            role: "system",
+            content:
+              "你是图像生成提示词助手。把用户的一句话改写成更适合文生图模型的详细提示词：" +
+              "补充主体、构图、光线、色彩、材质与风格，保留原意，不要解释，只输出改写后的提示词本身，长度不超过 200 字。",
+          },
+          { role: "user", content: prompt },
+        ],
+      }),
+      signal,
+      timeoutMs: Math.min(this.timeoutMs, 60_000),
+    });
+
+    if (!response.ok) throw new ProviderRequestError(toProviderError(response.status, response.json, response.text));
+    const payload = response.json;
+    const choices = isRecord(payload) ? payload.choices : undefined;
+    const first = Array.isArray(choices) ? choices[0] : undefined;
+    const content = isRecord(first) && isRecord(first.message) ? first.message.content : undefined;
+    if (typeof content !== "string" || content.trim().length === 0) throw new Error("服务商没有返回改写内容");
+    return content.trim();
   }
 
   /** 参考图编辑：multipart/form-data，图片字段名是 image。 */

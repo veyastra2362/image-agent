@@ -18,6 +18,7 @@ import {
   type ImageRequestResult,
   type ImageTaskEvent,
   type Notification,
+  type OptimizePromptResult,
   type UploadReferenceResult,
   type ProviderRef,
 } from "@shared/image-generation";
@@ -275,6 +276,43 @@ export class ImageGenerationService {
     return { ok: true, assetId: asset.id, width: asset.width, height: asset.height };
   }
 
+  /** Agent 优化提示词：交给对应服务商的 chat 接口改写。 */
+  async optimizePrompt(raw: unknown): Promise<OptimizePromptResult> {
+    if (typeof raw !== "object" || raw === null) {
+      return { ok: false, error: { code: "invalid-request", message: "请求格式不正确", retryable: false } };
+    }
+    const record = raw as Record<string, unknown>;
+    const providerId = record.providerId;
+    const prompt = record.prompt;
+    const model = record.model;
+    if (typeof providerId !== "string" || typeof prompt !== "string" || prompt.trim() === "") {
+      return { ok: false, error: { code: "invalid-request", message: "请先写好提示词", retryable: false } };
+    }
+    const provider = this.providers.get(providerId);
+    if (!provider) {
+      return { ok: false, error: { code: "unknown-provider", message: "服务商不存在，请先在设置里配置", retryable: false } };
+    }
+    const optimize = (provider as { optimizePrompt?: (p: string, m: string, s: AbortSignal) => Promise<string> })
+      .optimizePrompt;
+    if (typeof optimize !== "function") {
+      return {
+        ok: false,
+        error: { code: "unsupported-capability", message: "该服务商不支持提示词优化", retryable: false },
+      };
+    }
+    const chatModel = typeof model === "string" && model.length > 0 ? model : provider.descriptor.models[0]?.id ?? "";
+    const controller = new AbortController();
+    try {
+      const rewritten = await optimize.call(provider, prompt, chatModel, controller.signal);
+      return { ok: true, prompt: rewritten };
+    } catch (error) {
+      return {
+        ok: false,
+        error: { code: "provider-failed", message: safeMessage(error), retryable: true },
+      };
+    }
+  }
+
   async cancelJob(raw: unknown): Promise<ServiceResult> {
     const parsed = validateJobId(raw);
     if (!parsed.ok) return { ok: false, error: parsed.error };
@@ -322,6 +360,7 @@ export class ImageGenerationService {
         default: provider.descriptor.defaultModel === model.id,
         capabilities: model.capabilities,
         uploadsUserAssets: provider.descriptor.uploadsUserAssets,
+        ...(provider.descriptor.agentModel === undefined ? {} : { agentModel: provider.descriptor.agentModel }),
       })),
     );
   }

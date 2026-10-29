@@ -18,6 +18,7 @@ const CHANNELS = {
   createJob: "image:create-job",
   cancelJob: "image:cancel-job",
   uploadReference: "image:upload-reference",
+  optimizePrompt: "image:optimize-prompt",
   taskEvent: "image:task-event",
   notification: "image:notification",
 } as const;
@@ -78,6 +79,7 @@ const api: ImageAgentApi = {
   createJob: (input: unknown) => ipcRenderer.invoke(CHANNELS.createJob, input),
   cancelJob: (jobId: string) => ipcRenderer.invoke(CHANNELS.cancelJob, jobId),
   uploadReference: (input: unknown) => ipcRenderer.invoke(CHANNELS.uploadReference, input),
+  optimizePrompt: (input: unknown) => ipcRenderer.invoke(CHANNELS.optimizePrompt, input),
   onTaskEvent: (listener: (event: ImageTaskEvent) => void) => subscribe<ImageTaskEvent>(CHANNELS.taskEvent, listener),
   onNotification: (listener: (notification: Notification) => void) =>
     subscribe<Notification>(CHANNELS.notification, listener),

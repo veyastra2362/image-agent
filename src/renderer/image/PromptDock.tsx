@@ -36,6 +36,7 @@ export function PromptDock() {
     clearAllReferences,
     referenceBusy,
     referenceLimit,
+    optimizing,
   } = useComposer();
 
   const invalid = !validation.ok && prompt.trim() !== "";
@@ -179,7 +180,7 @@ export function PromptDock() {
             <ImagePlusIcon size={16} />
           </button>
           <button type="submit" className="button button--primary dock__submit" disabled={!canSubmit}>
-            {pending ? t("dock.generating") : `${t("dock.generate")} ${effectiveCount}`}
+            {optimizing ? "优化提示词…" : pending ? t("dock.generating") : `${t("dock.generate")} ${effectiveCount}`}
           </button>
         </div>
       </div>

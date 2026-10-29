@@ -262,6 +262,7 @@ function createProviders(store: ProviderSettingsStore): (FakeProvider | OpenAICo
           defaultModel: profile.defaultModel ?? profile.models[0],
           models: profile.models.map((id) => ({ id, displayName: id })),
           timeoutMs: profile.timeoutSeconds * 1000,
+          ...(profile.agentModel === undefined ? {} : { agentModel: profile.agentModel }),
         }),
       );
       summary.push({ baseUrl: profile.baseUrl, models: [...profile.models] });
