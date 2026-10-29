@@ -240,6 +240,16 @@ async function run() {
   );
   check("导航与菜单按钮同款样式", JSON.stringify(navStyle.nav) === JSON.stringify(navStyle.menu), navStyle);
 
+  // 顶栏四个按钮的盒子度量必须完全一致，否则 hover 框大小不一
+  const boxMetrics = await js(
+    "(() => { const pick = (sel) => { const s = getComputedStyle(document.querySelector(sel)); return [s.height, s.paddingLeft, s.paddingRight, s.borderRadius, s.fontWeight].join('|'); }; return { menu: pick('.menubar__button'), nav: pick('.navitem'), active: pick('.navitem.is-active') }; })()",
+  );
+  check(
+    "顶栏按钮 hover 框尺寸一致",
+    boxMetrics.menu === boxMetrics.nav && boxMetrics.nav === boxMetrics.active,
+    boxMetrics,
+  );
+
   // 选中态：淡填充，而不是下划线
   const activeStyle = await js(
     "(() => { const n = document.querySelector('.navitem.is-active'); const s = getComputedStyle(n); return { bg: s.backgroundColor, weight: s.fontWeight, shadow: s.boxShadow }; })()",
