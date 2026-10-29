@@ -9,7 +9,7 @@ import { LIMITS } from "../../shared/image-generation.ts";
 import { useComposer } from "./composer-state.tsx";
 import { ModelSelect } from "../shell/ModelSelect.tsx";
 import { useT } from "../lib/i18n.ts";
-import { CloseIcon, ImagePlusIcon } from "../shell/icons.tsx";
+import { CloseIcon, ImagePlusIcon, TrashIcon } from "../shell/icons.tsx";
 
 export function PromptDock() {
   const formId = useId();
@@ -88,10 +88,18 @@ export function PromptDock() {
             <span className="dock__ref-hint">可再加 {referenceLimit - references.length} 张</span>
           )}
           {references.length >= 2 && (
-            <button type="button" className="dock__ref-clear" onClick={clearAllReferences} title="清空所有参考图">
-              <CloseIcon size={9} />
-              清空
-            </button>
+            <figure className="dock__ref dock__ref--clear">
+              <button
+                type="button"
+                className="dock__ref-button dock__ref-button--clear"
+                onClick={clearAllReferences}
+                title="清空所有参考图"
+                aria-label="清空所有参考图"
+              >
+                <TrashIcon size={18} />
+              </button>
+              <figcaption>清空</figcaption>
+            </figure>
           )}
         </div>
       )}

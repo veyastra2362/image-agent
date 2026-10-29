@@ -2021,8 +2021,13 @@ code {
 
 .select__option:hover:not(:disabled),
 .select__option.is-active {
-  background: var(--surface-hover);
+  background: color-mix(in srgb, var(--text) 12%, transparent);
   color: var(--text);
+}
+
+/* 悬停时缩略图描边更亮，整行反馈更明显 */
+.select__option:hover .select__option-thumb {
+  border-color: var(--border-strong);
 }
 
 /* ---------------------------------------------------------------- 顶栏按钮统一度量 */
@@ -2576,23 +2581,15 @@ code {
   object-fit: cover;
 }
 
-/* 清空参考图按钮 */
-.dock__ref-clear {
-  align-self: flex-end;
-  display: inline-flex;
+/* 清空参考图：和缩略图同一套方块样式，中间放垃圾桶 */
+.dock__ref-button--clear {
+  display: flex;
   align-items: center;
-  gap: 4px;
-  margin-bottom: 16px;
-  padding: 2px 8px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--bg-elevated);
-  color: var(--text-muted);
-  font-size: var(--fs-xs);
-  cursor: pointer;
+  justify-content: center;
+  color: var(--text-faint);
 }
 
-.dock__ref-clear:hover {
+.dock__ref-button--clear:hover {
   color: var(--danger);
   border-color: var(--danger);
 }
