@@ -1951,17 +1951,18 @@ code {
 /* ---------------------------------------------------------------- 滚动条 */
 
 /*
- * 细、无边框、不抢空间的滚动条：轨道透明，滑块用 border 收缩成胶囊，
- * 视觉上像贴在边缘的浮条，而不是一条灰色轨道。
+ * 只用 ::-webkit-scrollbar 定制。
+ * 注意：不要再设 scrollbar-width / scrollbar-color —— Chromium 里它们优先级更高，
+ * 一设就会接管滚动条外观，下面这些定制全部失效。
  */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--text-faint) 55%, transparent) transparent;
-}
 
+/*
+ * 细滚动条：8px 命中区 + 2.5px 透明边框，实际显示的滑块只有 3px 宽。
+ * 平时很淡，悬停变亮——比默认的粗条安静得多。
+ */
 *::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 
 *::-webkit-scrollbar-track {
@@ -1969,14 +1970,15 @@ code {
 }
 
 *::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--text-faint) 45%, transparent);
-  border: 3px solid transparent;
+  background: color-mix(in srgb, var(--text) 16%, transparent);
+  border: 2.5px solid transparent;
   border-radius: 999px;
   background-clip: content-box;
+  transition: background-color 120ms ease;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--text-faint) 75%, transparent);
+  background: color-mix(in srgb, var(--text) 34%, transparent);
   background-clip: content-box;
 }
 
@@ -2422,12 +2424,6 @@ code {
 .sidebar__body,
 .size-dialog .modal__body {
   scrollbar-gutter: stable;
-}
-
-/* 滚动条再细一点，预留的空白不至于太显眼 */
-*::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
 }
 
 /* ---------------------------------------------------------------- 详情抽屉图片 */
