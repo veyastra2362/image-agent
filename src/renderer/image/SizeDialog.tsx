@@ -93,6 +93,12 @@ export function SizeDialog({ spec, customRatioLabel, capabilities, onCommit, onC
 
         <div className="modal__body">
           <fieldset className="segmented" aria-label="尺寸模式">
+            {/* 滑块：跟着选中模式左右移动 */}
+            <span
+              className="segmented__thumb"
+              aria-hidden="true"
+              style={{ transform: `translateX(calc(${MODES.findIndex((mode) => mode.value === draft.mode)} * (100% + var(--space-1))))` }}
+            />
             {MODES.map((mode, index) => {
               const disabled = mode.value === "auto" ? !autoSupported : mode.value === "custom" ? !customSupported : false;
               return (
