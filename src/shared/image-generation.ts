@@ -375,8 +375,7 @@ export const LIMITS = {
   idMaxLength: 64,
   requestIdMaxLength: 128,
   modelMaxLength: 128,
-  maxOutputCount: 4,
-  maxReferenceImages: 4,
+  maxOutputCount: 10,
   seedMax: 2_147_483_647,
   /** 自定义宽高允许范围；与 MAX_IMAGE_EDGE / MIN_IMAGE_EDGE 一致。 */
   edgeMin: MIN_IMAGE_EDGE,
@@ -442,9 +441,7 @@ export function validateCreateJobInput(raw: unknown): ValidationResult<CreateIma
   const referenceAssetIds: string[] = [];
   if (raw.referenceAssetIds !== undefined) {
     if (!Array.isArray(raw.referenceAssetIds)) return fail("invalid-request", "referenceAssetIds 必须是数组");
-    if (raw.referenceAssetIds.length > LIMITS.maxReferenceImages) {
-      return fail("invalid-request", `参考图最多 ${LIMITS.maxReferenceImages} 张`);
-    }
+
     for (const id of raw.referenceAssetIds) {
       if (typeof id !== "string" || id.length > LIMITS.idMaxLength || !ID_PATTERN.test(id)) {
         return fail("invalid-request", "参考图 asset ID 格式不合法");

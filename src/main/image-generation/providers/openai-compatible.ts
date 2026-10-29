@@ -113,7 +113,8 @@ const CAPABILITIES: ImageCapabilities = {
   // 参考图不限张数（实测两张可用；上限由上游决定，这里不设人为限制）。
   referenceImageLimit: Number.POSITIVE_INFINITY,
   aspectRatios: SUPPORTED_RATIOS,
-  outputCountLimit: 4,
+  // 实测这个网关一次最多 10 张。
+  outputCountLimit: 10,
   seed: false,
   negativePrompt: false,
   // 一次性请求/响应：任务在 main 里等结果，没有可轮询的远端任务，也就无法取消。

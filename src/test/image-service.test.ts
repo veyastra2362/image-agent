@@ -121,7 +121,7 @@ describe("ImageGenerationService（离线 fake provider）", () => {
     const cases: [Record<string, unknown>, string][] = [
       [request({ providerId: "openai" }), "unknown-provider"],
       [request({ model: "dall-e-3" }), "unknown-model"],
-      [request({ count: 9 }), "invalid-request"],
+      [request({ count: 11 }), "invalid-request"],
       [request({ count: 0 }), "invalid-request"],
       [request({ referenceAssetIds: ["asset-forged"] }), "reference-not-found"],
       [request({ referenceAssetIds: ["C:\\secret.png"] }), "invalid-request"],

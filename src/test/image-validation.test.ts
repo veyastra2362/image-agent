@@ -71,7 +71,7 @@ describe("validateCreateJobInput", () => {
   it("数量、seed、预算、比例边界", () => {
     const cases: unknown[] = [
       { count: 0 },
-      { count: 5 },
+      { count: 11 },
       { count: 1.5 },
       { count: "2" },
       { seed: -1 },
