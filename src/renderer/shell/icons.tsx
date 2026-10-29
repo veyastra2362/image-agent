@@ -45,7 +45,7 @@ export function MinimizeIcon({ size = 10 }: { readonly size?: number }) {
 export function MaximizeIcon({ size = 10 }: { readonly size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 10 10" aria-hidden="true" focusable="false">
-      <rect x="2" y="2" width="6" height="6" rx="1" fill="none" stroke="currentColor" strokeWidth="1.1" />
+      <rect x="1.8" y="1.8" width="6.4" height="6.4" rx="1" fill="none" stroke="currentColor" strokeWidth="1.1" />
     </svg>
   );
 }
@@ -68,15 +68,13 @@ export function CloseIcon({ size = 10 }: { readonly size?: number }) {
 }
 
 export function GearIcon({ size = 14 }: { readonly size?: number }) {
+  // 14px 下齿轮的齿容易糊成一团，用"滑杆"表示设置更清晰。
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-      <circle cx="8" cy="8" r="2.2" fill="none" stroke="currentColor" strokeWidth="1.1" />
-      <path
-        d="M8 1.6v1.6M8 12.8v1.6M1.6 8h1.6M12.8 8h1.6M3.5 3.5l1.1 1.1M11.4 11.4l1.1 1.1M12.5 3.5l-1.1 1.1M4.6 11.4l-1.1 1.1"
-        stroke="currentColor"
-        strokeWidth="1.1"
-        strokeLinecap="round"
-      />
+      <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" opacity="0.55" />
+      <circle cx="6" cy="4.5" r="1.6" fill="none" stroke="currentColor" strokeWidth="1.2" />
+      <circle cx="10.5" cy="8" r="1.6" fill="none" stroke="currentColor" strokeWidth="1.2" />
+      <circle cx="5" cy="11.5" r="1.6" fill="none" stroke="currentColor" strokeWidth="1.2" />
     </svg>
   );
 }
