@@ -17,6 +17,7 @@ const CHANNELS = {
   bootstrap: "image:bootstrap",
   createJob: "image:create-job",
   cancelJob: "image:cancel-job",
+  uploadReference: "image:upload-reference",
   taskEvent: "image:task-event",
   notification: "image:notification",
 } as const;
@@ -76,6 +77,7 @@ const api: ImageAgentApi = {
   getBootstrap: () => ipcRenderer.invoke(CHANNELS.bootstrap),
   createJob: (input: unknown) => ipcRenderer.invoke(CHANNELS.createJob, input),
   cancelJob: (jobId: string) => ipcRenderer.invoke(CHANNELS.cancelJob, jobId),
+  uploadReference: (input: unknown) => ipcRenderer.invoke(CHANNELS.uploadReference, input),
   onTaskEvent: (listener: (event: ImageTaskEvent) => void) => subscribe<ImageTaskEvent>(CHANNELS.taskEvent, listener),
   onNotification: (listener: (notification: Notification) => void) =>
     subscribe<Notification>(CHANNELS.notification, listener),

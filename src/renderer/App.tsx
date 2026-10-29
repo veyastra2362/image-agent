@@ -37,12 +37,32 @@ export function App() {
   const [environment, setEnvironment] = useState<AppEnvironment>();
   const [appearance, setAppearance] = useState<Appearance>(loadAppearance);
   const [maximized, setMaximized] = useState(false);
+  const [zoom, setZoom] = useState<{ src: string; alt: string }>();
 
   useEffect(() => {
     applyAppearance(appearance);
     saveAppearance(appearance);
     setLang(appearance.language);
   }, [appearance]);
+
+  // 点图看原图：各页面统一发事件，App 只负责渲染浮层。
+  useEffect(() => {
+    const onZoom = (event: Event) => {
+      const detail = (event as CustomEvent<{ src: string; alt: string }>).detail;
+      if (detail?.src) setZoom(detail);
+    };
+    window.addEventListener("image-agent:zoom", onZoom);
+    return () => window.removeEventListener("image-agent:zoom", onZoom);
+  }, []);
+
+  useEffect(() => {
+    if (zoom === undefined) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setZoom(undefined);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [zoom]);
 
   useEffect(() => {
     void window.appInfo
@@ -218,6 +238,13 @@ export function App() {
           onLanguageChange={(language) => setAppearance((current) => ({ ...current, language }))}
           onClose={() => setSettingsTab(undefined)}
         />
+      )}
+
+      {zoom !== undefined && (
+        <div className="lightbox" role="dialog" aria-modal="true" aria-label="查看原图" onClick={() => setZoom(undefined)}>
+          <img src={zoom.src} alt={zoom.alt} />
+          <span className="lightbox__hint">点击任意处或按 Esc 关闭</span>
+        </div>
       )}
 
       <div className="toasts" aria-live="polite">

@@ -28,3 +28,13 @@ export function newRequestId(): string {
   crypto.getRandomValues(bytes);
   return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
+
+/** 读成本地 data URL（参考图预览与上传都用它）。 */
+export function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(reader.error ?? new Error("读取失败"));
+    reader.readAsDataURL(file);
+  });
+}

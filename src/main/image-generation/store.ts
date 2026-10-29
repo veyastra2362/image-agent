@@ -17,6 +17,8 @@ export interface JobStore {
   saveAsset(asset: ImageAsset, bytes?: Uint8Array): ImageAsset;
   getAsset(id: string): ImageAsset | undefined;
   hasAsset(id: string): boolean;
+  /** 参考图要原样发给上游，这里把字节读回来。 */
+  bytesForAsset(id: string): Uint8Array | undefined;
   listAssetsForJob(jobId: string): readonly ImageAsset[];
 }
 
@@ -66,6 +68,13 @@ export class MemoryJobStore implements JobStore {
 
   hasAsset(id: string): boolean {
     return this.assets.has(id);
+  }
+
+  bytesForAsset(id: string): Uint8Array | undefined {
+    const asset = this.assets.get(id);
+    if (asset === undefined) return undefined;
+    const match = /^data:([^;]+);base64,(.*)$/.exec(asset.previewUrl);
+    return match?.[2] === undefined ? undefined : Buffer.from(match[2], "base64");
   }
 
   listAssetsForJob(jobId: string): readonly ImageAsset[] {

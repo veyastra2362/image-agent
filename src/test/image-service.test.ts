@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, it } from "node:test";
 import type { ImageTaskEvent, Notification } from "../shared/image-generation";
 import { FakeProvider } from "../main/image-generation/providers/fake";
@@ -149,6 +151,32 @@ describe("ImageGenerationService（离线 fake provider）", () => {
     const count = await service.createJob(request({ model: "fake-sync-1", count: 2 }));
     assert.equal(count.ok, false);
     if (!count.ok) assert.equal(count.error.code, "unsupported-capability");
+  });
+
+  it("上传参考图：PNG 转码落库并返回 assetId，非法类型被拒", async () => {
+    const { service, store } = createHarness();
+    const b64 = readFileSync(path.join(process.cwd(), "fixtures", "fake-square-a.png")).toString("base64");
+
+    const ok = await service.uploadReference({ dataBase64: b64, mimeType: "image/png" });
+    assert.equal(ok.ok, true, JSON.stringify(ok));
+    if (!ok.ok) return;
+    assert.ok(ok.assetId.startsWith("ref-"));
+    assert.equal(ok.width, 768);
+    assert.equal(ok.height, 768);
+    assert.ok(store.getAsset(ok.assetId), "参考图应该进作品库");
+    const bytes = store.bytesForAsset(ok.assetId);
+    assert.ok(bytes !== undefined && bytes.length > 0, "参考图字节应能读回");
+    assert.equal(Buffer.from(bytes as Uint8Array).subarray(1, 4).toString("ascii"), "PNG");
+
+    const gif = await service.uploadReference({ dataBase64: b64, mimeType: "image/gif" });
+    assert.equal(gif.ok, false);
+    if (!gif.ok) assert.match(gif.error.message, /PNG/);
+
+    const garbage = await service.uploadReference({ dataBase64: "aGVsbG8=", mimeType: "image/png" });
+    assert.equal(garbage.ok, false);
+
+    const missing = await service.uploadReference({ mimeType: "image/png" });
+    assert.equal(missing.ok, false);
   });
 
   it("参考图：不存在的 asset ID 被拒绝", async () => {

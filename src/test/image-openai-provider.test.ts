@@ -58,8 +58,35 @@ test("能力声明是保守的：不支持 seed/负面词/取消", () => {
   assert.equal(caps.negativePrompt, false);
   assert.equal(caps.cancel, false);
   assert.equal(caps.async, false);
-  assert.deepEqual(caps.aspectRatios, ["1:1", "4:3", "3:4"]);
+  assert.ok(caps.aspectRatios.length >= 8, "常用比例应全部放开");
+  assert.equal(caps.autoSize, true);
+  assert.equal(caps.customSize, true);
+  assert.equal(caps.imageToImage, true);
   assert.equal(provider.descriptor.uploadsUserAssets, false);
+});
+
+test("带参考图时走 /images/edits 的 multipart 请求", async () => {
+  const { provider, calls } = makeProvider(() => jsonResponse(200, { data: [{ b64_json: PNG_B64 }] }));
+  const result = await provider.submit(
+    {
+      ...request,
+      referenceAssetIds: ["ref-1"],
+      referenceImages: [{ bytes: new Uint8Array([137, 80, 78, 71]), mimeType: "image/png" }],
+    },
+    new AbortController().signal,
+  );
+  assert.equal(result.state, "completed");
+  const call = calls[0];
+  assert.ok(call);
+  assert.equal(call.url, "https://api.example.com/v1/images/edits");
+  assert.ok(call.init.body instanceof FormData);
+  const form = call.init.body as FormData;
+  assert.equal(form.get("model"), "model-a");
+  assert.equal(form.get("prompt"), "a cat");
+  assert.equal(form.get("size"), "1024x1024");
+  assert.ok(form.get("image") instanceof Blob);
+  // multipart 由 fetch 自己加 boundary，不能手动设 content-type。
+  assert.equal("content-type" in (call.init.headers ?? {}), false);
 });
 
 test("比例 + 分辨率吸附到上游固定尺寸表", () => {

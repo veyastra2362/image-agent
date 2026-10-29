@@ -162,7 +162,7 @@ async function run() {
   check("renderer 无法访问 Node/Electron", surface.node === "undefined" && surface.process === "undefined", surface);
   check(
     "API 只有明确的方法",
-    JSON.stringify(surface.keys) === JSON.stringify(["cancelJob", "createJob", "getBootstrap", "onNotification", "onTaskEvent"]),
+    JSON.stringify(surface.keys) === JSON.stringify(["cancelJob", "createJob", "getBootstrap", "onNotification", "onTaskEvent", "uploadReference"]),
     surface.keys,
   );
 
@@ -322,7 +322,14 @@ async function run() {
   check("任务栏显示已完成", jobStates.some((text) => text.includes("已完成")), jobStates);
   await shot("02-succeeded");
 
+  // 缩略图点击是看原图；详情走 caption 里的按钮。
   await js("document.querySelector('.result-card__button').click(); true");
+  await waitFor("document.querySelector('.lightbox')", "原图浮层");
+  check("点击缩略图打开原图", true, "");
+  await js("window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); true");
+  await sleep(200);
+  check("Esc 关闭原图", !(await js("Boolean(document.querySelector('.lightbox'))")), "");
+  await js("(() => { const b = [...document.querySelectorAll('.result-card figcaption button')][0]; if (!b) return false; b.click(); return true; })()");
   await waitFor("document.querySelector('.drawer')", "详情抽屉");
   const drawerText = await js("document.querySelector('.drawer').innerText");
   check("详情显示模型", drawerText.includes("Fake Sync 1"), drawerText.slice(0, 160));
@@ -365,7 +372,7 @@ async function run() {
   check("预设比例至少 12 种（含自定义）", ratioCount >= 13, ratioCount);
   const tiers = await js("[...document.querySelectorAll('.chips .chip')].map((n) => n.textContent).filter((t) => /K/.test(t))");
   check("有 1K/2K/4K 分辨率档位", tiers.some((t) => t.includes("1K")) && tiers.some((t) => t.includes("2K")) && tiers.some((t) => t.includes("4K")), tiers);
-  const preview = await js("document.querySelector('.modal__preview').textContent");
+  const preview = await js("document.querySelector('.size-dialog__preview').textContent");
   check("显示将使用的尺寸", /将使用 \d+×\d+/.test(preview), preview);
   await shot("07-size-dialog");
   // 切到 16:9 看预览是否跟着变
@@ -373,7 +380,7 @@ async function run() {
     "(() => { const b = [...document.querySelectorAll('.ratio')].find((n) => n.textContent.includes('16:9')); b.click(); return true; })()",
   );
   await sleep(150);
-  const preview169 = await js("document.querySelector('.modal__preview').textContent");
+  const preview169 = await js("document.querySelector('.size-dialog__preview').textContent");
   check("切换比例后预览更新", preview169 !== preview && /×/.test(preview169), preview169);
   // 取消不应改变设置
   await js("(() => { const b = [...document.querySelectorAll('.modal__foot .button--ghost')].pop(); b.click(); return true; })()");
@@ -412,6 +419,7 @@ async function run() {
 
   // 输入框旁边也有模型选择
   check("底部输入框旁有模型选择", (await js("Boolean(document.querySelector('.dock .select .select__trigger'))")) === true, "");
+  check("有上传参考图按钮", (await js("Boolean(document.querySelector('.dock__upload'))")) === true, "");
 
   // 手动添加模型：先只有按钮，点了才有输入框；加入后出现提示浮层
   check("默认不显示手动输入框", (await js("!document.querySelector('.settings__body .settings__inline input')")) === true, "");

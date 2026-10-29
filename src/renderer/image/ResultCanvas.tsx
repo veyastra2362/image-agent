@@ -14,7 +14,12 @@ interface ResultCanvasProps {
   readonly onOpenAsset: (assetId: string) => void;
 }
 
+function openZoom(src: string, alt: string): void {
+  window.dispatchEvent(new CustomEvent("image-agent:zoom", { detail: { src, alt } }));
+}
+
 export function ResultCanvas({ state, onOpenAsset }: ResultCanvasProps) {
+
   const active = state.jobs.filter((entry) => describeStatus(entry.job.status).active);
   const completed = state.jobs.filter((entry) => entry.job.status === "succeeded" && entry.assets.length > 0);
   const problems = state.jobs.filter((entry) => entry.job.status === "failed");
@@ -105,10 +110,15 @@ export function ResultCanvas({ state, onOpenAsset }: ResultCanvasProps) {
           </p>
           {historyOnly.map((asset) => (
             <figure key={asset.id} className="result-card result-card--memory">
-              <button type="button" className="result-card__button" onClick={() => onOpenAsset(asset.id)}>
+              <button type="button" className="result-card__button" onClick={() => openZoom(asset.previewUrl, asset.prompt)} aria-label={`查看原图：${asset.prompt}`}>
                 <img src={asset.previewUrl} alt={`历史作品：${asset.prompt}`} loading="lazy" />
               </button>
-              <figcaption>{asset.prompt}</figcaption>
+              <figcaption>
+                <span>{asset.prompt}</span>
+                <button type="button" className="button button--tiny" onClick={() => onOpenAsset(asset.id)}>
+                  详情
+                </button>
+              </figcaption>
             </figure>
           ))}
         </section>
@@ -174,13 +184,18 @@ function ResultGroup({
             <button
               type="button"
               className="result-card__button"
-              onClick={() => onOpenAsset(asset.id)}
-              aria-label={`查看大图：${asset.prompt}`}
+              onClick={() => openZoom(asset.previewUrl, asset.prompt)}
+              aria-label={`查看原图：${asset.prompt}`}
             >
               <img src={asset.previewUrl} alt={asset.prompt} loading="lazy" />
             </button>
             <figcaption>
-              {asset.width}×{asset.height}
+              <span className="result-card__size">
+                {asset.width}×{asset.height}
+              </span>
+              <button type="button" className="button button--tiny" onClick={() => onOpenAsset(asset.id)}>
+                详情
+              </button>
             </figcaption>
           </figure>
         ))}

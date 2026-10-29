@@ -3,6 +3,7 @@ export const IMAGE_CHANNELS = {
   bootstrap: "image:bootstrap",
   createJob: "image:create-job",
   cancelJob: "image:cancel-job",
+  uploadReference: "image:upload-reference",
   taskEvent: "image:task-event",
   notification: "image:notification",
 } as const;

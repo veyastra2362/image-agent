@@ -83,7 +83,7 @@ export function SizeDialog({ spec, customRatioLabel, capabilities, onCommit, onC
 
   return (
     <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onCancel()}>
-      <div className="modal" role="dialog" aria-modal="true" aria-labelledby={`${formId}-title`}>
+      <div className="modal size-dialog" role="dialog" aria-modal="true" aria-labelledby={`${formId}-title`}>
         <header className="modal__head">
           <h2 id={`${formId}-title`}>画面</h2>
           <button type="button" className="modal__close" onClick={onCancel} aria-label="关闭">
@@ -113,8 +113,9 @@ export function SizeDialog({ spec, customRatioLabel, capabilities, onCommit, onC
             })}
           </fieldset>
 
+          <div className="size-dialog__panel" key={draft.mode}>
           {draft.mode === "ratio" && (
-            <>
+            <div>
               <div className="field">
                 <span className="field__label">基准分辨率</span>
                 <div className="chips" role="radiogroup" aria-label="基准分辨率">
@@ -188,7 +189,7 @@ export function SizeDialog({ spec, customRatioLabel, capabilities, onCommit, onC
                   {ratioError && <span className="field__hint field__hint--warn">{ratioError}</span>}
                 </label>
               )}
-            </>
+            </div>
           )}
 
           {draft.mode === "custom" && (
@@ -229,6 +230,10 @@ export function SizeDialog({ spec, customRatioLabel, capabilities, onCommit, onC
               </label>
             </div>
           )}
+          {draft.mode === "auto" && (
+            <p className="field__hint">自动模式下比例与分辨率不参与请求，上游给什么尺寸就用什么尺寸。</p>
+          )}
+          </div>
 
           <div className="field">
             <span className="field__label">
@@ -272,7 +277,17 @@ export function SizeDialog({ spec, customRatioLabel, capabilities, onCommit, onC
             </span>
           </label>
 
-          <p className="modal__preview" aria-live="polite">
+
+          {autoSupported && draft.mode === "auto" && (
+            <p className="field__hint">自动模式下比例与分辨率不参与请求，上游给什么尺寸就用什么尺寸。</p>
+          )}
+          {draft.mode === "custom" && (
+            <p className="field__hint">自定义尺寸会直接发给上游，超出其支持范围时会被拒绝。</p>
+          )}
+        </div>
+
+        <footer className="modal__foot modal__foot--split">
+          <p className="size-dialog__preview" aria-live="polite">
             {draft.mode === "auto"
               ? "由模型自行决定尺寸"
               : draft.mode === "custom"
@@ -285,21 +300,14 @@ export function SizeDialog({ spec, customRatioLabel, capabilities, onCommit, onC
                     ? `将使用 ${presetSize.width}×${presetSize.height}`
                     : "比例不合法"}
           </p>
-          {autoSupported && draft.mode === "auto" && (
-            <p className="field__hint">自动模式下比例与分辨率不参与请求，上游给什么尺寸就用什么尺寸。</p>
-          )}
-          {draft.mode === "custom" && (
-            <p className="field__hint">自定义尺寸会直接发给上游，超出其支持范围时会被拒绝。</p>
-          )}
-        </div>
-
-        <footer className="modal__foot">
+          <div className="modal__foot-actions">
           <button type="button" className="button button--ghost" onClick={onCancel}>
             取消
           </button>
           <button type="button" className="button button--primary" onClick={commit}>
             确定
           </button>
+          </div>
         </footer>
       </div>
     </div>

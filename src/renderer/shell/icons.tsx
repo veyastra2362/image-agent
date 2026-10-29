@@ -78,3 +78,13 @@ export function GearIcon({ size = 14 }: { readonly size?: number }) {
     </svg>
   );
 }
+/** 上传参考图：图片 + 加号。 */
+export function ImagePlusIcon({ size = 14 }: { readonly size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <rect x="1.8" y="2.6" width="9.4" height="8.8" rx="1.6" fill="none" stroke="currentColor" strokeWidth="1.1" />
+      <path d="M2.4 9.4 5.7 6.4l2.4 2.2 1.6-1.3 1.5 1.3" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M13 9.4v4.2M10.9 11.5h4.2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  );
+}

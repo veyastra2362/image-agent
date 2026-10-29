@@ -4,7 +4,7 @@
  * 拆成 context 是为了让"配置在左、提示词在右下"这个布局成立，
  * 而提交逻辑、校验、能力适配只留一份。
  */
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   LIMITS,
   validateCreateJobInput,
@@ -13,8 +13,16 @@ import {
   type ProviderRef,
 } from "../../shared/image-generation.ts";
 import { newRequestId } from "../lib/format.ts";
+import { readFileAsDataUrl } from "../lib/format.ts";
 import { describeSpec } from "../lib/output-spec.ts";
 import type { ImageAgentState } from "./use-image-agent.ts";
+
+export interface ReferenceImage {
+  readonly id: string;
+  readonly src: string;
+  readonly width: number;
+  readonly height: number;
+}
 
 const DEFAULT_SPEC: OutputSpec = {
   mode: "ratio",
@@ -58,8 +66,12 @@ export interface ComposerValue {
   readonly setNegativePrompt: (value: string) => void;
 
   readonly referenceOptions: readonly { readonly id: string; readonly label: string }[];
-  readonly referenceAssetId: string | undefined;
-  readonly setReferenceAssetId: (id: string | undefined) => void;
+  /** 当前参考图（上传或从作品库选），最多一张。 */
+  readonly reference: ReferenceImage | undefined;
+  readonly setReferenceFromAsset: (id: string | undefined) => void;
+  readonly uploadReference: (file: File) => Promise<void>;
+  readonly clearReference: () => void;
+  readonly referenceBusy: boolean;
   readonly referenceValid: boolean;
 
 
@@ -96,7 +108,8 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
   const [count, setCount] = useState(1);
   const [seed, setSeed] = useState("");
   const [negativePrompt, setNegativePrompt] = useState("");
-  const [referenceAssetId, setReferenceAssetId] = useState<string>();
+  const [reference, setReference] = useState<ReferenceImage>();
+  const [referenceBusy, setReferenceBusy] = useState(false);
   const [submitError, setSubmitError] = useState<string>();
   const [pending, setPending] = useState(false);
   // 每次提交换一个 requestId：同一个 id 重提会被 main 当成重复请求（幂等保护）。
@@ -128,17 +141,64 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
   const effectiveCount = Math.min(Math.max(1, count), maxCount);
 
   const referenceOptions = useMemo(() => referenceSources(state), [state]);
-  const referenceValid =
-    referenceAssetId !== undefined &&
-    referenceOptions.some((option) => option.id === referenceAssetId) &&
-    (caps?.imageToImage ?? false);
+  const referenceValid = reference !== undefined && (caps?.imageToImage ?? false);
+
+  /** 从作品库选一张：预览地址用作品自身的 URL。 */
+  const setReferenceFromAsset = useCallback(
+    (id: string | undefined) => {
+      if (id === undefined) {
+        setReference(undefined);
+        return;
+      }
+      const asset = referenceSources(state).find((option) => option.id === id);
+      const found =
+        state.jobs.flatMap((entry) => entry.assets).find((candidate) => candidate.id === id) ??
+        state.remembered.find((candidate) => candidate.id === id);
+      if (found === undefined) return;
+      setReference({ id, src: found.previewUrl, width: found.width, height: found.height });
+      void asset;
+    },
+    [state],
+  );
+
+  /** 上传一张本地图片：转 base64 交给 main 落库，预览用本地 data URL。 */
+  const uploadReference = useCallback(
+    async (file: File) => {
+      if (file.size > 10 * 1024 * 1024) {
+        setSubmitError("参考图不能超过 10MB");
+        return;
+      }
+      setReferenceBusy(true);
+      try {
+        const dataUrl = await readFileAsDataUrl(file);
+        const dataBase64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
+        const result = await window.imageAgent.uploadReference({
+          dataBase64,
+          mimeType: file.type || "image/png",
+        });
+        if (!result.ok) {
+          setSubmitError(result.error.message);
+          return;
+        }
+        setReference({ id: result.assetId, src: dataUrl, width: result.width, height: result.height });
+        setSubmitError(undefined);
+      } catch (error) {
+        setSubmitError(`读取图片失败：${safeMessage(error)}`);
+      } finally {
+        setReferenceBusy(false);
+      }
+    },
+    [],
+  );
+
+  const clearReference = useCallback(() => setReference(undefined), []);
 
   const validation = validateCreateJobInput({
     requestId,
     providerId: model?.id ?? "",
     ...(model === undefined ? {} : { model: model.model }),
     prompt,
-    ...(!referenceValid || referenceAssetId === undefined ? {} : { referenceAssetIds: [referenceAssetId] }),
+    ...(!referenceValid || reference === undefined ? {} : { referenceAssetIds: [reference.id] }),
     aspectRatio: effectiveSpec.aspectRatio,
     sizeMode: effectiveSpec.mode,
     ...(effectiveSpec.mode === "custom"
@@ -194,8 +254,11 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
     negativePrompt,
     setNegativePrompt,
     referenceOptions,
-    referenceAssetId,
-    setReferenceAssetId,
+    reference,
+    setReferenceFromAsset,
+    uploadReference,
+    clearReference,
+    referenceBusy,
     referenceValid,
     validation,
     canSubmit,
@@ -205,6 +268,10 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
   };
 
   return <ComposerContext.Provider value={value}>{children}</ComposerContext.Provider>;
+}
+
+export function safeMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 export function resolveModel(models: readonly ProviderRef[], key: string | undefined): ProviderRef | undefined {

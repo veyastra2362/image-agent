@@ -288,6 +288,16 @@ export class FileJobStore implements JobStore {
     return this.#assets.has(id);
   }
 
+  bytesForAsset(id: string): Uint8Array | undefined {
+    const file = this.#files.get(id);
+    if (file === undefined) return undefined;
+    try {
+      return readFileSync(file);
+    } catch {
+      return undefined;
+    }
+  }
+
   listAssetsForJob(jobId: string): readonly ImageAsset[] {
     return [...this.#assets.values()]
       .filter((asset) => asset.jobId === jobId)

@@ -310,6 +310,16 @@ export interface ImageBootstrap {
 export type Unsubscribe = () => void;
 
 /** main 对"创建/取消任务"这类请求的返回形状；失败是可判别结果，不是异常。 */
+/** 上传一张参考图：renderer 只传 base64，main 负责校验、转码并落库。 */
+export interface UploadReferenceInput {
+  readonly dataBase64: string;
+  readonly mimeType: string;
+}
+
+export type UploadReferenceResult =
+  | { readonly ok: true; readonly assetId: string; readonly width: number; readonly height: number }
+  | { readonly ok: false; readonly error: ImageError };
+
 export type ImageRequestResult =
   | { readonly ok: true; readonly event: ImageTaskEvent }
   | { readonly ok: false; readonly error: ImageError };
@@ -317,6 +327,7 @@ export type ImageRequestResult =
 export interface ImageAgentApi {
   readonly getBootstrap: () => Promise<ImageBootstrap>;
   readonly createJob: (input: unknown) => Promise<ImageRequestResult>;
+  readonly uploadReference: (input: unknown) => Promise<UploadReferenceResult>;
   readonly cancelJob: (jobId: string) => Promise<ImageRequestResult>;
   readonly onTaskEvent: (listener: (event: ImageTaskEvent) => void) => Unsubscribe;
   readonly onNotification: (listener: (notification: Notification) => void) => Unsubscribe;

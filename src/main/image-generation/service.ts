@@ -18,6 +18,7 @@ import {
   type ImageRequestResult,
   type ImageTaskEvent,
   type Notification,
+  type UploadReferenceResult,
   type ProviderRef,
 } from "@shared/image-generation";
 import { readPngSize } from "./fixtures";
@@ -49,6 +50,10 @@ const DEFAULT_RESOLUTION = 1024;
 const MAX_DOWNLOAD_ATTEMPTS = 3;
 const MAX_POLL_TRANSIENT_FAILURES = 3;
 const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
+/** 参考图上限：10MB（base64 后约 13.3MB）。 */
+const MAX_REFERENCE_MB = 10;
+const MAX_REFERENCE_BYTES = MAX_REFERENCE_MB * 1024 * 1024;
+const MAX_REFERENCE_BASE64 = Math.ceil(MAX_REFERENCE_BYTES / 3) * 4;
 
 export class ImageGenerationService {
   /**
@@ -209,6 +214,67 @@ export class ImageGenerationService {
     return { ok: true, event: toTaskEvent(job, this.store) };
   }
 
+  /**
+   * 接收 renderer 上传的参考图：只允许 png/jpeg/webp，统一转成 PNG 落库，
+   * 返回 assetId 供 createJob 引用。任何一步失败都明确报错，不落半张图。
+   */
+  async uploadReference(raw: unknown): Promise<UploadReferenceResult> {
+    if (typeof raw !== "object" || raw === null) {
+      return { ok: false, error: { code: "invalid-request", message: "参考图格式不正确", retryable: false } };
+    }
+    const record = raw as Record<string, unknown>;
+    const dataBase64 = record.dataBase64;
+    const mimeType = record.mimeType;
+    if (typeof dataBase64 !== "string" || dataBase64.length === 0) {
+      return { ok: false, error: { code: "invalid-request", message: "缺少图片数据", retryable: false } };
+    }
+    if (dataBase64.length > MAX_REFERENCE_BASE64) {
+      return { ok: false, error: { code: "invalid-request", message: `参考图不能超过 ${MAX_REFERENCE_MB}MB`, retryable: false } };
+    }
+    if (mimeType !== "image/png" && mimeType !== "image/jpeg" && mimeType !== "image/webp") {
+      return { ok: false, error: { code: "invalid-request", message: "只支持 PNG / JPEG / WebP", retryable: false } };
+    }
+
+    let source: Buffer;
+    try {
+      source = Buffer.from(dataBase64, "base64");
+    } catch {
+      return { ok: false, error: { code: "invalid-request", message: "图片数据无法解码", retryable: false } };
+    }
+    if (source.length === 0 || source.length > MAX_REFERENCE_BYTES) {
+      return { ok: false, error: { code: "invalid-request", message: `参考图不能超过 ${MAX_REFERENCE_MB}MB`, retryable: false } };
+    }
+
+    let converted: { bytes: Buffer; mimeType: string; width: number; height: number };
+    try {
+      converted = await transcodeImage({ bytes: source, format: "png", compression: 0 });
+    } catch (error) {
+      return {
+        ok: false,
+        error: { code: "invalid-request", message: `无法解析这张图片：${safeMessage(error)}`, retryable: false },
+      };
+    }
+
+    const createdAt = this.now();
+    const asset = this.store.saveAsset(
+      {
+        id: `ref-${randomUUID()}`,
+        jobId: "reference",
+        providerId: "local",
+        model: "upload",
+        mimeType: "image/png",
+        byteLength: converted.bytes.length,
+        width: converted.width,
+        height: converted.height,
+        prompt: "参考图",
+        previewUrl: "",
+        createdAt,
+      },
+      converted.bytes,
+    );
+    return { ok: true, assetId: asset.id, width: asset.width, height: asset.height };
+  }
+
   async cancelJob(raw: unknown): Promise<ServiceResult> {
     const parsed = validateJobId(raw);
     if (!parsed.ok) return { ok: false, error: parsed.error };
@@ -286,6 +352,15 @@ export class ImageGenerationService {
     this.runs.set(jobId, { controller });
     let job = this.transition(initial, { status: "submitting" });
 
+    // 参考图字节在这里读出来交给 adapter：adapter 不接触本地文件系统，也不认识 asset ID。
+    const referenceImages = job.referenceAssetIds
+      .map((assetId) => {
+        const asset = this.store.getAsset(assetId);
+        const bytes = this.store.bytesForAsset(assetId);
+        return asset === undefined || bytes === undefined ? undefined : { bytes, mimeType: asset.mimeType };
+      })
+      .filter((entry): entry is { bytes: Uint8Array; mimeType: string } => entry !== undefined);
+
     try {
       const submitted = await provider
         .submit(
@@ -293,6 +368,7 @@ export class ImageGenerationService {
             model: job.model,
             prompt: job.submittedPrompt,
             referenceAssetIds: job.referenceAssetIds,
+            ...(referenceImages.length === 0 ? {} : { referenceImages }),
             aspectRatio: job.aspectRatio,
             sizeMode: job.sizeMode ?? "ratio",
             ...(job.requestedSize === undefined ? {} : { size: job.requestedSize }),

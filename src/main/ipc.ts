@@ -46,12 +46,18 @@ export function registerImageIpc(options: {
   handle(IMAGE_CHANNELS.bootstrap, () => service.getBootstrap());
   handle(IMAGE_CHANNELS.createJob, (input) => service.createJob(input));
   handle(IMAGE_CHANNELS.cancelJob, (jobId) => service.cancelJob(jobId));
+  handle(IMAGE_CHANNELS.uploadReference, (input) => service.uploadReference(input));
 
   return {
     sendEvent: (event) => send(IMAGE_CHANNELS.taskEvent, event),
     sendNotification: (notification) => send(IMAGE_CHANNELS.notification, notification),
     dispose: () => {
-      for (const channel of [IMAGE_CHANNELS.bootstrap, IMAGE_CHANNELS.createJob, IMAGE_CHANNELS.cancelJob]) {
+      for (const channel of [
+        IMAGE_CHANNELS.bootstrap,
+        IMAGE_CHANNELS.createJob,
+        IMAGE_CHANNELS.cancelJob,
+        IMAGE_CHANNELS.uploadReference,
+      ]) {
         ipcMain.removeHandler(channel);
       }
     },

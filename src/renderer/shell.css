@@ -2117,3 +2117,202 @@ code {
   padding: 0 10px;
   line-height: 1;
 }
+
+/* ---------------------------------------------------------------- 画面弹窗 */
+
+/* 固定高度：切换 auto/比例/自定义时窗口不再忽高忽低 */
+.size-dialog {
+  height: min(660px, 86vh);
+}
+
+.size-dialog .modal__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* 模式切换时的轻量过渡 */
+.size-dialog__panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  animation: panel-swap 160ms ease-out;
+}
+
+@keyframes panel-swap {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---------------------------------------------------------------- 结果缩略图 */
+
+/* 结果图固定尺寸，不再撑满画布；点开看原图 */
+.result-grid {
+  grid-template-columns: repeat(auto-fill, 200px);
+  gap: var(--space-3);
+}
+
+.result-card {
+  width: 200px;
+}
+
+.result-card__button {
+  width: 200px;
+  height: 200px;
+  aspect-ratio: auto;
+  cursor: zoom-in;
+}
+
+.result-card__button img {
+  object-fit: cover;
+}
+
+.result-card figcaption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+/* ---------------------------------------------------------------- 看原图 */
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5);
+  background: rgb(0 0 0 / 80%);
+  cursor: zoom-out;
+  animation: lightbox-in 120ms ease-out;
+}
+
+.lightbox img {
+  max-width: 92vw;
+  max-height: 88vh;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 24px 60px rgb(0 0 0 / 60%);
+}
+
+.lightbox__hint {
+  position: fixed;
+  bottom: var(--space-4);
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgb(255 255 255 / 70%);
+  font-size: var(--fs-sm);
+}
+
+@keyframes lightbox-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ---------------------------------------------------------------- 参考图 */
+
+.dock__refs {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+
+.dock__ref {
+  position: relative;
+  margin: 0;
+  width: 72px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dock__ref-button {
+  width: 72px;
+  height: 72px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  overflow: hidden;
+  cursor: zoom-in;
+}
+
+.dock__ref-button:hover {
+  border-color: var(--accent);
+}
+
+.dock__ref-button img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.dock__ref-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.dock__ref-remove:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.dock__ref figcaption {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  text-align: center;
+}
+
+.dock__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 0 0 auto;
+}
+
+.dock__upload {
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* 画面弹窗：预览放进底部，滚动时也不会被挤走 */
+.size-dialog .modal__foot--split {
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.modal__foot-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex: 0 0 auto;
+}
+
+.size-dialog__preview {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--accent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

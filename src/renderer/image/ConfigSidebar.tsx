@@ -37,8 +37,8 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
     negativePrompt,
     setNegativePrompt,
     referenceOptions,
-    referenceAssetId,
-    setReferenceAssetId,
+    reference,
+    setReferenceFromAsset,
     referenceValid,
     prompt,
   } = useComposer();
@@ -118,11 +118,15 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
         </span>
         <Select
           ariaLabel="参考图"
-          value={referenceValid ? (referenceAssetId ?? "") : ""}
+          value={referenceValid ? (reference?.id ?? "") : ""}
           disabled={!caps?.imageToImage || referenceOptions.length === 0}
-          onChange={(next) => setReferenceAssetId(next === "" ? undefined : next)}
+          onChange={(next) => setReferenceFromAsset(next === "" ? undefined : next)}
           options={[
             { value: "", label: "不使用参考图" },
+            // 上传的参考图不在作品库选项里，单独补一条，免得下拉显示"请选择"。
+            ...(reference !== undefined && !referenceOptions.some((option) => option.id === reference.id)
+              ? [{ value: reference.id, label: "已上传的参考图" }]
+              : []),
             ...referenceOptions.map((option) => ({ value: option.id, label: option.label })),
           ]}
         />

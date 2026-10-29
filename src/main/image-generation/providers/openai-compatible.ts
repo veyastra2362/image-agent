@@ -102,13 +102,15 @@ export function pickSize(aspectRatio: AspectRatio, resolution: number): string |
   if (snapped === "3:2") return `1536x${shortEdge}`;
   return `${shortEdge}x1536`;
 }
-const SUPPORTED_RATIOS: readonly AspectRatio[] = ["1:1", "4:3", "3:4"];
+// 尺寸不受限，常用比例全部放开（实测 1792×1024 / 1024×1792 / 2048×2048 均通过）。
+const SUPPORTED_RATIOS: readonly AspectRatio[] = [...PRESET_RATIOS];
 
 const CAPABILITIES: ImageCapabilities = {
   textToImage: true,
-  imageToImage: false,
+  // 实测前先打开，用一张真实参考图验证 /images/edits。
+  imageToImage: true,
   masks: false,
-  referenceImageLimit: 0,
+  referenceImageLimit: 1,
   aspectRatios: SUPPORTED_RATIOS,
   outputCountLimit: 4,
   seed: false,
@@ -173,6 +175,11 @@ export class OpenAICompatibleProvider implements ImageProvider {
     }
 
     const size = request.size === undefined ? undefined : `${request.size.width}x${request.size.height}`;
+    // 带参考图时走 /images/edits（multipart），否则走 /images/generations（JSON）。
+    const reference = request.referenceImages?.[0];
+    if (reference !== undefined) {
+      return this.submitEdit(request, reference, size, signal);
+    }
     const body = {
       model: request.model,
       prompt: request.prompt,
@@ -198,6 +205,33 @@ export class OpenAICompatibleProvider implements ImageProvider {
     return { state: "completed", images };
   }
 
+  /** 参考图编辑：multipart/form-data，图片字段名是 image。 */
+  private async submitEdit(
+    request: ProviderGenerateRequest,
+    image: { readonly bytes: Uint8Array; readonly mimeType: string },
+    size: string | undefined,
+    signal: AbortSignal,
+  ): Promise<ProviderSubmitResult> {
+    const form = new FormData();
+    form.append("model", request.model);
+    form.append("prompt", request.prompt);
+    form.append("n", String(request.count));
+    if (size !== undefined) form.append("size", size);
+    form.append("image", new Blob([new Uint8Array(image.bytes)], { type: image.mimeType }), "reference.png");
+
+    const response = await this.request(`${this.baseUrl}/images/edits`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${this.apiKey}` },
+      body: form,
+      signal,
+      timeoutMs: this.timeoutMs,
+    });
+
+    if (!response.ok) throw new ProviderRequestError(toProviderError(response.status, response.json, response.text));
+    const images = await this.collectImages(response.json, request, signal);
+    return { state: "completed", images };
+  }
+
   poll(): Promise<ProviderPollResult> {
     // 声明了 async:false，service 不会调用它。
     return Promise.reject(new Error("该 provider 不支持轮询"));
@@ -212,7 +246,13 @@ export class OpenAICompatibleProvider implements ImageProvider {
 
   private async request(
     url: string,
-    init: { method: string; headers: Record<string, string>; body?: string; signal: AbortSignal; timeoutMs: number },
+    init: {
+      method: string;
+      headers: Record<string, string>;
+      body?: string | FormData;
+      signal: AbortSignal;
+      timeoutMs: number;
+    },
   ): Promise<{ ok: boolean; status: number; json: unknown; text: string }> {
     const controller = new AbortController();
     const forwardAbort = () => controller.abort(init.signal.reason);
