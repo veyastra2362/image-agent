@@ -77,6 +77,8 @@ export interface ProviderKeyStatus {
   readonly hasApiKey: boolean;
   /** 密钥是否由系统钥匙串加密后落盘（Electron safeStorage）。 */
   readonly apiKeyEncrypted: boolean;
+  /** 存过密文但解不开（换了系统账户/机器），需要重新填写。 */
+  readonly keyUnreadable: boolean;
 }
 
 /** 界面能看到的配置状态：多个服务商 + 密钥状态（不含密钥）。 */

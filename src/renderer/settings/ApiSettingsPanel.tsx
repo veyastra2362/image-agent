@@ -285,6 +285,12 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
         </span>
       </div>
 
+      {keyStatus?.keyUnreadable === true && (
+        <p className="settings__notice settings__notice--error">
+          已保存的 API Key 无法解密（通常是因为换了系统账户或机器）。请在下方重新填写一次。
+        </p>
+      )}
+
       {view.enabledCount === 0 && (
         <p className="settings__notice settings__notice--info">
           还没有可用的真实服务。连接信息现在只由这里管理（应用不再读取 .env 或环境变量），

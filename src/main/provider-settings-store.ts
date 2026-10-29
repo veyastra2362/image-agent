@@ -69,6 +69,8 @@ export class ProviderSettingsStore {
   readonly #keys = new Map<string, string>();
   /** 哪几把密钥是加密落盘的。 */
   readonly #encrypted = new Set<string>();
+  /** 有密文但解不开的配置（需要用户重新填）。 */
+  readonly #unreadable = new Set<string>();
 
   constructor(options: ProviderSettingsStoreOptions) {
     this.#dir = options.dir;
@@ -164,6 +166,9 @@ export class ProviderSettingsStore {
           this.#keys.set(profile.id, plain);
           // 密文读出来的，记下"已加密"，界面据此显示状态。
           if (typeof stored.enc === "string" && stored.enc !== "") this.#encrypted.add(profile.id);
+        } else if (typeof stored.enc === "string" && stored.enc !== "") {
+          // 有密文却解不开：告诉界面，让用户重新填，而不是静默变成"没配密钥"。
+          this.#unreadable.add(profile.id);
         }
       }
     }
@@ -275,6 +280,7 @@ export class ProviderSettingsStore {
   }
 
   setApiKey(id: string, key: string): void {
+    this.#unreadable.delete(id);
     const trimmed = key.trim();
     if (trimmed === "") this.#keys.delete(id);
     else this.#keys.set(id, trimmed);
@@ -284,6 +290,7 @@ export class ProviderSettingsStore {
   clearApiKey(id: string): void {
     this.#keys.delete(id);
     this.#encrypted.delete(id);
+    this.#unreadable.delete(id);
     this.#persist();
   }
 
@@ -295,6 +302,7 @@ export class ProviderSettingsStore {
       keys[profile.id] = {
         hasApiKey: stored,
         apiKeyEncrypted: stored && this.#encrypted.has(profile.id),
+        keyUnreadable: this.#unreadable.has(profile.id),
       };
     }
     return {

@@ -288,6 +288,8 @@ async function run() {
   await shot("01-empty-state");
 
   // ---- 同步模型 ----
+  // 提示词默认为空，先填一句再提交。
+  await setPrompt("冒烟：一只在窗边打盹的猫");
   await js("document.querySelector('form.dock button[type=\"submit\"]').click(); true");
   await waitFor("document.querySelector('.result-grid img')", "结果图片出现");
   const resultCount = await js("document.querySelectorAll('.result-grid img').length");

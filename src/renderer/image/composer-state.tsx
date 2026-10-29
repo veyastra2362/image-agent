@@ -62,11 +62,6 @@ export interface ComposerValue {
   readonly setReferenceAssetId: (id: string | undefined) => void;
   readonly referenceValid: boolean;
 
-  readonly rewriteEnabled: boolean;
-  readonly setRewriteEnabled: (enabled: boolean) => void;
-  readonly rewritten: string;
-  readonly setRewritten: (value: string) => void;
-  readonly loadRewriteSource: () => void;
 
   readonly validation: ReturnType<typeof validateCreateJobInput>;
   readonly canSubmit: boolean;
@@ -93,9 +88,7 @@ export interface ComposerProviderProps {
 }
 
 export function ComposerProvider({ state, models, onSubmitted, focusPromptToken, children }: ComposerProviderProps) {
-  const [prompt, setPrompt] = useState("一只在雨夜窗边打盹的橘猫，柔和侧光，电影感");
-  const [rewriteEnabled, setRewriteEnabled] = useState(false);
-  const [rewritten, setRewritten] = useState("");
+  const [prompt, setPrompt] = useState("");
   const [modelKey, setModelKey] = useState<string>();
   const [spec, setSpec] = useState<OutputSpec>(DEFAULT_SPEC);
   const [customRatio, setCustomRatio] = useState("16:10");
@@ -149,7 +142,6 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
     providerId: model?.id ?? "",
     ...(model === undefined ? {} : { model: model.model }),
     prompt,
-    ...(rewriteEnabled && rewritten.trim() ? { agentPrompt: rewritten.trim() } : {}),
     ...(!referenceValid || referenceAssetId === undefined ? {} : { referenceAssetIds: [referenceAssetId] }),
     aspectRatio: effectiveSpec.aspectRatio,
     sizeMode: effectiveSpec.mode,
@@ -209,14 +201,6 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
     referenceAssetId,
     setReferenceAssetId,
     referenceValid,
-    rewriteEnabled,
-    setRewriteEnabled,
-    rewritten,
-    setRewritten,
-    loadRewriteSource: () => {
-      setRewriteEnabled(true);
-      setRewritten((current) => (current.trim() ? current : prompt.trim()));
-    },
     validation,
     canSubmit,
     pending,

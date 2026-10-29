@@ -37,6 +37,8 @@ export function Select({
 }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
+  // 贴近窗口底部时向上展开，否则菜单会被裁掉。
+  const [placement, setPlacement] = useState<"down" | "up">("down");
   const rootRef = useRef<HTMLDivElement>(null);
   const listId = useId();
   const selected = options.find((option) => option.value === value);
@@ -96,7 +98,14 @@ export function Select({
         aria-controls={open ? listId : undefined}
         aria-label={ariaLabel}
         disabled={disabled}
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => {
+          if (!open && rootRef.current) {
+            const rect = rootRef.current.getBoundingClientRect();
+            const below = window.innerHeight - rect.bottom;
+            setPlacement(below < 300 && rect.top > below ? "up" : "down");
+          }
+          setOpen((current) => !current);
+        }}
         onKeyDown={onKeyDown}
       >
         <span className={`select__value ${selected === undefined ? "is-placeholder" : ""}`}>
@@ -108,7 +117,7 @@ export function Select({
       </button>
 
       {open && (
-        <ul className="select__menu" role="listbox" id={listId} aria-label={ariaLabel}>
+        <ul className={`select__menu ${placement === "up" ? "select__menu--up" : ""}`} role="listbox" id={listId} aria-label={ariaLabel}>
           {options.map((option, index) => (
             <li key={option.value}>
               <button

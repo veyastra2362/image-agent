@@ -39,11 +39,6 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
     referenceAssetId,
     setReferenceAssetId,
     referenceValid,
-    rewriteEnabled,
-    setRewriteEnabled,
-    rewritten,
-    setRewritten,
-    loadRewriteSource,
     prompt,
   } = useComposer();
 
@@ -141,44 +136,6 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
       <details className="advanced">
         <summary>高级设置</summary>
         <div className="advanced__body">
-          <section className="rewrite" aria-labelledby="rewrite-title">
-            <div className="rewrite__head">
-              <h3 id="rewrite-title" className="rewrite__title">
-                Agent 改写
-              </h3>
-              <label className="switch">
-                <input
-                  type="checkbox"
-                  checked={rewriteEnabled}
-                  onChange={(event) => (event.target.checked ? loadRewriteSource() : setRewriteEnabled(false))}
-                />
-                <span>使用改写</span>
-              </label>
-            </div>
-            {rewriteEnabled ? (
-              <>
-                <textarea
-                  className="field__input field__input--rewrite"
-                  rows={4}
-                  value={rewritten}
-                  maxLength={LIMITS.agentPromptMaxLength * 2}
-                  onChange={(event) => setRewritten(event.target.value)}
-                  aria-label="Agent 改写后的提示词（可编辑）"
-                />
-                <div className="rewrite__actions">
-                  <button type="button" className="button button--ghost" onClick={() => setRewritten(prompt.trim())}>
-                    重置
-                  </button>
-                  <button type="button" className="button button--ghost" onClick={() => setRewriteEnabled(false)}>
-                    关闭
-                  </button>
-                </div>
-              </>
-            ) : (
-              <p className="field__hint">当前未使用改写，提示词按原样发送。</p>
-            )}
-          </section>
-
           {caps?.seed && (
             <label className="field">
               <span className="field__label">Seed（可选）</span>
@@ -215,10 +172,6 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
                     ? `参考图将发送到「${model.displayName}」`
                     : "参考图不离开本机"}
                 </dd>
-              </div>
-              <div>
-                <dt>改写</dt>
-                <dd>{rewriteEnabled && rewritten.trim() ? "发送改写版" : "按原样发送"}</dd>
               </div>
             </dl>
           </div>
