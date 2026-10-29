@@ -251,6 +251,8 @@ export class ImageGenerationService {
         id: provider.descriptor.id,
         model: model.id,
         displayName: `${provider.descriptor.displayName} · ${model.displayName}`,
+        providerDisplayName: provider.descriptor.displayName,
+        modelDisplayName: model.displayName,
         default: provider.descriptor.defaultModel === model.id,
         capabilities: model.capabilities,
         uploadsUserAssets: provider.descriptor.uploadsUserAssets,

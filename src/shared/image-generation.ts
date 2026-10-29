@@ -195,6 +195,10 @@ export interface ProviderRef {
   readonly id: string;
   readonly model: string;
   readonly displayName: string;
+  /** 服务商显示名，模型选择器按它分组。 */
+  readonly providerDisplayName: string;
+  /** 模型显示名（不含服务商前缀）。 */
+  readonly modelDisplayName: string;
   readonly default: boolean;
   /** 模型级能力。UI 只显示这里声明支持的参数。 */
   readonly capabilities: ImageCapabilities;

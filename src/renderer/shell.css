@@ -1701,17 +1701,29 @@ code {
   cursor: pointer;
 }
 
-.profile-tab__dot {
-  margin-right: 6px;
-}
-
-.profile-tab__delete {
-  display: none;
+/* 尾槽固定宽度，绿点与垃圾桶互相切换时药丸宽度不变。 */
+.profile-tab__suffix {
+  position: relative;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 20px;
   height: 20px;
-  margin-right: 4px;
+  flex: 0 0 auto;
+}
+
+.profile-tab__dot {
+  margin: 0;
+}
+
+.profile-tab__delete {
+  display: none;
+  position: absolute;
+  inset: 0;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
   padding: 0;
   border: 0;
   border-radius: var(--radius-sm);
@@ -1896,9 +1908,13 @@ code {
 
 /* ---------------------------------------------------------------- 细节调整 */
 
-/* 标题栏里所有文字按钮的间距统一成"应用/编辑"的两像素 */
+/* 标题栏里所有文字按钮的间距统一，菜单和导航之间也别留大缝 */
 .titlebar__nav {
   gap: 2px;
+}
+
+.titlebar {
+  gap: 6px;
 }
 
 /* 设置里的按钮字号小一号 */
@@ -1965,4 +1981,48 @@ code {
 
 *::-webkit-scrollbar-corner {
   background: transparent;
+}
+
+/* ---------------------------------------------------------------- 模型选择器 */
+
+.model-select__menu {
+  min-width: 240px;
+  max-height: 320px;
+}
+
+/* 底部输入框里的模型菜单向上展开，避免被窗口底边裁掉。 */
+.model-select__menu--up {
+  top: auto;
+  bottom: calc(100% + 4px);
+}
+
+.model-select__group + .model-select__group {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+
+.model-select__group-title {
+  padding: 2px var(--space-3);
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+}
+
+.model-select__group-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.model-select__option {
+  gap: var(--space-2);
+}
+
+.model-select__badge {
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-faint);
+  font-size: 10px;
+  flex: 0 0 auto;
 }

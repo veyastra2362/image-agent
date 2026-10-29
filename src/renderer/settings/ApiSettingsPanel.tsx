@@ -309,16 +309,17 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
             <button type="button" className="profile-tab__select" onClick={() => void switchTo(profile.id)}>
               <span className="profile-tab__label">{profile.label}</span>
             </button>
-            {/* 有密钥时显示绿点；鼠标移上去变成垃圾桶，删除就放在这里。 */}
-            <span className={`profile-tab__dot ${view.keys[profile.id]?.hasApiKey ? "is-on" : ""}`} aria-hidden="true" />
-            <button
-              type="button"
-              className="profile-tab__delete"
-              disabled={view.profiles.length <= 1 || busy !== "idle"}
-              aria-label={`删除「${profile.label}」`}
-              title={view.profiles.length <= 1 ? "至少要保留一个配置" : "删除这个配置"}
-              onClick={() => void removeProfile(profile)}
-            >
+            {/* 固定宽度的尾槽：绿点和垃圾桶占同一块位置，hover 时整颗药丸不会变宽。 */}
+            <span className="profile-tab__suffix">
+              <span className={`profile-tab__dot ${view.keys[profile.id]?.hasApiKey ? "is-on" : ""}`} aria-hidden="true" />
+              <button
+                type="button"
+                className="profile-tab__delete"
+                disabled={view.profiles.length <= 1 || busy !== "idle"}
+                aria-label={`删除「${profile.label}」`}
+                title={view.profiles.length <= 1 ? "至少要保留一个配置" : "删除这个配置"}
+                onClick={() => void removeProfile(profile)}
+              >
               <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
                 <path
                   d="M3 4.5h10M6.5 4.5V3a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v1.5M5 4.5l.6 8a1 1 0 0 0 1 .95h3.8a1 1 0 0 0 1-.95l.6-8"
@@ -329,7 +330,8 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
                   strokeLinejoin="round"
                 />
               </svg>
-            </button>
+              </button>
+            </span>
           </div>
         ))}
         <button

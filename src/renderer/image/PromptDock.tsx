@@ -6,7 +6,7 @@
 import { useId } from "react";
 import { LIMITS } from "../../shared/image-generation.ts";
 import { useComposer } from "./composer-state.tsx";
-import { Select } from "../shell/Select.tsx";
+import { ModelSelect } from "../shell/ModelSelect.tsx";
 import { useT } from "../lib/i18n.ts";
 
 export function PromptDock() {
@@ -66,17 +66,13 @@ export function PromptDock() {
       <div className="dock__bar">
         <div className="dock__meta">
           {/* 在这里也能换模型：改完提示词不用再回到左侧栏 */}
-          <Select
+          <ModelSelect
             compact
             ariaLabel="选择模型"
             value={model ? `${model.id}:${model.model}` : ""}
-            disabled={visibleModels.length === 0}
             onChange={setModelKey}
+            models={visibleModels}
             placeholder={t("dock.noModel")}
-            options={visibleModels.map((candidate) => ({
-              value: `${candidate.id}:${candidate.model}`,
-              label: candidate.displayName,
-            }))}
           />
           <span className="dock__chip">{sizeSummary}</span>
           {caps?.imageToImage === false && <span className="dock__chip dock__chip--muted">无参考图</span>}

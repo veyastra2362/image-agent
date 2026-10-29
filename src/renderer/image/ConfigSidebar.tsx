@@ -9,6 +9,7 @@ import { useComposer } from "./composer-state.tsx";
 import { SizeDialog } from "./SizeDialog.tsx";
 import { PanelLeftIcon } from "../shell/PanelLeftIcon.tsx";
 import { Select } from "../shell/Select.tsx";
+import { ModelSelect } from "../shell/ModelSelect.tsx";
 
 export interface ConfigSidebarProps {
   readonly onCollapse: () => void;
@@ -59,15 +60,12 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
 
       <label className="field">
         <span className="field__label">服务与模型</span>
-        <Select
+        <ModelSelect
           ariaLabel="服务与模型"
           value={model ? `${model.id}:${model.model}` : ""}
           onChange={setModelKey}
+          models={visibleModels}
           placeholder={visibleModels.length === 0 ? "没有可用模型" : "选择模型"}
-          options={visibleModels.map((candidate) => ({
-            value: `${candidate.id}:${candidate.model}`,
-            label: candidate.displayName,
-          }))}
         />
       </label>
 

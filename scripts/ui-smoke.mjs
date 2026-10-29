@@ -222,6 +222,11 @@ async function run() {
   await waitFor("document.querySelector('.select__menu')", "下拉菜单展开");
   const selectOptions = await js("[...document.querySelectorAll('.select__option')].map((n) => n.textContent)");
   check("下拉是自绘菜单", selectOptions.length >= 2, selectOptions);
+  const groups = await js("[...document.querySelectorAll('.model-select__group-title')].map((n) => n.textContent)");
+  check("模型下拉按服务商分组", groups.length >= 1, groups);
+  const chevron = await js("getComputedStyle(document.querySelector('.dock .model-select .select__chevron')).transform");
+  check("展开时箭头旋转", chevron !== "none", chevron);
+  await shot("17-model-menu");
   check(
     "选中项带勾",
     (await js("Boolean(document.querySelector('.select__option.is-selected svg'))")) === true,
@@ -459,6 +464,10 @@ async function run() {
     "(() => { const d = document.querySelector('.profile-tab__delete'); return { exists: Boolean(d), display: d ? getComputedStyle(d).display : null, title: d?.getAttribute('aria-label') ?? '' }; })()",
   );
   check("服务商删除是悬停出现的图标", deleteUi.exists === true && deleteUi.display === "none" && deleteUi.title.includes("删除"), deleteUi);
+  const suffixWidth = await js(
+    "(() => { const el = document.querySelector('.profile-tab__suffix'); return el ? Math.round(el.getBoundingClientRect().width) : 0; })()",
+  );
+  check("删图标占用固定宽度（hover 不变宽）", suffixWidth === 20, suffixWidth);
 
   const profileTabs = await js("document.querySelectorAll('.profile-tab:not(.profile-tab--add)').length");
   check("服务商可以多开", profileTabs >= 1, profileTabs);

@@ -107,12 +107,26 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
     if (focusPromptToken > 0) promptRef.current?.focus();
   }, [focusPromptToken]);
 
-  // 只要配置了真实服务，就把离线假模型从选择器里去掉；全都没配时仍然保留，
-  // 否则页面会没有任何可用模型。
+  // 用户在设置里配过模型（哪怕地址/密钥被清空），就不再回落到离线假模型，
+  // 否则"明明删干净了，下拉框里还有东西"。完全没配过时才保留假模型，保证离线可用。
+  const [hasConfiguredModels, setHasConfiguredModels] = useState(false);
+  useEffect(() => {
+    const load = () => {
+      void window.appSettings
+        ?.view()
+        .then((view) => setHasConfiguredModels((view?.profiles ?? []).some((profile) => profile.models.length > 0)))
+        .catch(() => undefined);
+    };
+    load();
+    window.addEventListener("image-agent:data-changed", load);
+    return () => window.removeEventListener("image-agent:data-changed", load);
+  }, []);
+
   const visibleModels = useMemo(() => {
     const real = models.filter((candidate) => !candidate.id.includes("fake"));
-    return real.length > 0 ? real : models;
-  }, [models]);
+    if (real.length > 0) return real;
+    return hasConfiguredModels ? [] : models;
+  }, [models, hasConfiguredModels]);
 
   const model = useMemo(() => resolveModel(visibleModels, modelKey), [visibleModels, modelKey]);
   const caps = model?.capabilities;
