@@ -3,6 +3,7 @@
  * 尺寸/格式与错误原文。所有内容来自 main 记录的任务快照，不在这里推断。
  */
 import { useEffect, useRef } from "react";
+import { CloseIcon } from "../shell/icons.tsx";
 import type { ImageAsset, ImageJob } from "../../shared/image-generation.ts";
 import { formatBytes, formatDuration, formatTime } from "../lib/format.ts";
 import { describeStatus } from "../lib/job-status.ts";
@@ -38,8 +39,15 @@ export function DetailsDrawer({ state, onClose }: DetailsDrawerProps) {
       <aside className="drawer" role="dialog" aria-modal="true" aria-label="作品详情">
         <header className="drawer__head">
           <h2>详情</h2>
-          <button ref={closeRef} type="button" className="button button--ghost" onClick={onClose}>
-            关闭 <kbd>Esc</kbd>
+          <button
+            ref={closeRef}
+            type="button"
+            className="button button--icon"
+            onClick={onClose}
+            aria-label="关闭详情"
+            title="关闭（Esc）"
+          >
+            <CloseIcon size={12} />
           </button>
         </header>
         {state.selectedPreview && (

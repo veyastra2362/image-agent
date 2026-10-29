@@ -104,7 +104,20 @@ export function SizeDialog({ spec, customRatioLabel, capabilities, onCommit, onC
                     value={mode.value}
                     checked={draft.mode === mode.value}
                     disabled={disabled}
-                    onChange={() => setDraft((current) => ({ ...current, mode: mode.value }))}
+                    onChange={() =>
+                      setDraft((current) => {
+                        // 切到自定义宽高时补一个初值：否则输入框显示 1024 但草稿是空的，
+                        // 底部预览会显示"请填写宽高"。
+                        if (mode.value === "custom" && (current.width === undefined || current.height === undefined)) {
+                          const fallback = resolveRatioSize(
+                            current.aspectRatio === "custom" ? "1:1" : current.aspectRatio,
+                            current.resolution,
+                          );
+                          return { ...current, mode: mode.value, width: fallback?.width ?? 1024, height: fallback?.height ?? 1024 };
+                        }
+                        return { ...current, mode: mode.value };
+                      })
+                    }
                   />
                   <span className="segmented__label">{mode.label}</span>
                   <span className="segmented__hint">{disabled ? "当前模型不支持" : mode.hint}</span>

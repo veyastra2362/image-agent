@@ -2316,3 +2316,68 @@ code {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ---------------------------------------------------------------- 图标按钮 */
+
+/* 图标按钮：方形、内容居中，用于关闭详情 / 上传参考图 */
+.button--icon,
+.dock__upload {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  flex: 0 0 auto;
+}
+
+.button--icon {
+  border-color: transparent;
+  color: var(--text-muted);
+}
+
+.button--icon:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.dock__upload[aria-busy="true"] svg {
+  opacity: 0.45;
+}
+
+/* 分段控件切换时的过渡 */
+.segmented__item {
+  transition:
+    background-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease;
+}
+
+.segmented__item.is-active {
+  transform: translateY(-1px);
+}
+
+/* ---------------------------------------------------------------- 滚动条占位 */
+
+/*
+ * 这些容器都会按内容多少决定是否出滚动条。不预留位置的话，
+ * 一出现滚动条内容就被挤窄十几像素（画面弹窗切换模式时最明显）。
+ * scrollbar-gutter: stable 让滚动条的位置始终保留，布局不再跳。
+ */
+.sidebar,
+.canvas,
+.joblist,
+.settings__body,
+.workspace--page,
+.drawer,
+.model-picker__list,
+.sidebar__body,
+.size-dialog .modal__body {
+  scrollbar-gutter: stable;
+}
+
+/* 滚动条再细一点，预留的空白不至于太显眼 */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}

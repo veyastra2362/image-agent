@@ -147,10 +147,10 @@ export function PromptDock() {
             disabled={!referenceEnabled || referenceBusy}
             title={referenceEnabled ? "上传参考图（也可以 Ctrl+V 粘贴）" : "当前模型不支持参考图"}
             aria-label="上传参考图"
+            aria-busy={referenceBusy}
             onClick={() => fileRef.current?.click()}
           >
-            <ImagePlusIcon />
-            <span>{referenceBusy ? "处理中…" : "参考图"}</span>
+            <ImagePlusIcon size={16} />
           </button>
           <button type="submit" className="button button--primary dock__submit" disabled={!canSubmit}>
             {pending ? t("dock.generating") : `${t("dock.generate")} ${effectiveCount}`}
