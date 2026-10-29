@@ -178,7 +178,9 @@ function start(): void {
         },
         applyProviders: () => {
           try {
-            service?.setProviders(createProviders(settingsStore as ProviderSettingsStore));
+            const store = settingsStore as ProviderSettingsStore;
+            service?.setProviders(createProviders(store, "image"));
+            service?.setAgentProviders(createProviders(store, "text"));
             return { ok: true as const };
           } catch (error) {
             return { ok: false as const, error: String((error as Error).message ?? error).slice(0, 200) };
