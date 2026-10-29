@@ -18,6 +18,7 @@ import { useImageAgent } from "./image/use-image-agent.ts";
 import { SettingsDialog, type SettingsTab } from "./settings/SettingsDialog.tsx";
 import { MenuBar } from "./shell/MenuBar.tsx";
 import { PanelLeftIcon } from "./shell/PanelLeftIcon.tsx";
+import { CloseIcon, GearIcon, MaximizeIcon, MinimizeIcon, RestoreIcon } from "./shell/icons.tsx";
 
 type View = "create" | "library";
 
@@ -136,7 +137,7 @@ export function App() {
             title="设置"
             onClick={() => setSettingsTab("api")}
           >
-            ⚙
+            <GearIcon />
           </button>
           <span className="titlebar__divider" aria-hidden="true" />
           <button
@@ -146,7 +147,7 @@ export function App() {
             title="最小化"
             onClick={() => void window.appWindow?.minimize()}
           >
-            ─
+            <MinimizeIcon />
           </button>
           <button
             type="button"
@@ -155,7 +156,7 @@ export function App() {
             title={maximized ? "还原" : "最大化"}
             onClick={() => void toggleMaximize()}
           >
-            {maximized ? "❐" : "□"}
+            {maximized ? <RestoreIcon /> : <MaximizeIcon />}
           </button>
           <button
             type="button"
@@ -164,7 +165,7 @@ export function App() {
             title="关闭"
             onClick={() => void window.appWindow?.close()}
           >
-            ✕
+            <CloseIcon />
           </button>
         </div>
       </header>

@@ -2030,3 +2030,48 @@ code {
   background: color-mix(in srgb, var(--text) 10%, transparent);
   color: var(--text);
 }
+/* ---------------------------------------------------------------- 顶栏间距与窗口按钮 */
+
+/* 整条标题栏的间距统一成 2px：之前"编辑→创作"是 6px，和别处不一致 */
+.titlebar,
+.titlebar__lead {
+  gap: 2px;
+}
+
+/* 窗口按钮用 SVG 图标：字符 □ 在不同字体下大小/基线都不稳 */
+.window-btn,
+.titlebar__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+}
+
+.window-btn svg,
+.titlebar__icon svg {
+  display: block;
+}
+
+/* ---------------------------------------------------------------- 顶栏间距与窗口按钮 */
+
+/* 整条标题栏的间距统一成 2px：之前"编辑→创作"是 6px，和别处不一致 */
+.titlebar,
+.titlebar__lead {
+  gap: 2px;
+}
+
+/* 窗口按钮用 SVG 图标：字符 □ 在不同字体下大小/基线都不稳 */
+.window-btn,
+.titlebar__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+}
+
+.window-btn svg,
+.titlebar__icon svg {
+  display: block;
+}
