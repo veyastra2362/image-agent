@@ -39,6 +39,7 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
     referenceOptions,
     references,
     setReferenceFromAsset,
+    clearReference,
     referenceLimit,
     referenceValid,
     prompt,
@@ -127,10 +128,16 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
         <Select
           ariaLabel="参考图"
           value=""
-          placeholder={references.length > 0 ? `已选 ${references.length} 张，可继续添加` : "从作品库添加"}
+          placeholder={references.length > 0 ? `已选 ${references.length} 张` : "从作品库添加"}
+          selectedValues={references.map((item) => item.id)}
+          keepOpenOnSelect
+          previewOnHover
           disabled={!caps?.imageToImage || referenceOptions.length === 0 || references.length >= referenceLimit}
           onChange={(next) => {
-            if (next !== "") setReferenceFromAsset(next);
+            // 多选：已选中的再点一次就取消。
+            if (next === "") return;
+            if (references.some((item) => item.id === next)) clearReference(next);
+            else setReferenceFromAsset(next);
           }}
 
           leading={
@@ -139,7 +146,6 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
             )
           }
           options={[
-            { value: "", label: references.length > 0 ? "已选参考图" : "不使用参考图" },
             ...referenceOptions.map((option) => ({
               value: option.id,
               label: option.label,

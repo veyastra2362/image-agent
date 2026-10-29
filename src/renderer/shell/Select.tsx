@@ -30,6 +30,11 @@ export interface SelectProps {
   readonly leading?: ReactNode;
   /** 展开/收起回调：外部需要知道菜单是否打开（比如悬停预览要避开菜单）。 */
   readonly onOpenChange?: (open: boolean) => void;
+  /** 多选：这些值显示打勾；配合 keepOpenOnSelect 做"点一下加、再点一下取消"。 */
+  readonly selectedValues?: readonly string[];
+  readonly keepOpenOnSelect?: boolean;
+  /** 悬停选项 1.5 秒后，在菜单右侧浮出大图预览。 */
+  readonly previewOnHover?: boolean;
 }
 
 interface MenuRect {
@@ -74,10 +79,15 @@ export function Select({
   className,
   leading,
   onOpenChange,
+  selectedValues,
+  keepOpenOnSelect = false,
+  previewOnHover = false,
 }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [rect, setRect] = useState<MenuRect>();
   const [activeIndex, setActiveIndex] = useState(0);
+  const [preview, setPreview] = useState<{ src: string; left: number; top: number }>();
+  const previewTimer = useRef<number | undefined>(undefined);
   const rootRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLUListElement>(null);
   const listId = useId();
@@ -125,8 +135,27 @@ export function Select({
   function commit(option: SelectOption) {
     if (option.disabled === true) return;
     onChange(option.value);
-    setOpen(false);
+    if (!keepOpenOnSelect) setOpen(false);
   }
+
+  /** 选项悬停 1.5 秒 → 菜单右侧浮出大图。重复触发同一行不会重置计时。 */
+  const previewKey = useRef<string | undefined>(undefined);
+  const startPreview = (option: SelectOption, event: React.SyntheticEvent<HTMLElement>) => {
+    if (!previewOnHover || option.thumbnail === undefined) return;
+    if (previewKey.current === option.value) return;
+    previewKey.current = option.value;
+    const row = event.currentTarget.getBoundingClientRect();
+    window.clearTimeout(previewTimer.current);
+    previewTimer.current = window.setTimeout(() => {
+      setPreview({ src: option.thumbnail ?? "", left: Math.round(row.right + 12), top: Math.round(row.top) });
+    }, 1500);
+  };
+
+  const stopPreview = () => {
+    previewKey.current = undefined;
+    window.clearTimeout(previewTimer.current);
+    setPreview(undefined);
+  };
 
   function onKeyDown(event: React.KeyboardEvent) {
     if (!open && (event.key === "Enter" || event.key === " " || event.key === "ArrowDown")) {
@@ -189,15 +218,23 @@ export function Select({
             ref={menuRef}
             style={{ left: rect.left, top: rect.top, width: rect.width, maxHeight: rect.maxHeight }}
           >
-            {options.map((option, index) => (
+            {options.map((option, index) => {
+              const isChecked =
+                selectedValues !== undefined ? selectedValues.includes(option.value) : option.value === value;
+              return (
               <li key={option.value}>
                 <button
                   type="button"
                   role="option"
-                  aria-selected={option.value === value}
-                  className={`select__option ${option.value === value ? "is-selected" : ""} ${index === activeIndex ? "is-active" : ""}`}
+                  aria-selected={isChecked}
+                  className={`select__option ${isChecked ? "is-selected" : ""} ${index === activeIndex ? "is-active" : ""}`}
                   disabled={option.disabled === true}
-                  onMouseEnter={() => setActiveIndex(index)}
+                  onMouseEnter={(event) => {
+                    setActiveIndex(index);
+                    startPreview(option, event);
+                  }}
+                  onMouseOver={(event) => startPreview(option, event)}
+                  onMouseLeave={stopPreview}
                   onClick={() => commit(option)}
                 >
                   {/* 有缩略图的列表里，没图的选项留一个等宽占位，保证文字左对齐 */}
@@ -207,15 +244,25 @@ export function Select({
                     <span className="select__option-thumb select__option-thumb--empty" aria-hidden="true" />
                   ) : null}
                   <span className="select__option-label">{option.label}</span>
-                  {option.value === value && (
+                  {isChecked && (
                     <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
                       <path d="M3 8.5 6.5 12 13 4.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   )}
                 </button>
               </li>
-            ))}
+              );
+            })}
           </ul>,
+          document.body,
+        )}
+
+      {/* 选项悬停 1.5 秒的大图：浮在菜单右侧，不受菜单滚动容器裁剪 */}
+      {preview !== undefined &&
+        createPortal(
+          <div className="option-peek" style={{ left: preview.left, top: preview.top }} role="presentation">
+            <img src={preview.src} alt="预览" />
+          </div>,
           document.body,
         )}
     </div>

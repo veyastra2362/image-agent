@@ -2518,25 +2518,9 @@ code {
   object-fit: cover;
 }
 
-/* 悬停 1.5 秒：缩略图原地放大成预览（纯 CSS，不依赖 JS 计时器） */
+/* 触发器里的小缩略图保持原样（放大预览只给下拉选项） */
 .ref-field {
   position: relative;
-}
-
-.ref-field .ref-field__thumb {
-  position: relative;
-  z-index: 6;
-  transform-origin: left center;
-  transition:
-    transform 180ms ease,
-    box-shadow 180ms ease;
-}
-
-.ref-field:hover .ref-field__thumb {
-  transform: scale(3.1);
-  box-shadow: 0 14px 36px rgb(0 0 0 / 55%);
-  transition-delay: 1.5s;
-  transition-duration: 200ms;
 }
 
 /* 参考图还能加几张的提示 */
@@ -2593,4 +2577,30 @@ code {
 .select__option-thumb--empty {
   background: none;
   border-color: transparent;
+}
+
+/* 下拉选项悬停 1.5 秒的大图（浮在菜单右侧） */
+.option-peek {
+  position: fixed;
+  z-index: 140;
+  padding: 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  box-shadow: 0 18px 44px rgb(0 0 0 / 55%);
+  pointer-events: none;
+  animation: option-peek-in 120ms ease-out;
+}
+
+.option-peek img {
+  display: block;
+  width: 168px;
+  height: 168px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+}
+
+@keyframes option-peek-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
