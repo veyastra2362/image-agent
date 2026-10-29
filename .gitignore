@@ -2,6 +2,12 @@ node_modules/
 out/
 .artifacts/
 .dsh-acl-recovery/
+.env
+.env.*
+
+# 允许提交示例文件
+!.env.example
+
 *.log
 .DS_Store
 Thumbs.db

@@ -20,7 +20,10 @@ import { cp, mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:
 import path from "node:path";
 
 const TSC_OUTPUT = "out/main/src";
-const STAGED_MAIN_MODULES = ["dev-server-url", "dev-server", "ipc"];
+/** 直接落在 out/main/ 根的主进程模块（其余 src/main/*.ts 以目录为单位整体复制）。 */
+const ROOT_MODULES = ["dev-server-url", "dev-server", "config", "ipc"];
+/** 以目录整体搬到 out/main/ 的模块组。 */
+const STAGED_DIRS = ["image-generation"];
 
 async function exists(file) {
   try {
@@ -53,11 +56,13 @@ if (process.argv.includes("--after-tsc")) {
     throw new Error("未找到 tsc 产物 out/main/src/main/main.js，请先运行 tsc -p tsconfig.main.json");
   }
   await cp(`${TSC_OUTPUT}/shared`, "out/main/shared", { recursive: true });
-  for (const entry of STAGED_MAIN_MODULES) {
+  for (const entry of ROOT_MODULES) {
     await cp(`${TSC_OUTPUT}/main/${entry}.js`, `out/main/${entry}.js`);
     await cp(`${TSC_OUTPUT}/main/${entry}.js.map`, `out/main/${entry}.js.map`);
   }
-  await cp(`${TSC_OUTPUT}/main/image-generation`, "out/main/image-generation", { recursive: true });
+  for (const dir of STAGED_DIRS) {
+    await cp(`${TSC_OUTPUT}/main/${dir}`, `out/main/${dir}`, { recursive: true });
+  }
   await cp(`${TSC_OUTPUT}/main/preload.js`, "out/main/preload.js");
   await cp(`${TSC_OUTPUT}/main/preload.js.map`, "out/main/preload.js.map");
   await rename(`${TSC_OUTPUT}/main/main.js`, "out/main/main.js");
@@ -65,7 +70,7 @@ if (process.argv.includes("--after-tsc")) {
   await rm(TSC_OUTPUT, { recursive: true, force: true });
 
   for await (const file of walkJs("out/main")) await resolveSharedSpecifiers(file);
-  console.log("staged out/main: main.js, preload.js, ipc.js, dev-server*.js, image-generation/, shared/");
+  console.log("staged out/main: main.js, preload.js, ipc.js, config.js, dev-server*.js, image-generation/, shared/");
 } else {
   await rm("out/main", { recursive: true, force: true });
   await rm("out/renderer", { recursive: true, force: true });

@@ -59,6 +59,20 @@ export type ProviderPollResult =
   | { readonly state: "failed"; readonly error: ImageError }
   | { readonly state: "cancelled" };
 
+/** provider 抛出的结构化错误：service 直接采用它的 code/retryable，而不是一律当成内部错误。 */
+export interface ProviderRequestError extends Error {
+  readonly detail: ImageError;
+}
+
+export function isProviderRequestError(error: unknown): error is ProviderRequestError {
+  return (
+    error instanceof Error &&
+    "detail" in error &&
+    typeof (error as { detail?: unknown }).detail === "object" &&
+    (error as { detail?: unknown }).detail !== null
+  );
+}
+
 export interface ImageProvider {
   readonly descriptor: ProviderDescriptor;
   getModel(model: string): ProviderModel | undefined;

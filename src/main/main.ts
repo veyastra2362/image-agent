@@ -17,8 +17,10 @@ import path from "node:path";
 import { startDevServer } from "./dev-server";
 import { parseDevTarget } from "./dev-server-url";
 import { registerImageIpc } from "./ipc";
+import { loadProviderConfig } from "./config";
 import { ImageGenerationService } from "./image-generation/service";
 import { FakeProvider } from "./image-generation/providers/fake";
+import { OpenAICompatibleProvider } from "./image-generation/providers/openai-compatible";
 import { MemoryJobStore } from "./image-generation/store";
 
 const APP_ID = "com.imageagent.desktop";
@@ -53,10 +55,10 @@ function start(): void {
   });
 
   app.whenReady().then(() => {
-    // S1：只有离线 fake provider 和内存作品库；持久化与真实适配器在后续切片替换。
+    // 离线假 provider 永远在；真实 provider 只在配置了密钥时出现（见 config.ts）。
     const store = new MemoryJobStore();
     service = new ImageGenerationService({
-      providers: [new FakeProvider()],
+      providers: createProviders(),
       store,
       emit: (event) => bridge?.sendEvent(event),
       notify: (notification) => bridge?.sendNotification(notification),
@@ -95,6 +97,38 @@ function start(): void {
 function stopDevServer(): void {
   devServerProcess?.kill();
   devServerProcess = undefined;
+}
+
+/**
+ * 组装 provider 列表。
+ *
+ * 真实 provider 只在 .env / 环境变量里配好了密钥时创建；没有配置就只留下假 provider，
+ * 应用照常可用。密钥本身只留在 main 的这个对象里，renderer 只看到模型与能力。
+ */
+function createProviders(): (FakeProvider | OpenAICompatibleProvider)[] {
+  const providers: (FakeProvider | OpenAICompatibleProvider)[] = [];
+  const configured = loadProviderConfig({ rootDir: APP_ROOT });
+
+  if (configured.configured) {
+    providers.push(
+      new OpenAICompatibleProvider({
+        baseUrl: configured.config.baseUrl,
+        apiKey: configured.config.apiKey,
+        defaultModel: configured.config.defaultModel ?? "gpt-image-2",
+        models: [
+          { id: "gpt-image-2", displayName: "GPT Image 2" },
+          { id: "gpt-image-2.5-flare", displayName: "GPT Image 2.5 Flare" },
+          { id: "gpt-image-2.5-sunburst", displayName: "GPT Image 2.5 Sunburst" },
+        ],
+      }),
+    );
+  } else {
+    console.info(`[image-agent] 未启用真实图片服务：${configured.reason}`);
+  }
+
+  // 假 provider 放在最后，真实模型因此成为界面的默认选项。
+  providers.push(new FakeProvider());
+  return providers;
 }
 
 function createWindow(): BrowserWindow {

@@ -17,10 +17,14 @@ const artifacts = path.join(projectRoot, ".artifacts", "ui");
 const driverDir = path.join(artifacts, "driver");
 
 // driver-only 环境变量：正式应用从不读取它们，避免发布包出现调试后门。
+// 同时把真实服务商的密钥变量清空：冒烟必须离线、免费、结果可复现，
+// 否则（例如本地存在 .env）默认模型会变成真实模型，跑一次就真花钱。
 const DRIVER_ENV = {
   IMAGE_AGENT_SMOKE_DRIVER: "1",
   IMAGE_AGENT_ARTIFACTS: artifacts,
   IMAGE_AGENT_ROOT: projectRoot,
+  IMAGE_AGENT_API_KEY: "",
+  IMAGE_AGENT_BASE_URL: "",
 };
 
 const driver = String.raw`

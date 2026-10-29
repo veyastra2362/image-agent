@@ -2,20 +2,37 @@
 
 本地优先的自然语言生图桌面应用。产品目标、切片划分与验收标准见 [IMAGE_AGENT_ROADMAP.md](./IMAGE_AGENT_ROADMAP.md)。
 
-**当前进度：S1（脚手架 + 类型安全 IPC + 离线假 provider）。** 还没有接任何真实生图 API，
-也没有保存到磁盘；界面里能看到的所有图片都来自仓库内的 `fixtures/*.png`。
+**当前进度：S2（真实 provider 适配器 + 密钥只存在于 main）。** 已接一个 OpenAI 兼容的图片接口，
+但只有你自己在本地 `.env` 里配好密钥时才会出现；任务与作品仍然只存在内存里，重启即清空。
 
 ## 快速开始
 
 ```bash
 npm install
+cp .env.example .env   # 可选：填 IMAGE_AGENT_API_KEY / IMAGE_AGENT_BASE_URL
 npm run dev        # 开发模式：main 自己拉起 Vite，renderer 带 HMR
 npm run build      # 构建 out/main + out/renderer
 npm start          # 运行构建产物
 npm run typecheck  # 两套 tsconfig 都检查
 npm test           # node:test，离线、不花钱、不需要 key
-npm run smoke      # Electron 端到端冒烟 + 截图到 .artifacts/ui
+npm run smoke      # Electron 端到端冒烟 + 截图到 .artifacts/ui（强制离线）
 ```
+
+## 接入真实图片服务
+
+1. `cp .env.example .env`，填 `IMAGE_AGENT_API_KEY` 和 `IMAGE_AGENT_BASE_URL`（可选 `IMAGE_AGENT_MODEL`）。
+2. 重启应用。配置齐全时界面里会多出真实模型，并默认选中；没配置就只剩离线假服务。
+3. 密钥只被 main 读取：`.env` 在 `.gitignore` 里；renderer 拿到的只有模型名与能力，没有任何密钥字段。
+
+临时关闭真实服务（例如跑离线验证）不用改文件，把环境变量显式置空即可：
+
+```bash
+IMAGE_AGENT_API_KEY= IMAGE_AGENT_BASE_URL= npm run dev
+```
+
+当前适配器按通行的 OpenAI 图片接口实现：`POST {baseUrl}/images/generations`，
+请求体 `{ model, prompt, n, size }`，响应接受 `data[].b64_json` 或 `data[].url`，内容必须是 PNG。
+协议里没有 seed / 负面提示词 / 取消的通用定义，所以这些能力一律声明为不支持，界面会隐藏对应控件。
 
 ## 结构
 

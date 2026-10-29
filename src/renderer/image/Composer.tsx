@@ -336,7 +336,10 @@ function resolveModel(models: readonly ProviderRef[], key: string | undefined): 
     const found = models.find((candidate) => `${candidate.id}:${candidate.model}` === key);
     if (found) return found;
   }
-  return models.find((candidate) => candidate.default) ?? models[0];
+  // 默认选中"id 里没有 fake"的第一个模型：配好真实服务时优先真实模型，
+  // 否则退回 provider 声明的默认项。列表为空时返回 undefined。
+  const preferred = models.find((candidate) => !candidate.id.includes("fake"));
+  return preferred ?? models.find((candidate) => candidate.default) ?? models[0];
 }
 
 function costOf(model: ProviderRef | undefined, count: number): string {

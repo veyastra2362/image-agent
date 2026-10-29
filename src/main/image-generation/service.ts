@@ -23,6 +23,7 @@ import {
   type RuntimeBudget,
 } from "@shared/image-generation";
 import { readPngSize } from "./fixtures";
+import { isProviderRequestError } from "./provider";
 import type { ImageProvider, ProviderImage, ProviderModel } from "./provider";
 import type { JobStore } from "./store";
 import { toTaskEvent } from "./store";
@@ -287,11 +288,11 @@ export class ImageGenerationService {
       if (submitted.state === "error") {
         // 提交失败不自动重试：请求可能已送达上游并计费。用户确认后手动重试。
         if (controller.signal.aborted) return;
-        job = this.transition(job, {
-          status: "failed",
-          error: { code: "provider-failed", message: `提交失败：${safeMessage(submitted.error)}`, retryable: true },
-        });
-        this.notify({ level: "error", message: `任务失败：${safeMessage(submitted.error)}` });
+        const error: NonNullable<ImageJob["error"]> = isProviderRequestError(submitted.error)
+          ? submitted.error.detail
+          : { code: "provider-failed", message: `提交失败：${safeMessage(submitted.error)}`, retryable: true };
+        job = this.transition(job, { status: "failed", error });
+        this.notify({ level: "error", message: `任务失败：${error.message}` });
         return;
       }
 
@@ -443,6 +444,8 @@ function isTerminal(status: ImageJob["status"]): boolean {
 }
 
 function safeMessage(error: unknown): string {
+  // provider 抛出的结构化错误自带用户可读文案与可重试标记。
+  if (isProviderRequestError(error)) return error.detail.message;
   if (error instanceof Error) return error.message.slice(0, 300);
   return String(error).slice(0, 300);
 }
