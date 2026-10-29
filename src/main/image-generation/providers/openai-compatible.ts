@@ -48,18 +48,61 @@ export interface OpenAICompatibleOptions {
   readonly downloadTimeoutMs?: number;
 }
 
-/** gpt-image 系列支持固定尺寸集合；比例映射到这里，界面上只暴露实际可用的比例。 */
-const SIZE_BY_ASPECT: Readonly<Record<AspectRatio, string>> = {
+/**
+ * gpt-image 系列接受的固定尺寸集合。
+ *
+ * 只有 1024x1024 是实测过的（2026-10，img-api.dialoguedui.com 返回同尺寸 PNG）；
+ * 另外两种横竖版沿用 OpenAI 官方 gpt-image-1 的尺寸表，未在本网关上验证。
+ */
+export const SUPPORTED_SIZES = ["1024x1024", "1536x1024", "1024x1536"] as const;
+
+const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
+
+/**
+ * 上游尺寸表只有三种，所以"比例 + 基准分辨率"在这里是就近吸附：
+ * 比例先归到最接近的 1:1 / 3:2 / 2:3，分辨率决定短边是 1024 还是 1536。
+ * 吸附规则在 pickSize 里，界面会显示吸附后的真实尺寸，不会让人以为能出 4:3。
+ */
+export const SIZE_BY_ASPECT: Readonly<Partial<Record<AspectRatio, string>>> = {
   "1:1": "1024x1024",
-  "4:3": "1536x1024",
-  "16:9": "1536x1024",
-  "3:4": "1024x1536",
-  "9:16": "1024x1536",
   "3:2": "1536x1024",
   "2:3": "1024x1536",
 };
 
-/** 上游尺寸集合有限，能选的比例也随之收敛；不能选的直接不显示。 */
+/** 比例吸附表：常用的 4:3 / 16:9 归到 3:2，3:4 / 9:16 归到 2:3，5:4 等也各自就近。 */
+const RATIO_SNAP: Readonly<Partial<Record<Exclude<AspectRatio, "custom">, AspectRatio>>> = {
+  "1:1": "1:1",
+  "4:3": "3:2",
+  "3:2": "3:2",
+  "16:9": "3:2",
+  "5:4": "3:2",
+  "2:1": "3:2",
+  "21:9": "3:2",
+  "3:4": "2:3",
+  "2:3": "2:3",
+  "9:16": "2:3",
+  "4:5": "2:3",
+  "1:2": "2:3",
+  "9:21": "2:3",
+};
+
+/**
+ * 比例 + 基准分辨率 → 上游尺寸字符串。
+ *
+ * 1K（≤1280）用短边 1024，2K 用短边 1536；4K 及以上没有对应尺寸，返回 undefined，
+ * 界面据此提前告诉用户"当前模型不支持该分辨率"。
+ */
+export function pickSize(aspectRatio: AspectRatio, resolution: number): string | undefined {
+  if (aspectRatio === "custom") return undefined;
+  const snapped = RATIO_SNAP[aspectRatio];
+  if (snapped === undefined) return undefined;
+  const short = Math.round(resolution);
+  if (short > 2048) return undefined;
+  const shortEdge = short <= 1280 ? 1024 : 1536;
+  if (snapped === "1:1") return `${shortEdge}x${shortEdge}`;
+  if (snapped === "3:2") return `1536x${shortEdge}`;
+  return `${shortEdge}x1536`;
+}
 const SUPPORTED_RATIOS: readonly AspectRatio[] = ["1:1", "4:3", "3:4"];
 
 const CAPABILITIES: ImageCapabilities = {
@@ -74,13 +117,14 @@ const CAPABILITIES: ImageCapabilities = {
   // 一次性请求/响应：任务在 main 里等结果，没有可轮询的远端任务，也就无法取消。
   async: false,
   cancel: false,
+  // 不带 size 让上游自己定：协议上允许，但本网关未实测，先声明不支持。
+  autoSize: false,
+  // 自定义宽高不在固定尺寸表里，上游会拒绝，先声明不支持。
+  customSize: false,
+  sizes: SUPPORTED_SIZES,
+  // jpeg/webp 由 main 用 sharp 在本地转码，不依赖上游。
+  transcode: true,
 };
-
-const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
-
-export function sizeForAspect(aspectRatio: AspectRatio): string {
-  return SIZE_BY_ASPECT[aspectRatio];
-}
 
 export class OpenAICompatibleProvider implements ImageProvider {
   readonly descriptor: ProviderDescriptor;
@@ -131,11 +175,13 @@ export class OpenAICompatibleProvider implements ImageProvider {
       throw new Error(`未知模型：${request.model}`);
     }
 
+    const size = request.size === undefined ? undefined : `${request.size.width}x${request.size.height}`;
     const body = {
       model: request.model,
       prompt: request.prompt,
       n: request.count,
-      size: sizeForAspect(request.aspectRatio),
+      // auto：完全不传 size，由上游决定。其余情况传固定尺寸字符串。
+      ...(size === undefined ? {} : { size }),
     };
 
     const response = await this.request(`${this.baseUrl}/images/generations`, {
@@ -217,11 +263,16 @@ export class OpenAICompatibleProvider implements ImageProvider {
     }
 
     // 上游会回显实际出图尺寸；与请求不一致时至少留下可诊断的痕迹（任务详情里能看到）。
-    const returned = data.map((entry) => (isRecord(entry) && typeof entry.size === "string" ? entry.size : undefined));
-    const expected = sizeForAspect(request.aspectRatio);
-    const mismatched = returned.filter((size) => size !== undefined && size !== expected);
-    if (mismatched.length > 0) {
-      throw new Error(`上游返回的尺寸 ${mismatched.join("、")} 与请求的 ${expected} 不一致`);
+    // auto 模式没有请求尺寸，跳过这项检查——此时上游给什么就是什么。
+    const expected =
+      request.size === undefined ? undefined : `${request.size.width}x${request.size.height}`;
+    if (expected !== undefined) {
+      const mismatched = data
+        .map((entry) => (isRecord(entry) && typeof entry.size === "string" ? entry.size : undefined))
+        .filter((size) => size !== undefined && size !== expected);
+      if (mismatched.length > 0) {
+        throw new Error(`上游返回的尺寸 ${mismatched.join("、")} 与请求的 ${expected} 不一致`);
+      }
     }
     return images;
   }

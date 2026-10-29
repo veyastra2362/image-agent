@@ -11,6 +11,7 @@ import {
   checkCapabilities,
   validateCreateJobInput,
   validateJobId,
+  resolveRatioSize,
   type AspectRatio,
   type BudgetStatus,
   type ImageAsset,
@@ -23,6 +24,7 @@ import {
   type RuntimeBudget,
 } from "@shared/image-generation";
 import { readPngSize } from "./fixtures";
+import { transcodeImage } from "./transcode";
 import { isProviderRequestError } from "./provider";
 import type { ImageProvider, ProviderImage, ProviderModel } from "./provider";
 import type { JobStore } from "./store";
@@ -44,6 +46,9 @@ export type ServiceResult = ImageRequestResult;
 interface ActiveRun {
   readonly controller: AbortController;
 }
+
+/** 老请求不带分辨率时的缺省档位（1K）。 */
+const DEFAULT_RESOLUTION = 1024;
 
 const MAX_DOWNLOAD_ATTEMPTS = 3;
 const MAX_POLL_TRANSIENT_FAILURES = 3;
@@ -123,11 +128,38 @@ export class ImageGenerationService {
     }
 
     const aspectRatio: AspectRatio = input.aspectRatio ?? model.capabilities.aspectRatios[0] ?? "1:1";
+    const sizeMode = input.sizeMode ?? "ratio";
+    const format = input.format ?? "png";
+    const compression = input.compression ?? 0;
+
+    // 尺寸在这里定死：provider 只接收最终宽高，不再自己猜比例含义。
+    const requestedSize =
+      sizeMode === "custom"
+        ? input.width !== undefined && input.height !== undefined
+          ? { width: input.width, height: input.height }
+          : undefined
+        : sizeMode === "ratio"
+          ? resolveRatioSize(aspectRatio, DEFAULT_RESOLUTION)
+          : undefined;
+
+    if (format !== "png" && !model.capabilities.transcode) {
+      return {
+        ok: false,
+        error: {
+          code: "unsupported-capability",
+          message: "当前模型不支持导出 JPEG / WebP",
+          retryable: false,
+        },
+      };
+    }
+
     const capabilityError = checkCapabilities({
       capabilities: model.capabilities,
       referenceCount: input.referenceAssetIds.length,
       aspectRatio,
       count: input.count,
+      sizeMode,
+      ...(requestedSize === undefined ? {} : { requestedSize }),
       ...(input.seed === undefined ? {} : { seed: input.seed }),
       ...(input.negativePrompt === undefined ? {} : { negativePrompt: input.negativePrompt }),
     });
@@ -169,6 +201,10 @@ export class ImageGenerationService {
       referenceAssetIds: input.referenceAssetIds,
       uploadsUserAssets: provider.descriptor.uploadsUserAssets && input.referenceAssetIds.length > 0,
       aspectRatio,
+      sizeMode,
+      ...(requestedSize === undefined ? {} : { requestedSize }),
+      format,
+      compression,
       count: input.count,
       ...(input.seed === undefined ? {} : { seed: input.seed }),
       ...(input.negativePrompt === undefined ? {} : { negativePrompt: input.negativePrompt }),
@@ -277,6 +313,8 @@ export class ImageGenerationService {
             prompt: job.submittedPrompt,
             referenceAssetIds: job.referenceAssetIds,
             aspectRatio: job.aspectRatio,
+            sizeMode: job.sizeMode ?? "ratio",
+            ...(job.requestedSize === undefined ? {} : { size: job.requestedSize }),
             count: job.count,
             ...(job.seed === undefined ? {} : { seed: job.seed }),
             ...(job.negativePrompt === undefined ? {} : { negativePrompt: job.negativePrompt }),
@@ -311,7 +349,7 @@ export class ImageGenerationService {
         job = polled.job;
       }
 
-      this.completeWithImages(job, images);
+      await this.completeWithImages(job, images);
     } catch (error) {
       if (controller.signal.aborted) return;
       this.transition(job, {
@@ -387,8 +425,8 @@ export class ImageGenerationService {
     }
   }
 
-  /** `succeeded` 只在图片校验并保存进本地作品库之后才发出。 */
-  private completeWithImages(job: ImageJob, images: readonly ProviderImage[]): void {
+  /** `succeeded` 只在图片校验、转码并保存进本地作品库之后才发出。 */
+  private async completeWithImages(job: ImageJob, images: readonly ProviderImage[]): Promise<void> {
     if (images.length === 0) {
       this.transition(job, {
         status: "failed",
@@ -396,6 +434,9 @@ export class ImageGenerationService {
       });
       return;
     }
+
+    const format = job.format ?? "png";
+    const compression = job.compression ?? 0;
 
     const assets: ImageAsset[] = [];
     const createdAt = this.now();
@@ -405,7 +446,32 @@ export class ImageGenerationService {
         this.transition(job, { status: "failed", error: validated.error });
         return;
       }
-      assets.push(validated.asset);
+      const source = Buffer.from(image.bytes);
+      let finalAsset = validated.asset;
+      if (format !== "png") {
+        try {
+          const converted = await transcodeImage({ bytes: source, format, compression });
+          finalAsset = {
+            ...validated.asset,
+            mimeType: converted.mimeType,
+            byteLength: converted.bytes.length,
+            width: converted.width,
+            height: converted.height,
+            previewUrl: `data:${converted.mimeType};base64,${converted.bytes.toString("base64")}`,
+          };
+        } catch (error) {
+          this.transition(job, {
+            status: "failed",
+            error: {
+              code: "internal",
+              message: `转码为 ${format.toUpperCase()} 失败：${safeMessage(error)}`,
+              retryable: false,
+            },
+          });
+          return;
+        }
+      }
+      assets.push(finalAsset);
     }
 
     for (const asset of assets) this.store.saveAsset(asset);

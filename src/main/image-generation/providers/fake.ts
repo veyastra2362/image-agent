@@ -5,6 +5,7 @@
  * 用来在没有任何真实 Key 的情况下验证完整任务生命周期。
  */
 import type { AspectRatio, ImageCapabilities } from "@shared/image-generation";
+import { PRESET_RATIOS } from "@shared/image-generation";
 import { readFixture } from "../fixtures";
 import type {
   ImageProvider,
@@ -17,17 +18,26 @@ import type {
 
 export const FAKE_PROVIDER_ID = "fake";
 
+/** 假服务只在本地出图，所以尺寸、格式相关能力全部声明为支持，用来覆盖 UI 的所有分支。 */
+const SIZE_CAPABILITIES = {
+  autoSize: true,
+  customSize: true,
+  sizes: [] as readonly string[],
+  transcode: false,
+} as const;
+
 const CAPABILITIES: ImageCapabilities = {
   textToImage: true,
   imageToImage: true,
   masks: false,
   referenceImageLimit: 2,
-  aspectRatios: ["1:1", "4:3", "3:4", "16:9", "9:16", "3:2", "2:3"],
+  aspectRatios: PRESET_RATIOS,
   outputCountLimit: 4,
   seed: true,
   negativePrompt: true,
   async: true,
   cancel: true,
+  ...SIZE_CAPABILITIES,
 };
 
 const LIMITED_CAPABILITIES: ImageCapabilities = {
@@ -41,6 +51,7 @@ const LIMITED_CAPABILITIES: ImageCapabilities = {
   negativePrompt: false,
   async: false,
   cancel: false,
+  ...SIZE_CAPABILITIES,
 };
 
 const MODELS: readonly ProviderModel[] = [

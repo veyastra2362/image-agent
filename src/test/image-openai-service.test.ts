@@ -121,7 +121,8 @@ test("真实链路：提交 → 上游调用 → 图片落库 → succeeded", as
   const call = seen.find((entry) => entry.url === "/v1/images/generations");
   assert.ok(call, "应当向 /images/generations 发过一次请求");
   assert.equal(call.authorization, "Bearer sk-test-only");
-  assert.deepEqual(call.body, { model: "model-a", prompt: "a red fox in snow", n: 2, size: "1024x1536" });
+  // 3:4 + 1K 经 main 推导为 1024×1368（短边 1024，对齐 8），adapter 原样发给上游。
+  assert.deepEqual(call.body, { model: "model-a", prompt: "a red fox in snow", n: 2, size: "1024x1368" });
   assert.equal(events.filter((event) => event.job.status === "succeeded").length, 1);
 });
 
@@ -162,6 +163,28 @@ test("未知模型在 main 就被拒绝，不会打到上游", async () => {
   if (result.ok) return;
   assert.equal(result.error.code, "unknown-model");
   assert.equal(seen.length, 0);
+});
+
+test("自定义宽高：上游固定尺寸表不支持，回到 main 就被拒", async () => {
+  seen.length = 0;
+  const { service, store } = createService();
+  const created = await service.createJob({
+    requestId: "req-openai-0005",
+    providerId: "openai-images",
+    model: "model-a",
+    prompt: "format test",
+    count: 1,
+    sizeMode: "custom",
+    width: 512,
+    height: 512,
+    format: "jpeg",
+    compression: 80,
+  });
+  // 上游只认固定尺寸表，自定义宽高在 main 的能力校验里就被拒，根本不会发请求。
+  assert.equal(created.ok, false);
+  if (created.ok) return;
+  assert.equal(created.error.code, "unsupported-capability");
+  assert.equal(seen.length, 0, "被拒绝的请求不能打到上游");
 });
 
 test("不支持的参数（seed/负面词）在 main 被能力校验拦下", async () => {

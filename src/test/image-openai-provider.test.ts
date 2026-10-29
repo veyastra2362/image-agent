@@ -10,7 +10,7 @@ import test from "node:test";
 import {
   OpenAICompatibleProvider,
   parseJsonMaybe,
-  sizeForAspect,
+  pickSize,
   toProviderError,
 } from "../main/image-generation/providers/openai-compatible";
 
@@ -47,6 +47,7 @@ const request = {
   referenceAssetIds: [],
   aspectRatio: "1:1" as const,
   count: 1,
+  size: { width: 1024, height: 1024 },
 };
 
 test("能力声明是保守的：不支持 seed/负面词/取消", () => {
@@ -62,10 +63,16 @@ test("能力声明是保守的：不支持 seed/负面词/取消", () => {
   assert.equal(provider.descriptor.uploadsUserAssets, false);
 });
 
-test("比例映射到受支持的固定尺寸", () => {
-  assert.equal(sizeForAspect("1:1"), "1024x1024");
-  assert.equal(sizeForAspect("4:3"), "1536x1024");
-  assert.equal(sizeForAspect("3:4"), "1024x1536");
+test("比例 + 分辨率吸附到上游固定尺寸表", () => {
+  assert.equal(pickSize("1:1", 1024), "1024x1024");
+  assert.equal(pickSize("1:1", 2048), "1536x1536");
+  // 4:3 不在上游表里，吸附到 3:2。
+  assert.equal(pickSize("4:3", 1024), "1536x1024");
+  assert.equal(pickSize("3:4", 1024), "1024x1536");
+  assert.equal(pickSize("16:9", 2048), "1536x1536");
+  // 4K 没有对应尺寸，返回 undefined 让界面提前提示。
+  assert.equal(pickSize("1:1", 4096), undefined);
+  assert.equal(pickSize("custom", 1024), undefined);
 });
 
 test("提交请求的形状与鉴权头正确，b64_json 被解码为 PNG 字节", async () => {

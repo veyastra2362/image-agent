@@ -128,7 +128,7 @@ describe("ImageGenerationService（离线 fake provider）", () => {
       [request({ prompt: "   " }), "invalid-request"],
       [request({ prompt: "x".repeat(2001) }), "invalid-request"],
       [request({ endpoint: "https://evil.example" }), "invalid-request"],
-      [request({ aspectRatio: "21:9" }), "invalid-request"],
+      [request({ aspectRatio: "21:9" }), "unsupported-capability"],
     ];
     for (const [input, code] of cases) {
       const result = await service.createJob(input);

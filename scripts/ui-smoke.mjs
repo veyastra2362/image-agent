@@ -117,7 +117,7 @@ async function run() {
 
   win.focus();
   // 页面由应用自己加载；等它挂载出 React 根节点再看后面的断言。
-  await waitFor("document.querySelector('.rail') || document.querySelector('.composer')", "renderer 挂载", 20000).catch(
+  await waitFor("document.querySelector('.titlebar') || document.querySelector('.composer')", "renderer 挂载", 20000).catch(
     () => undefined,
   );
   await sleep(500);
@@ -139,6 +139,17 @@ async function run() {
 
   const csp = await js("document.querySelector('meta[http-equiv=\"Content-Security-Policy\"]')?.content ?? ''");
   check("CSP 生效", csp.includes("default-src 'none'") && csp.includes("script-src 'self'"), csp);
+
+  // ---- 标题栏：没有原生菜单，导航可点 ----
+  const menuProbe = await js("({ menu: typeof window.appWindow, nav: document.querySelectorAll('.titlebar__nav .navitem').length })");
+  check("preload 暴露自绘标题栏控制", menuProbe.menu === "object", menuProbe);
+  const navItems = await js("[...document.querySelectorAll('.titlebar__nav .navitem')].map((n) => n.textContent)");
+  check("标题栏含三个导航项", navItems.length === 3, navItems);
+  check(
+    "导航项都可以点击",
+    (await js("[...document.querySelectorAll('.titlebar__nav .navitem')].every((n) => !n.disabled)")) === true,
+    "",
+  );
 
   await waitFor("document.querySelector('.composer')", "创作表单渲染");
   const modelOptions = await js("[...document.querySelectorAll('.field select option')].map((o) => o.textContent)");
@@ -188,6 +199,65 @@ async function run() {
     "(() => { const s = [...document.querySelectorAll('.field select')].find((x) => [...x.options].some((o) => o.textContent.includes('不使用参考图'))); return s ? s.options.length : 0; })()",
   );
   check("作品可作为参考图来源", referenceOptions > 1, referenceOptions);
+
+  // ---- 画面设置弹窗 ----
+  await js("document.querySelector('.size-button').click(); true");
+  await waitFor("document.querySelector('.modal')", "画面弹窗打开");
+  const modeLabels = await js("[...document.querySelectorAll('.segmented__label')].map((n) => n.textContent)");
+  check("画面弹窗有三种模式", modeLabels.length === 3, modeLabels);
+  const ratioCount = await js("document.querySelectorAll('.ratio-grid .ratio').length");
+  check("预设比例至少 12 种（含自定义）", ratioCount >= 13, ratioCount);
+  const tiers = await js("[...document.querySelectorAll('.chips .chip')].map((n) => n.textContent).filter((t) => /K/.test(t))");
+  check("有 1K/2K/4K 分辨率档位", tiers.some((t) => t.includes("1K")) && tiers.some((t) => t.includes("2K")) && tiers.some((t) => t.includes("4K")), tiers);
+  const preview = await js("document.querySelector('.modal__preview').textContent");
+  check("显示将使用的尺寸", /将使用 \d+×\d+/.test(preview), preview);
+  await shot("07-size-dialog");
+  // 切到 16:9 看预览是否跟着变
+  await js(
+    "(() => { const b = [...document.querySelectorAll('.ratio')].find((n) => n.textContent.includes('16:9')); b.click(); return true; })()",
+  );
+  await sleep(150);
+  const preview169 = await js("document.querySelector('.modal__preview').textContent");
+  check("切换比例后预览更新", preview169 !== preview && /×/.test(preview169), preview169);
+  // 取消不应改变设置
+  await js("(() => { const b = [...document.querySelectorAll('.modal__foot .button--ghost')].pop(); b.click(); return true; })()");
+  await sleep(200);
+  check("取消后弹窗关闭", !(await js("Boolean(document.querySelector('.modal'))")), "");
+  const sizeSummary = await js("document.querySelector('.size-button__main').textContent");
+  check("取消后尺寸设置不变", sizeSummary === preview.replace(/^$/, ""), { sizeSummary, preview });
+
+  // ---- 设置弹窗 ----
+  await js("document.querySelector('.titlebar__icon').click(); true");
+  await waitFor("document.querySelector('.settings')", "设置弹窗打开");
+  const tabs = await js("[...document.querySelectorAll('.settings__tab')].map((n) => n.textContent)");
+  check("设置含 API/外观/关于", tabs.join(",") === "API 设置,外观设置,关于", tabs);
+  const apiText = await js("document.querySelector('.settings__body').innerText");
+  check("API 设置不显示密钥", !/sk-[A-Za-z0-9]{8}/.test(apiText), apiText.slice(0, 120));
+  await shot("08-settings-api");
+  await js("(() => { [...document.querySelectorAll('.settings__tab')].find((n) => n.textContent === '外观设置').click(); return true; })()");
+  await sleep(150);
+  await shot("09-settings-appearance");
+  await js("(() => { [...document.querySelectorAll('.settings__tab')].find((n) => n.textContent === '关于').click(); return true; })()");
+  await sleep(150);
+  const aboutText = await js("document.querySelector('.settings__body').innerText");
+  check("关于页显示版本", /版本/.test(aboutText) && /Electron/.test(aboutText), aboutText.slice(0, 120));
+  await shot("10-settings-about");
+  await js("window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); true");
+  await sleep(200);
+
+  // ---- 作品库与服务商页面可点击 ----
+  await js("(() => { [...document.querySelectorAll('.navitem')].find((n) => n.textContent.includes('作品库')).click(); return true; })()");
+  await waitFor("document.querySelector('.page')", "作品库页面");
+  const libraryCards = await js("document.querySelectorAll('.library-card').length");
+  check("作品库显示已有作品", libraryCards >= 1, libraryCards);
+  await shot("11-library");
+  await js("(() => { [...document.querySelectorAll('.navitem')].find((n) => n.textContent.includes('服务商')).click(); return true; })()");
+  await waitFor("document.querySelector('.provider-card')", "服务商页面");
+  const providerCards = await js("document.querySelectorAll('.provider-card').length");
+  check("服务商页列出服务", providerCards >= 1, providerCards);
+  await shot("12-providers");
+  await js("(() => { [...document.querySelectorAll('.navitem')].find((n) => n.textContent.includes('创作')).click(); return true; })()");
+  await waitFor("document.querySelector('.composer')", "回到创作页");
 
   // ---- 失败态（main 边界拒绝）：篡改提交参数 ----
   const reject = await js(

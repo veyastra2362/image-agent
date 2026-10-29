@@ -10,6 +10,7 @@
  */
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 import type { ImageAgentApi, ImageTaskEvent, Notification, Unsubscribe } from "@shared/image-generation";
+import type { AppEnvironment, WindowControls } from "@shared/app-shell";
 
 /** 必须与 src/shared/channels.ts 的 IMAGE_CHANNELS 完全一致。 */
 const CHANNELS = {
@@ -19,6 +20,17 @@ const CHANNELS = {
   taskEvent: "image:task-event",
   notification: "image:notification",
 } as const;
+
+/** 必须与 src/main/window-ipc.ts 的 WINDOW_CHANNELS 完全一致（由测试校验）。 */
+const WINDOW = {
+  minimize: "window:minimize",
+  toggleMaximize: "window:toggle-maximize",
+  close: "window:close",
+  isMaximized: "window:is-maximized",
+} as const;
+
+/** 必须与 src/shared/app-shell.ts 的 APP_CHANNEL 完全一致（由测试校验）。 */
+const APP_CHANNEL = "app:environment";
 
 function subscribe<T>(channel: string, listener: (payload: T) => void): Unsubscribe {
   const handler = (_event: IpcRendererEvent, payload: T) => {
@@ -43,3 +55,15 @@ const api: ImageAgentApi = {
 };
 
 contextBridge.exposeInMainWorld("imageAgent", Object.freeze(api));
+
+const windowControls: WindowControls = {
+  minimize: () => ipcRenderer.invoke(WINDOW.minimize),
+  toggleMaximize: () => ipcRenderer.invoke(WINDOW.toggleMaximize),
+  close: () => ipcRenderer.invoke(WINDOW.close),
+  isMaximized: () => ipcRenderer.invoke(WINDOW.isMaximized),
+};
+
+contextBridge.exposeInMainWorld("appWindow", Object.freeze(windowControls));
+
+const environment = (): Promise<AppEnvironment> => ipcRenderer.invoke(APP_CHANNEL) as Promise<AppEnvironment>;
+contextBridge.exposeInMainWorld("appInfo", Object.freeze({ environment }));

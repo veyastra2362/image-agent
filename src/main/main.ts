@@ -11,12 +11,14 @@
  *   out/renderer/index.html     Vite 产物
  * 即 main 与 preload 同在 out/main，渲染产物在它上一级的 renderer/。
  */
-import { app, BrowserWindow, shell } from "electron";
+import { app, BrowserWindow, Menu, shell } from "electron";
 import type { ChildProcess } from "node:child_process";
 import path from "node:path";
 import { startDevServer } from "./dev-server";
 import { parseDevTarget } from "./dev-server-url";
 import { registerImageIpc } from "./ipc";
+import { registerWindowIpc } from "./window-ipc";
+import { registerAppIpc } from "./app-ipc";
 import { loadProviderConfig } from "./config";
 import { ImageGenerationService } from "./image-generation/service";
 import { FakeProvider } from "./image-generation/providers/fake";
@@ -37,6 +39,7 @@ let mainWindow: BrowserWindow | undefined;
 let service: ImageGenerationService | undefined;
 let bridge: ReturnType<typeof registerImageIpc> | undefined;
 let devServerProcess: ChildProcess | undefined;
+let disposeExtraIpc: readonly (() => void)[] = [];
 
 /** 关窗之后、进程退出之前，macOS 的 activate 事件不应该被当成"应用已就绪"。 */
 let quitting = false;
@@ -47,6 +50,9 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   app.setName(APP_NAME);
   app.setAppUserModelId(APP_ID);
+  // 去掉 Electron 默认菜单（File/Edit/View/Window/Help）。应用内的操作都在界面里，
+  // 不再需要系统菜单；这会同时移除菜单栏和它的快捷键绑定。
+  Menu.setApplicationMenu(null);
   start();
 }
 
@@ -60,8 +66,10 @@ function start(): void {
   app.whenReady().then(() => {
     // 离线假 provider 永远在；真实 provider 只在配置了密钥时出现（见 config.ts）。
     const store = new MemoryJobStore();
+    const configured = loadProviderConfig({ rootDir: APP_ROOT });
+    const providers = createProviders(configured);
     const imageService = new ImageGenerationService({
-      providers: createProviders(),
+      providers,
       store,
       emit: (event) => bridge?.sendEvent(event),
       notify: (notification) => bridge?.sendNotification(notification),
@@ -74,6 +82,15 @@ function start(): void {
       service: imageService,
       getWindowWebContents: () => mainWindow?.webContents,
     });
+    disposeExtraIpc = [
+      // 窗口控制在启动时注册一次即可：createWindow 会被 activate 再次调用，重复 handle 会抛错。
+      registerWindowIpc(() => mainWindow),
+      registerAppIpc(() => mainWindow, () => ({
+        providerConfigured: configured.configured,
+        ...(configured.configured ? { providerBaseUrl: configured.config.baseUrl } : {}),
+        models: configured.configured ? REAL_MODELS.map((model) => model.id) : [],
+      })),
+    ];
     openMainWindow();
   });
 
@@ -81,6 +98,8 @@ function start(): void {
     quitting = true;
     stopDevServer();
     bridge?.dispose();
+    for (const dispose of disposeExtraIpc) dispose();
+    disposeExtraIpc = [];
     if (process.platform !== "darwin") app.quit();
   });
 
@@ -124,15 +143,23 @@ app.on("activate", () => {
   openMainWindow();
 });
 
+/** 真实服务上可选的模型。列表来自 GET /v1/models 的实测结果。 */
+const REAL_MODELS = [
+  { id: "gpt-image-2", displayName: "GPT Image 2" },
+  { id: "gpt-image-2.5-flare", displayName: "GPT Image 2.5 Flare" },
+  { id: "gpt-image-2.5-sunburst", displayName: "GPT Image 2.5 Sunburst" },
+] as const;
+
 /**
  * 组装 provider 列表。
  *
  * 真实 provider 只在 .env / 环境变量里配好了密钥时创建；没有配置就只留下假 provider，
  * 应用照常可用。密钥本身只留在 main 的这个对象里，renderer 只看到模型与能力。
  */
-function createProviders(): (FakeProvider | OpenAICompatibleProvider)[] {
+function createProviders(
+  configured: ReturnType<typeof loadProviderConfig>,
+): (FakeProvider | OpenAICompatibleProvider)[] {
   const providers: (FakeProvider | OpenAICompatibleProvider)[] = [];
-  const configured = loadProviderConfig({ rootDir: APP_ROOT });
 
   if (configured.configured) {
     providers.push(
@@ -140,11 +167,7 @@ function createProviders(): (FakeProvider | OpenAICompatibleProvider)[] {
         baseUrl: configured.config.baseUrl,
         apiKey: configured.config.apiKey,
         defaultModel: configured.config.defaultModel ?? "gpt-image-2",
-        models: [
-          { id: "gpt-image-2", displayName: "GPT Image 2" },
-          { id: "gpt-image-2.5-flare", displayName: "GPT Image 2.5 Flare" },
-          { id: "gpt-image-2.5-sunburst", displayName: "GPT Image 2.5 Sunburst" },
-        ],
+        models: REAL_MODELS.map((model) => ({ ...model })),
       }),
     );
   } else {
@@ -165,6 +188,12 @@ function createWindow(): BrowserWindow {
     show: false,
     backgroundColor: "#1b1b19",
     title: "Image Agent",
+    // 标题栏交给 renderer 自绘：应用名 + 设置 + 窗口按钮都在顶部同一行，
+    // 不再有 File/Edit/View 菜单，也不出现系统那条独立的标题。
+    titleBarStyle: "hidden",
+    ...(process.platform === "darwin"
+      ? { trafficLightPosition: { x: 12, y: 12 } }
+      : { titleBarOverlay: false }),
     webPreferences: {
       // 与 main 同级，满足 sandbox preload 只能 require 同目录文件的限制。
       preload: path.resolve(OUT_DIR, "preload.js"),
@@ -177,6 +206,7 @@ function createWindow(): BrowserWindow {
       webviewTag: false,
     },
   });
+
 
   window.once("ready-to-show", () => window.show());
 

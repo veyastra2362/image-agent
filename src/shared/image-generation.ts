@@ -19,9 +19,66 @@ export type JobStatus = (typeof JOB_STATUSES)[number];
 
 export const TERMINAL_STATUSES: readonly JobStatus[] = ["succeeded", "failed", "cancelled"];
 
-export const ASPECT_RATIOS = ["1:1", "4:3", "3:4", "16:9", "9:16", "3:2", "2:3"] as const;
+export const ASPECT_RATIOS = [
+  "1:1",
+  "4:3",
+  "3:4",
+  "16:9",
+  "9:16",
+  "3:2",
+  "2:3",
+  "5:4",
+  "4:5",
+  "21:9",
+  "9:21",
+  "2:1",
+  "1:2",
+  "custom",
+] as const;
 
 export type AspectRatio = (typeof ASPECT_RATIOS)[number];
+
+/** 用户可选的预设比例（不含"自定义"）。 */
+export const PRESET_RATIOS = ASPECT_RATIOS.filter((ratio): ratio is Exclude<AspectRatio, "custom"> => ratio !== "custom");
+
+/** 分辨率档位：只表达"短边目标像素"，具体宽高由比例推导。 */
+export const RESOLUTION_TIERS = [1024, 1536, 2048, 4096] as const;
+
+export type ResolutionTier = (typeof RESOLUTION_TIERS)[number];
+
+export const OUTPUT_FORMATS = ["png", "jpeg", "webp"] as const;
+
+export type OutputFormat = (typeof OUTPUT_FORMATS)[number];
+
+/** 压缩率：0 = 画质优先，100 = 体积优先。只对 jpeg/webp 生效。 */
+export const COMPRESSION_MIN = 0;
+export const COMPRESSION_MAX = 100;
+
+export const SIZE_MODE_AUTO = "auto";
+
+/**
+ * 画面模式：
+ *   auto   —— 不指定尺寸，由模型/上游自己决定（此时比例、分辨率都不参与请求）
+ *   ratio  —— 按比例 + 分辨率档位推导出宽高
+ *   custom —— 用户直接给宽高
+ */
+export type SizeMode = "auto" | "ratio" | "custom";
+
+export const MAX_IMAGE_EDGE = 8192;
+export const MIN_IMAGE_EDGE = 64;
+
+export interface OutputSpec {
+  readonly mode: SizeMode;
+  /** mode = "ratio" 时有意义；"custom" 时为自定义比例的规范化写法。 */
+  readonly aspectRatio: AspectRatio;
+  /** mode = "ratio" 时的短边像素目标；"auto"/"custom" 时不参与。 */
+  readonly resolution: ResolutionTier;
+  /** mode = "custom" 时的最终宽高。 */
+  readonly width?: number;
+  readonly height?: number;
+  readonly format: OutputFormat;
+  readonly compression: number;
+}
 
 export interface ImageCapabilities {
   readonly textToImage: boolean;
@@ -34,6 +91,83 @@ export interface ImageCapabilities {
   readonly negativePrompt: boolean;
   readonly async: boolean;
   readonly cancel: boolean;
+  /** 上游是否接受"由模型自己决定尺寸"。为 false 时 auto 会退化成按比例。 */
+  readonly autoSize: boolean;
+  /** 上游是否接受自定义宽高。为 false 时自定义退化成按比例。 */
+  readonly customSize: boolean;
+  /** 上游接受的固定尺寸；为空表示按比例自由推导。 */
+  readonly sizes: readonly string[];
+  /** 本次生成是否由本机负责转码成 jpeg/webp（fake provider 为 false）。 */
+  readonly transcode: boolean;
+}
+
+/**
+ * 按比例与短边目标推导宽高，两边都对齐到 8 的倍数（多数模型要求）。
+ * auto/未知比例返回 undefined。
+ */
+export function resolveRatioSize(ratio: AspectRatio, resolution: number): { width: number; height: number } | undefined {
+  const parts = /^(\d{1,2}):(\d{1,2})$/.exec(ratio);
+  if (!parts) return undefined;
+  const w = Number(parts[1]);
+  const h = Number(parts[2]);
+  if (w <= 0 || h <= 0) return undefined;
+  const short = Math.max(MIN_IMAGE_EDGE, Math.min(MAX_IMAGE_EDGE, Math.round(resolution)));
+  const align = (value: number) => Math.round(value / 8) * 8;
+  // 长边按短边比例放大，保证短边等于档位值。
+  return w >= h
+    ? { width: align(Math.round((short * w) / h)), height: align(short) }
+    : { width: align(short), height: align(Math.round((short * h) / w)) };
+}
+
+/** 解析用户输入的自定义比例（允许 "16:10"、"16/10"、"1.6"）；不合法返回 undefined。 */
+export function parseCustomRatio(raw: string): { readonly ratio: AspectRatio; readonly label: string } | undefined {
+  const text = raw.trim().replace(/：/g, ":");
+  const pair = /^(\d{1,3}(?:\.\d+)?)\s*[:/]\s*(\d{1,3}(?:\.\d+)?)$/.exec(text);
+  let w: number;
+  let h: number;
+  if (pair) {
+    w = Number(pair[1]);
+    h = Number(pair[2]);
+  } else if (/^\d+(?:\.\d+)?$/.test(text)) {
+    w = Number(text);
+    h = 1;
+  } else {
+    return undefined;
+  }
+  if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return undefined;
+  if (w / h > 20 || h / w > 20) return undefined;
+  return { ratio: "custom", label: `${round(w)}:${round(h)}` };
+}
+
+function round(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+/** 自定义比例 + 分辨率档位推导宽高（以短边为基准）。 */
+export function resolveCustomRatioSize(ratioLabel: string, resolution: number): { width: number; height: number } | undefined {
+  const parsed = /^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/.exec(ratioLabel);
+  if (!parsed) return undefined;
+  const w = Number(parsed[1]);
+  const h = Number(parsed[2]);
+  const align = (value: number) => Math.round(value / 8) * 8;
+  const short = Math.max(MIN_IMAGE_EDGE, Math.min(MAX_IMAGE_EDGE, Math.round(resolution)));
+  return w >= h
+    ? { width: align(Math.round((short * w) / h)), height: align(short) }
+    : { width: align(short), height: align(Math.round((short * h) / w)) };
+}
+
+/** 界面统一显示的一句"将使用 WxH"，auto 时给出可读说明。 */
+export function describeOutputSize(spec: OutputSpec, customRatioLabel?: string): string {
+  if (spec.mode === "auto") return "由模型自行决定尺寸";
+  if (spec.mode === "custom") {
+    return spec.width && spec.height ? `将使用 ${spec.width}×${spec.height}` : "自定义尺寸不完整";
+  }
+  if (spec.aspectRatio === "custom") {
+    const size = customRatioLabel ? resolveCustomRatioSize(customRatioLabel, spec.resolution) : undefined;
+    return size ? `将使用 ${size.width}×${size.height}` : "自定义比例不合法";
+  }
+  const size = resolveRatioSize(spec.aspectRatio, spec.resolution);
+  return size ? `将使用 ${size.width}×${size.height}` : "比例不合法";
 }
 
 export const ERROR_CODES = [
@@ -90,6 +224,13 @@ export interface CreateImageJobInput {
   readonly negativePrompt?: string;
   /** 用户为本次生成填写的预算上限（单位由 provider 声明）；未填写时不做预算拦截。 */
   readonly budgetLimit?: number;
+  /** 画面尺寸来源：auto / 比例 / 自定义。省略时按比例处理。 */
+  readonly sizeMode?: SizeMode;
+  /** 自定义宽高（sizeMode = "custom" 时必填）。 */
+  readonly width?: number;
+  readonly height?: number;
+  readonly format?: OutputFormat;
+  readonly compression?: number;
 }
 
 export interface AgentRunRecord {
@@ -116,6 +257,12 @@ export interface ImageJob {
   /** 当参考图需要上传给远端 provider 时为 true；本地 fake provider 为 false。 */
   readonly uploadsUserAssets: boolean;
   readonly aspectRatio: AspectRatio;
+  /** 实际使用的尺寸模式；老记录没有这个字段，按 "ratio" 理解。 */
+  readonly sizeMode?: SizeMode;
+  /** 请求的最终宽高（auto 时省略）。 */
+  readonly requestedSize?: { readonly width: number; readonly height: number };
+  readonly format?: OutputFormat;
+  readonly compression?: number;
   readonly count: number;
   readonly seed?: number;
   readonly negativePrompt?: string;
@@ -140,7 +287,8 @@ export interface ImageAsset {
   readonly jobId: string;
   readonly providerId: string;
   readonly model: string;
-  readonly mimeType: "image/png";
+  /** 落库时的实际编码格式（main 负责转码；fake provider 固定 png）。 */
+  readonly mimeType: string;
   readonly byteLength: number;
   readonly width: number;
   readonly height: number;
@@ -222,6 +370,11 @@ const ALLOWED_INPUT_KEYS = new Set([
   "seed",
   "negativePrompt",
   "budgetLimit",
+  "sizeMode",
+  "width",
+  "height",
+  "format",
+  "compression",
 ]);
 
 export const LIMITS = {
@@ -235,6 +388,9 @@ export const LIMITS = {
   maxReferenceImages: 4,
   seedMax: 2_147_483_647,
   budgetMax: 10_000,
+  /** 自定义宽高允许范围；与 MAX_IMAGE_EDGE / MIN_IMAGE_EDGE 一致。 */
+  edgeMin: MIN_IMAGE_EDGE,
+  edgeMax: MAX_IMAGE_EDGE,
 } as const;
 
 const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]*$/;
@@ -356,6 +512,60 @@ export function validateCreateJobInput(raw: unknown): ValidationResult<CreateIma
     budgetLimit = raw.budgetLimit;
   }
 
+  let sizeMode: SizeMode | undefined;
+  if (raw.sizeMode !== undefined) {
+    if (raw.sizeMode !== "auto" && raw.sizeMode !== "ratio" && raw.sizeMode !== "custom") {
+      return fail("invalid-request", `不支持的尺寸模式：${String(raw.sizeMode)}`);
+    }
+    sizeMode = raw.sizeMode;
+  }
+
+  const parseEdge = (name: string): { value?: number } | { error: string } => {
+    const input = raw[name];
+    if (input === undefined) return {};
+    if (
+      typeof input !== "number" ||
+      !Number.isInteger(input) ||
+      input < LIMITS.edgeMin ||
+      input > LIMITS.edgeMax
+    ) {
+      return { error: `${name} 必须是 ${LIMITS.edgeMin}–${LIMITS.edgeMax} 的整数` };
+    }
+    return { value: input };
+  };
+  const widthResult = parseEdge("width");
+  if ("error" in widthResult) return fail("invalid-request", widthResult.error);
+  const heightResult = parseEdge("height");
+  if ("error" in heightResult) return fail("invalid-request", heightResult.error);
+
+  if (sizeMode === "custom" && (widthResult.value === undefined || heightResult.value === undefined)) {
+    return fail("invalid-request", "自定义尺寸必须同时给出宽和高");
+  }
+  if (sizeMode !== "custom" && (widthResult.value !== undefined || heightResult.value !== undefined)) {
+    return fail("invalid-request", "只有自定义尺寸模式可以带宽高");
+  }
+
+  let format: OutputFormat | undefined;
+  if (raw.format !== undefined) {
+    if (typeof raw.format !== "string" || !(OUTPUT_FORMATS as readonly string[]).includes(raw.format)) {
+      return fail("invalid-request", `不支持的输出格式：${String(raw.format)}`);
+    }
+    format = raw.format as OutputFormat;
+  }
+
+  let compression: number | undefined;
+  if (raw.compression !== undefined) {
+    if (
+      typeof raw.compression !== "number" ||
+      !Number.isInteger(raw.compression) ||
+      raw.compression < COMPRESSION_MIN ||
+      raw.compression > COMPRESSION_MAX
+    ) {
+      return fail("invalid-request", `压缩率必须是 ${COMPRESSION_MIN}–${COMPRESSION_MAX} 的整数`);
+    }
+    compression = raw.compression;
+  }
+
   return {
     ok: true,
     value: {
@@ -370,6 +580,11 @@ export function validateCreateJobInput(raw: unknown): ValidationResult<CreateIma
       ...(seed === undefined ? {} : { seed }),
       ...(negativePrompt === undefined ? {} : { negativePrompt }),
       ...(budgetLimit === undefined ? {} : { budgetLimit }),
+      ...(sizeMode === undefined ? {} : { sizeMode }),
+      ...(widthResult.value === undefined ? {} : { width: widthResult.value }),
+      ...(heightResult.value === undefined ? {} : { height: heightResult.value }),
+      ...(format === undefined ? {} : { format }),
+      ...(compression === undefined ? {} : { compression }),
     },
   };
 }
@@ -393,6 +608,10 @@ export interface CapabilityCheckInput {
   readonly count: number;
   readonly seed?: number;
   readonly negativePrompt?: string;
+  /** 尺寸模式；缺省视为 "ratio"。 */
+  readonly sizeMode?: SizeMode;
+  /** 请求的最终宽高（auto 时省略）。 */
+  readonly requestedSize?: { readonly width: number; readonly height: number };
 }
 
 /** 返回第一条违反能力的用户可读原因；通过时返回 null。 */
@@ -412,6 +631,11 @@ export function checkCapabilities(input: CapabilityCheckInput): string | null {
   }
   if (input.seed !== undefined && !caps.seed) return "当前模型不支持固定 seed";
   if (input.negativePrompt !== undefined && !caps.negativePrompt) return "当前模型不支持负面提示词";
+  if (input.sizeMode === "auto" && !caps.autoSize) return "当前模型不支持由模型自行决定尺寸，请选择比例";
+  if (input.sizeMode === "custom") {
+    if (!caps.customSize) return "当前模型不支持自定义宽高，请选择比例";
+    if (input.requestedSize === undefined) return "自定义尺寸缺少宽高";
+  }
   return null;
 }
 

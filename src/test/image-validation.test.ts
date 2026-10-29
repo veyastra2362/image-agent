@@ -19,6 +19,10 @@ const caps: ImageCapabilities = {
   seed: true,
   negativePrompt: false,
   async: true,
+  autoSize: true,
+  customSize: true,
+  sizes: [],
+  transcode: false,
   cancel: true,
 };
 
@@ -76,7 +80,7 @@ describe("validateCreateJobInput", () => {
       { seed: 2_147_483_648 },
       { budgetLimit: 0 },
       { budgetLimit: Number.POSITIVE_INFINITY },
-      { aspectRatio: "21:9" },
+      { aspectRatio: "7:5" },
       { requestId: "short" },
       { model: "x".repeat(129) },
     ];

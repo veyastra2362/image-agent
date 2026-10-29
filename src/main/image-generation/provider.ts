@@ -4,7 +4,7 @@
  * 能力是模型级的（`getCapabilities(model)`），不是 provider 级；
  * 可选模型列表来自 provider 自己，main 不猜测"看起来相似"的模型。
  */
-import type { AspectRatio, ImageCapabilities, ImageError } from "@shared/image-generation";
+import type { AspectRatio, ImageCapabilities, ImageError, SizeMode } from "@shared/image-generation";
 
 export interface ProviderModel {
   readonly id: string;
@@ -35,6 +35,10 @@ export interface ProviderGenerateRequest {
   readonly count: number;
   readonly seed?: number;
   readonly negativePrompt?: string;
+  /** "auto" 时不指定尺寸，交给上游自己决定。 */
+  readonly sizeMode?: SizeMode;
+  /** 由 main 推导好的最终宽高；auto 时省略。 */
+  readonly size?: { readonly width: number; readonly height: number };
 }
 
 export interface ProviderImage {
