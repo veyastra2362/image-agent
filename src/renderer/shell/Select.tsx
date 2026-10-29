@@ -6,7 +6,7 @@
  * "点了没反应"（其实菜单被裁掉了）。portal + fixed 定位后不会再被裁剪，
  * 下方空间不够时自动向上展开；箭头在展开时旋转。
  */
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 export interface SelectOption {
@@ -24,6 +24,8 @@ export interface SelectProps {
   readonly compact?: boolean;
   readonly disabled?: boolean;
   readonly className?: string;
+  /** 触发器里放在文字前面的东西（比如参考图缩略图）。 */
+  readonly leading?: ReactNode;
 }
 
 interface MenuRect {
@@ -66,6 +68,7 @@ export function Select({
   compact = false,
   disabled = false,
   className,
+  leading,
 }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [rect, setRect] = useState<MenuRect>();
@@ -147,6 +150,7 @@ export function Select({
         onClick={() => (open ? setOpen(false) : openMenu())}
         onKeyDown={onKeyDown}
       >
+        {leading}
         <span className={`select__value ${selected === undefined ? "is-placeholder" : ""}`}>
           {selected?.label ?? placeholder}
         </span>

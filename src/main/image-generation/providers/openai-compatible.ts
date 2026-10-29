@@ -110,7 +110,7 @@ const CAPABILITIES: ImageCapabilities = {
   // 实测前先打开，用一张真实参考图验证 /images/edits。
   imageToImage: true,
   masks: false,
-  referenceImageLimit: 1,
+  referenceImageLimit: 4,
   aspectRatios: SUPPORTED_RATIOS,
   outputCountLimit: 4,
   seed: false,
@@ -176,9 +176,9 @@ export class OpenAICompatibleProvider implements ImageProvider {
 
     const size = request.size === undefined ? undefined : `${request.size.width}x${request.size.height}`;
     // 带参考图时走 /images/edits（multipart），否则走 /images/generations（JSON）。
-    const reference = request.referenceImages?.[0];
-    if (reference !== undefined) {
-      return this.submitEdit(request, reference, size, signal);
+    const references = request.referenceImages ?? [];
+    if (references.length > 0) {
+      return this.submitEdit(request, references, size, signal);
     }
     const body = {
       model: request.model,
@@ -208,7 +208,7 @@ export class OpenAICompatibleProvider implements ImageProvider {
   /** 参考图编辑：multipart/form-data，图片字段名是 image。 */
   private async submitEdit(
     request: ProviderGenerateRequest,
-    image: { readonly bytes: Uint8Array; readonly mimeType: string },
+    images: readonly { readonly bytes: Uint8Array; readonly mimeType: string }[],
     size: string | undefined,
     signal: AbortSignal,
   ): Promise<ProviderSubmitResult> {
@@ -217,7 +217,11 @@ export class OpenAICompatibleProvider implements ImageProvider {
     form.append("prompt", request.prompt);
     form.append("n", String(request.count));
     if (size !== undefined) form.append("size", size);
-    form.append("image", new Blob([new Uint8Array(image.bytes)], { type: image.mimeType }), "reference.png");
+    // 一张用 image，多张用 image[]（OpenAI edits 的多图写法）。
+    images.forEach((image, index) => {
+      const blob = new Blob([new Uint8Array(image.bytes)], { type: image.mimeType });
+      form.append(images.length === 1 ? "image" : "image[]", blob, `reference-${index + 1}.png`);
+    });
 
     const response = await this.request(`${this.baseUrl}/images/edits`, {
       method: "POST",
@@ -228,8 +232,8 @@ export class OpenAICompatibleProvider implements ImageProvider {
     });
 
     if (!response.ok) throw new ProviderRequestError(toProviderError(response.status, response.json, response.text));
-    const images = await this.collectImages(response.json, request, signal);
-    return { state: "completed", images };
+    const result = await this.collectImages(response.json, request, signal);
+    return { state: "completed", images: result };
   }
 
   poll(): Promise<ProviderPollResult> {

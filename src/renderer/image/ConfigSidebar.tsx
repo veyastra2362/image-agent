@@ -3,6 +3,8 @@
  *
  * 提示词在右下角的输入框里，这里只放"参数"。
  */
+import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { LIMITS } from "../../shared/image-generation.ts";
 import { FORMAT_LABELS } from "../lib/output-spec.ts";
 import { useComposer } from "./composer-state.tsx";
@@ -37,11 +39,29 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
     negativePrompt,
     setNegativePrompt,
     referenceOptions,
-    reference,
+    references,
     setReferenceFromAsset,
+    referenceLimit,
     referenceValid,
     prompt,
   } = useComposer();
+
+  // 悬停 1.5 秒才弹出大图预览，避免只是划过去就闪一下。
+  const [peek, setPeek] = useState<{ x: number; y: number }>();
+  const peekTimer = useRef<number | undefined>(undefined);
+
+  const startPeek = (event: React.MouseEvent<HTMLElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    window.clearTimeout(peekTimer.current);
+    peekTimer.current = window.setTimeout(() => {
+      setPeek({ x: rect.right + 10, y: rect.top });
+    }, 1500);
+  };
+
+  const stopPeek = () => {
+    window.clearTimeout(peekTimer.current);
+    setPeek(undefined);
+  };
 
   return (
     <div className="sidebar__body">
@@ -111,29 +131,49 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
         </button>
       </div>
 
-      <label className="field">
+      <div
+        className="field ref-field"
+        onMouseEnter={startPeek}
+        onMouseLeave={stopPeek}
+      >
         <span className="field__label">
           参考图
+          {references.length > 0 && <span className="field__meta">{references.length} / {referenceLimit}</span>}
           {!caps?.imageToImage && <span className="field__meta">当前模型不支持</span>}
         </span>
         <Select
           ariaLabel="参考图"
-          value={referenceValid ? (reference?.id ?? "") : ""}
-          disabled={!caps?.imageToImage || referenceOptions.length === 0}
-          onChange={(next) => setReferenceFromAsset(next === "" ? undefined : next)}
+          value=""
+          placeholder={references.length > 0 ? `已选 ${references.length} 张，可继续添加` : "从作品库添加"}
+          disabled={!caps?.imageToImage || referenceOptions.length === 0 || references.length >= referenceLimit}
+          onChange={(next) => {
+            if (next !== "") setReferenceFromAsset(next);
+          }}
+          leading={
+            references[0] === undefined ? undefined : (
+              <img className="ref-field__thumb" src={references[0].src} alt="" />
+            )
+          }
           options={[
-            { value: "", label: "不使用参考图" },
-            // 上传的参考图不在作品库选项里，单独补一条，免得下拉显示"请选择"。
-            ...(reference !== undefined && !referenceOptions.some((option) => option.id === reference.id)
-              ? [{ value: reference.id, label: "已上传的参考图" }]
-              : []),
+            { value: "", label: references.length > 0 ? "已选参考图" : "不使用参考图" },
             ...referenceOptions.map((option) => ({ value: option.id, label: option.label })),
           ]}
         />
         {caps?.imageToImage && referenceOptions.length === 0 && (
           <span className="field__hint">生成第一张图后，可以从作品库选一张作为参考图继续修改。</span>
         )}
-      </label>
+      </div>
+      {peek !== undefined && references[0] !== undefined && (
+        createPortal(
+          <div className="ref-peek" style={{ left: peek.x, top: peek.y }} role="presentation">
+            <img src={references[0].src} alt="参考图预览" />
+            <span>
+              {references[0].width}×{references[0].height} · 共 {references.length} 张
+            </span>
+          </div>,
+          document.body,
+        )
+      )}
 
       <details className="advanced">
         <summary>高级设置</summary>

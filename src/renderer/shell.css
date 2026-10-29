@@ -303,8 +303,8 @@
 
 .ratio-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
-  gap: var(--space-1);
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: var(--space-2);
 }
 
 .ratio {
@@ -337,28 +337,41 @@
   cursor: not-allowed;
 }
 
+/*
+ * 比例示意图放在固定 34×34 的槽里，形状用 ::before + inset:0/margin:auto 居中。
+ * 之前每个比例自己定宽高，21:9 、9:21 这类会让格子高度不一致，
+ * 同一行的文字对不齐，看起来像"没居中"。
+ */
 .ratio__shape {
+  position: relative;
   display: block;
-  width: 26px;
-  height: 26px;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+}
+
+.ratio__shape::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
   border: 1px solid currentColor;
   border-radius: 2px;
 }
 
-/* 用 aspect-ratio 画出真实比例形状。 */
-.ratio__shape[data-ratio="1:1"] { aspect-ratio: 1 / 1; }
-.ratio__shape[data-ratio="4:3"] { aspect-ratio: 4 / 3; height: auto; width: 28px; }
-.ratio__shape[data-ratio="3:4"] { aspect-ratio: 3 / 4; width: auto; height: 28px; }
-.ratio__shape[data-ratio="16:9"] { aspect-ratio: 16 / 9; height: auto; width: 30px; }
-.ratio__shape[data-ratio="9:16"] { aspect-ratio: 9 / 16; width: auto; height: 30px; }
-.ratio__shape[data-ratio="3:2"] { aspect-ratio: 3 / 2; height: auto; width: 28px; }
-.ratio__shape[data-ratio="2:3"] { aspect-ratio: 2 / 3; width: auto; height: 28px; }
-.ratio__shape[data-ratio="5:4"] { aspect-ratio: 5 / 4; height: auto; width: 28px; }
-.ratio__shape[data-ratio="4:5"] { aspect-ratio: 4 / 5; width: auto; height: 28px; }
-.ratio__shape[data-ratio="21:9"] { aspect-ratio: 21 / 9; height: auto; width: 32px; }
-.ratio__shape[data-ratio="9:21"] { aspect-ratio: 9 / 21; width: auto; height: 32px; }
-.ratio__shape[data-ratio="2:1"] { aspect-ratio: 2 / 1; height: auto; width: 30px; }
-.ratio__shape[data-ratio="1:2"] { aspect-ratio: 1 / 2; width: auto; height: 30px; }
+.ratio__shape[data-ratio="1:1"]::before { width: 26px; height: 26px; }
+.ratio__shape[data-ratio="4:3"]::before { width: 28px; height: 21px; }
+.ratio__shape[data-ratio="3:4"]::before { width: 21px; height: 28px; }
+.ratio__shape[data-ratio="16:9"]::before { width: 30px; height: 17px; }
+.ratio__shape[data-ratio="9:16"]::before { width: 17px; height: 30px; }
+.ratio__shape[data-ratio="3:2"]::before { width: 28px; height: 19px; }
+.ratio__shape[data-ratio="2:3"]::before { width: 19px; height: 28px; }
+.ratio__shape[data-ratio="5:4"]::before { width: 28px; height: 22px; }
+.ratio__shape[data-ratio="4:5"]::before { width: 22px; height: 28px; }
+.ratio__shape[data-ratio="21:9"]::before { width: 32px; height: 14px; }
+.ratio__shape[data-ratio="9:21"]::before { width: 14px; height: 32px; }
+.ratio__shape[data-ratio="2:1"]::before { width: 30px; height: 15px; }
+.ratio__shape[data-ratio="1:2"]::before { width: 15px; height: 30px; }
 
 .ratio__label {
   white-space: nowrap;
@@ -2480,4 +2493,75 @@ code {
   justify-content: center;
   padding: 0;
   line-height: 1;
+}
+
+/* ---------------------------------------------------------------- 参考图选择器 */
+
+/* 触发器左侧的小缩略图 */
+.ref-field__thumb {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  object-fit: cover;
+}
+
+/* 悬停 1.5 秒后浮出的大图预览 */
+.ref-peek {
+  position: fixed;
+  z-index: 130;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  box-shadow: 0 18px 40px rgb(0 0 0 / 45%);
+  pointer-events: none;
+  animation: ref-peek-in 120ms ease-out;
+}
+
+.ref-peek img {
+  display: block;
+  width: 180px;
+  height: 180px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+}
+
+.ref-peek span {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  text-align: center;
+}
+
+@keyframes ref-peek-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 参考图还能加几张的提示 */
+.dock__ref-hint {
+  align-self: flex-end;
+  padding-bottom: 16px;
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+}
+
+/* 画面弹窗：两组参数之间留出呼吸感 */
+.size-dialog__panel > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.size-dialog__panel .field {
+  gap: var(--space-2);
+}
+
+.size-dialog__panel .chips {
+  gap: var(--space-2);
 }

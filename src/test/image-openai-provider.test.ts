@@ -89,6 +89,25 @@ test("带参考图时走 /images/edits 的 multipart 请求", async () => {
   assert.equal("content-type" in (call.init.headers ?? {}), false);
 });
 
+test("两张参考图用 image[] 字段发送", async () => {
+  const { provider, calls } = makeProvider(() => jsonResponse(200, { data: [{ b64_json: PNG_B64 }] }));
+  await provider.submit(
+    {
+      ...request,
+      referenceAssetIds: ["ref-1", "ref-2"],
+      referenceImages: [
+        { bytes: new Uint8Array([137, 80, 78, 71]), mimeType: "image/png" },
+        { bytes: new Uint8Array([137, 80, 78, 71]), mimeType: "image/png" },
+      ],
+    },
+    new AbortController().signal,
+  );
+  const form = calls[0]?.init.body as FormData;
+  assert.ok(form instanceof FormData);
+  assert.equal(form.getAll("image").length, 0);
+  assert.equal(form.getAll("image[]").length, 2);
+});
+
 test("比例 + 分辨率吸附到上游固定尺寸表", () => {
   assert.equal(pickSize("1:1", 1024), "1024x1024");
   assert.equal(pickSize("1:1", 2048), "1536x1536");

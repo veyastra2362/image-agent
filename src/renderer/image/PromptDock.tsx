@@ -30,10 +30,11 @@ export function PromptDock() {
     visibleModels,
     model,
     setModelKey,
-    reference,
+    references,
     uploadReference,
     clearReference,
     referenceBusy,
+    referenceLimit,
   } = useComposer();
 
   const invalid = !validation.ok && prompt.trim() !== "";
@@ -53,28 +54,38 @@ export function PromptDock() {
       </h2>
 
       {/* 参考图预览：贴在输入框上方，点击看原图 */}
-      {reference !== undefined && (
-        <div className="dock__refs" aria-label="参考图">
-          <figure className="dock__ref">
-            <button
-              type="button"
-              className="dock__ref-button"
-              onClick={() =>
-                window.dispatchEvent(
-                  new CustomEvent("image-agent:zoom", { detail: { src: reference.src, alt: "参考图" } }),
-                )
-              }
-              aria-label="查看参考图原图"
-            >
-              <img src={reference.src} alt="参考图" />
-            </button>
-            <button type="button" className="dock__ref-remove" onClick={clearReference} aria-label="移除参考图">
-              <CloseIcon size={9} />
-            </button>
-            <figcaption>
-              {reference.width}×{reference.height}
-            </figcaption>
-          </figure>
+      {references.length > 0 && (
+        <div className="dock__refs" aria-label={`参考图 ${references.length} 张`}>
+          {references.map((reference) => (
+            <figure key={reference.id} className="dock__ref">
+              <button
+                type="button"
+                className="dock__ref-button"
+                onClick={() =>
+                  window.dispatchEvent(
+                    new CustomEvent("image-agent:zoom", { detail: { src: reference.src, alt: "参考图" } }),
+                  )
+                }
+                aria-label="查看参考图原图"
+              >
+                <img src={reference.src} alt="参考图" />
+              </button>
+              <button
+                type="button"
+                className="dock__ref-remove"
+                onClick={() => clearReference(reference.id)}
+                aria-label="移除参考图"
+              >
+                <CloseIcon size={9} />
+              </button>
+              <figcaption>
+                {reference.width}×{reference.height}
+              </figcaption>
+            </figure>
+          ))}
+          {references.length < referenceLimit && (
+            <span className="dock__ref-hint">可再加 {referenceLimit - references.length} 张</span>
+          )}
         </div>
       )}
 

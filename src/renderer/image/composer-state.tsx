@@ -66,13 +66,14 @@ export interface ComposerValue {
   readonly setNegativePrompt: (value: string) => void;
 
   readonly referenceOptions: readonly { readonly id: string; readonly label: string }[];
-  /** 当前参考图（上传或从作品库选），最多一张。 */
-  readonly reference: ReferenceImage | undefined;
+  /** 当前参考图：可多张，数量受能力位限制。 */
+  readonly references: readonly ReferenceImage[];
   readonly setReferenceFromAsset: (id: string | undefined) => void;
   readonly uploadReference: (file: File) => Promise<void>;
-  readonly clearReference: () => void;
+  readonly clearReference: (id: string) => void;
   readonly referenceBusy: boolean;
   readonly referenceValid: boolean;
+  readonly referenceLimit: number;
 
 
   readonly validation: ReturnType<typeof validateCreateJobInput>;
@@ -108,7 +109,7 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
   const [count, setCount] = useState(1);
   const [seed, setSeed] = useState("");
   const [negativePrompt, setNegativePrompt] = useState("");
-  const [reference, setReference] = useState<ReferenceImage>();
+  const [references, setReferences] = useState<readonly ReferenceImage[]>([]);
   const [referenceBusy, setReferenceBusy] = useState(false);
   const [submitError, setSubmitError] = useState<string>();
   const [pending, setPending] = useState(false);
@@ -141,24 +142,27 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
   const effectiveCount = Math.min(Math.max(1, count), maxCount);
 
   const referenceOptions = useMemo(() => referenceSources(state), [state]);
-  const referenceValid = reference !== undefined && (caps?.imageToImage ?? false);
+  const referenceLimit = Math.max(1, caps?.referenceImageLimit ?? 1);
+  const referenceValid = references.length > 0 && (caps?.imageToImage ?? false);
 
-  /** 从作品库选一张：预览地址用作品自身的 URL。 */
+  /** 从作品库加一张：预览地址用作品自身的 URL。 */
   const setReferenceFromAsset = useCallback(
     (id: string | undefined) => {
       if (id === undefined) {
-        setReference(undefined);
+        setReferences([]);
         return;
       }
-      const asset = referenceSources(state).find((option) => option.id === id);
       const found =
         state.jobs.flatMap((entry) => entry.assets).find((candidate) => candidate.id === id) ??
         state.remembered.find((candidate) => candidate.id === id);
       if (found === undefined) return;
-      setReference({ id, src: found.previewUrl, width: found.width, height: found.height });
-      void asset;
+      setReferences((current) =>
+        current.some((item) => item.id === id) || current.length >= referenceLimit
+          ? current
+          : [...current, { id, src: found.previewUrl, width: found.width, height: found.height }],
+      );
     },
-    [state],
+    [state, referenceLimit],
   );
 
   /** 上传一张本地图片：转 base64 交给 main 落库，预览用本地 data URL。 */
@@ -180,7 +184,11 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
           setSubmitError(result.error.message);
           return;
         }
-        setReference({ id: result.assetId, src: dataUrl, width: result.width, height: result.height });
+        setReferences((current) =>
+          current.length >= referenceLimit
+            ? current
+            : [...current, { id: result.assetId, src: dataUrl, width: result.width, height: result.height }],
+        );
         setSubmitError(undefined);
       } catch (error) {
         setSubmitError(`读取图片失败：${safeMessage(error)}`);
@@ -188,17 +196,19 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
         setReferenceBusy(false);
       }
     },
-    [],
+    [referenceLimit],
   );
 
-  const clearReference = useCallback(() => setReference(undefined), []);
+  const clearReference = useCallback((id: string) => {
+    setReferences((current) => current.filter((item) => item.id !== id));
+  }, []);
 
   const validation = validateCreateJobInput({
     requestId,
     providerId: model?.id ?? "",
     ...(model === undefined ? {} : { model: model.model }),
     prompt,
-    ...(!referenceValid || reference === undefined ? {} : { referenceAssetIds: [reference.id] }),
+    ...(!referenceValid ? {} : { referenceAssetIds: references.map((item) => item.id) }),
     aspectRatio: effectiveSpec.aspectRatio,
     sizeMode: effectiveSpec.mode,
     ...(effectiveSpec.mode === "custom"
@@ -254,12 +264,13 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
     negativePrompt,
     setNegativePrompt,
     referenceOptions,
-    reference,
+    references,
     setReferenceFromAsset,
     uploadReference,
     clearReference,
     referenceBusy,
     referenceValid,
+    referenceLimit,
     validation,
     canSubmit,
     pending,
