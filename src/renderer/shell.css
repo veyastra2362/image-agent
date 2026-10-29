@@ -1291,3 +1291,111 @@ code {
   white-space: nowrap;
   border: 0;
 }
+
+/*
+ * 原生 <details> 靠 content-visibility 隐藏内容，子元素一旦显式设了 display
+ * 就会被重新渲染出来——所以收起时必须自己关掉。
+ */
+.advanced:not([open]) .advanced__body {
+  display: none;
+}
+
+/* ---------------------------------------------------------------- 侧栏开关 */
+
+/* 顶栏左侧的开关：和应用/编辑同一套文字按钮的视觉。 */
+.titlebar__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 24px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--fs-md);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.titlebar__toggle:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.titlebar__toggle.is-open {
+  color: var(--text);
+}
+
+/* 侧栏标题行 + 收起按钮 */
+.sidebar__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.sidebar__collapse {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-faint);
+  font-size: var(--fs-md);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sidebar__collapse:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+/* 收起：整列宽度归零，画布占满。 */
+.shell.is-collapsed {
+  grid-template-columns: 0 minmax(0, 1fr);
+}
+
+.shell.is-collapsed > .sidebar {
+  display: none;
+}
+
+/*
+ * 侧栏 display:none 后工作区会变成第一个网格项、被自动排进 0 宽的第 1 列，
+ * 所以收起时必须显式把它放到第 2 列。
+ */
+.shell.is-collapsed > .workspace {
+  grid-column: 2;
+}
+
+/* ---------------------------------------------------------------- 导航与菜单同款 */
+
+/*
+ * 顶部导航按"应用 / 编辑"的样式做：纯文字按钮、透明底、悬停才出背景，
+ * 当前页用文字颜色和一条下划线区分，不再用胶囊块。
+ */
+.navitem {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.navitem:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.navitem.is-active {
+  background: none;
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--accent);
+}

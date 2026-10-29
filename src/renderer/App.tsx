@@ -19,10 +19,10 @@ import { MenuBar } from "./shell/MenuBar.tsx";
 
 type View = "create" | "library" | "providers";
 
-const VIEWS: readonly { readonly id: View; readonly label: string; readonly glyph: string }[] = [
-  { id: "create", label: "创作", glyph: "✎" },
-  { id: "library", label: "作品库", glyph: "▦" },
-  { id: "providers", label: "服务商", glyph: "⚙" },
+const VIEWS: readonly { readonly id: View; readonly label: string }[] = [
+  { id: "create", label: "创作" },
+  { id: "library", label: "作品库" },
+  { id: "providers", label: "服务商" },
 ];
 
 export function App() {
@@ -61,6 +61,18 @@ export function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Ctrl+B 收起/展开配置栏；输入框里也生效，和常见编辑器一致。
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "b") {
+        event.preventDefault();
+        setAppearance((current) => ({ ...current, sidebarCollapsed: !current.sidebarCollapsed }));
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   const toggleMaximize = useCallback(async () => {
     const next = await window.appWindow?.toggleMaximize();
     setMaximized(next === true);
@@ -74,9 +86,17 @@ export function App() {
     <div className="app">
       <header className="titlebar" onDoubleClick={handleDoubleClick}>
         <div className="titlebar__lead">
-          <span className="titlebar__mark" aria-hidden="true">
-            IA
-          </span>
+          <button
+            type="button"
+            className={`titlebar__toggle ${appearance.sidebarCollapsed ? "" : "is-open"}`}
+            aria-pressed={!appearance.sidebarCollapsed}
+            aria-label={appearance.sidebarCollapsed ? "展开侧栏" : "收起侧栏"}
+            title={`${appearance.sidebarCollapsed ? "展开" : "收起"}侧栏（Ctrl+B）`}
+            onClick={() => setAppearance((current) => ({ ...current, sidebarCollapsed: !current.sidebarCollapsed }))}
+          >
+            ☰
+          </button>
+          <span className="titlebar__name">Image Agent</span>
           <MenuBar
             onOpenSettings={() => setSettingsTab("api")}
             onOpenLibraryFolder={() => void window.appLibrary?.openDir()}
@@ -93,8 +113,7 @@ export function App() {
               aria-current={view === entry.id ? "page" : undefined}
               onClick={() => setView(entry.id)}
             >
-              <span aria-hidden="true">{entry.glyph}</span>
-              <span>{entry.label}</span>
+              {entry.label}
             </button>
           ))}
         </nav>
@@ -147,9 +166,9 @@ export function App() {
           onSubmitted={() => undefined}
           focusPromptToken={focusPrompt}
         >
-          <div className="shell">
+          <div className={`shell ${appearance.sidebarCollapsed ? "is-collapsed" : ""}`}>
             <aside className="sidebar" aria-label="创作配置">
-              <ConfigSidebar />
+              <ConfigSidebar onCollapse={() => setAppearance((current) => ({ ...current, sidebarCollapsed: true }))} />
               <JobList state={state} onOpenAsset={state.openAsset} />
             </aside>
 

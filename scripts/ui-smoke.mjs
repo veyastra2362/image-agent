@@ -183,7 +183,27 @@ async function run() {
   await js("window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); true");
   await sleep(250);
 
+  // 侧栏可以收起/展开，且有可点的 UI
+  const toggleProbe = await js("({ toggle: Boolean(document.querySelector('.titlebar__toggle')), collapse: Boolean(document.querySelector('.sidebar__collapse')) })");
+  check("顶栏有侧栏开关", toggleProbe.toggle === true, toggleProbe);
+  check("侧栏内有收起按钮", toggleProbe.collapse === true, toggleProbe);
+  await js("document.querySelector('.sidebar__collapse').click(); true");
+  await sleep(250);
+  check("收起后侧栏不可见", !(await js("Boolean(document.querySelector('.sidebar') && document.querySelector('.sidebar').offsetParent)")), "");
+  const collapsedWidth = await js("document.querySelector('.canvas').getBoundingClientRect().width");
+  await js("document.querySelector('.titlebar__toggle').click(); true");
+  await sleep(250);
+  check("展开后侧栏回来", (await js("Boolean(document.querySelector('.sidebar') && document.querySelector('.sidebar').offsetParent)")) === true, "");
+  check("展开后画布变窄", (await js("document.querySelector('.canvas').getBoundingClientRect().width")) < collapsedWidth, JSON.stringify({ collapsedWidth }));
+
+  // 导航和应用/编辑同一套文字按钮样式
+  const navStyle = await js(
+    "(() => { const n = document.querySelector('.navitem'); const m = document.querySelector('.menubar__button'); const a = getComputedStyle(n); const b = getComputedStyle(m); return { nav: [a.fontSize, a.borderTopWidth, a.backgroundColor], menu: [b.fontSize, b.borderTopWidth, b.backgroundColor] }; })()",
+  );
+  check("导航与菜单按钮同款样式", JSON.stringify(navStyle.nav) === JSON.stringify(navStyle.menu), navStyle);
+
   const navItems = await js("[...document.querySelectorAll('.titlebar__nav .navitem')].map((n) => n.textContent)");
+  check("导航只剩文字", JSON.stringify(navItems) === JSON.stringify(["创作", "作品库", "服务商"]), navItems);
   check("标题栏含三个导航项", navItems.length === 3, navItems);
   check(
     "导航项都可以点击",

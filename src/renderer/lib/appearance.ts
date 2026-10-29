@@ -9,9 +9,11 @@ const KEY = "image-agent:appearance:v1";
 export interface Appearance {
   readonly theme: ThemePreference;
   readonly density: DensityPreference;
+  /** 创作页左侧配置栏是否收起；记住它，下次打开保持。 */
+  readonly sidebarCollapsed: boolean;
 }
 
-const DEFAULT: Appearance = { theme: "auto", density: "comfortable" };
+const DEFAULT: Appearance = { theme: "auto", density: "comfortable", sidebarCollapsed: false };
 
 export function loadAppearance(): Appearance {
   try {
@@ -24,6 +26,7 @@ export function loadAppearance(): Appearance {
     return {
       theme: theme === "light" || theme === "dark" ? theme : "auto",
       density: density === "compact" ? "compact" : "comfortable",
+      sidebarCollapsed: (parsed as { sidebarCollapsed?: unknown }).sidebarCollapsed === true,
     };
   } catch {
     return DEFAULT;

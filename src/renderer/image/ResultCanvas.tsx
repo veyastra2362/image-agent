@@ -24,6 +24,8 @@ export function ResultCanvas({ state, onOpenAsset }: ResultCanvasProps) {
   const historyOnly = state.remembered.filter((asset) => !knownIds.has(asset.id));
 
   const empty = active.length === 0 && completed.length === 0 && historyOnly.length === 0 && problems.length === 0;
+  // 空状态的文案要跟真实情况一致：配了真实服务就别再说"只有离线假服务"。
+  const hasRealProvider = state.models.some((model) => !model.id.includes("fake"));
 
   return (
     <section className="canvas" aria-labelledby="canvas-title">
@@ -48,7 +50,9 @@ export function ResultCanvas({ state, onOpenAsset }: ResultCanvasProps) {
         <div className="empty">
           <p className="empty__title">还没有作品</p>
           <p className="empty__body">
-            在下方输入一句描述，左侧选好模型后点「生成」。当前只有离线假服务，它返回固定的测试图片，不联网。
+            {hasRealProvider
+              ? "在下方输入一句描述，左侧选好模型后点「生成」。结果会保存到本地作品文件夹。"
+              : "在下方输入一句描述，左侧选好模型后点「生成」。当前只有离线假服务，它返回固定的测试图片，不联网。"}
           </p>
         </div>
       )}

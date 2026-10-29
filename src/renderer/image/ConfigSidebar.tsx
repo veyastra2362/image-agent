@@ -8,7 +8,11 @@ import { FORMAT_LABELS } from "../lib/output-spec.ts";
 import { useComposer } from "./composer-state.tsx";
 import { SizeDialog } from "./SizeDialog.tsx";
 
-export function ConfigSidebar() {
+export interface ConfigSidebarProps {
+  readonly onCollapse: () => void;
+}
+
+export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
   const {
     models,
     model,
@@ -45,6 +49,15 @@ export function ConfigSidebar() {
     <div className="sidebar__body">
       <div className="sidebar__head">
         <h2>配置</h2>
+        <button
+          type="button"
+          className="sidebar__collapse"
+          onClick={onCollapse}
+          aria-label="收起侧栏"
+          title="收起侧栏（Ctrl+B）"
+        >
+          ‹
+        </button>
       </div>
 
       <label className="field">
