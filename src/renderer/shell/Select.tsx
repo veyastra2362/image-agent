@@ -29,22 +29,32 @@ export interface SelectProps {
 interface MenuRect {
   readonly left: number;
   readonly width: number;
-  readonly top?: number;
-  readonly bottom?: number;
+  readonly top: number;
   readonly maxHeight: number;
 }
 
 const MENU_MAX = 300;
 
-function measure(trigger: HTMLElement): MenuRect {
+/**
+ * 只用 top 定位。
+ *
+ * 之前向上展开用了 `bottom`，但 fixed 元素的包含块并不是视口（实测比视口高），
+ * bottom 会把菜单画到窗口外面去 —— 表现就是"点了没东西"。统一用 top 就不会。
+ */
+function measure(trigger: HTMLElement, itemCount: number): MenuRect {
   const rect = trigger.getBoundingClientRect();
   const below = window.innerHeight - rect.bottom;
   const above = rect.top;
+  const estimate = Math.min(MENU_MAX, itemCount * 34 + 12);
   const openUp = below < Math.min(MENU_MAX, 180) && above > below;
   const maxHeight = Math.max(120, Math.min(MENU_MAX, (openUp ? above : below) - 8));
-  return openUp
-    ? { left: rect.left, width: Math.max(rect.width, 200), bottom: window.innerHeight - rect.top + 4, maxHeight }
-    : { left: rect.left, width: Math.max(rect.width, 200), top: rect.bottom + 4, maxHeight };
+  const height = Math.min(estimate, maxHeight);
+  return {
+    left: rect.left,
+    width: Math.max(rect.width, 200),
+    top: openUp ? Math.max(8, rect.top - height - 4) : rect.bottom + 4,
+    maxHeight,
+  };
 }
 
 export function Select({
@@ -68,7 +78,7 @@ export function Select({
   const openMenu = () => {
     const trigger = rootRef.current?.querySelector<HTMLButtonElement>(".select__trigger");
     if (!trigger) return;
-    setRect(measure(trigger));
+    setRect(measure(trigger, options.length));
     setActiveIndex(Math.max(0, options.findIndex((option) => option.value === value)));
     setOpen(true);
   };
@@ -162,12 +172,7 @@ export function Select({
             id={listId}
             aria-label={ariaLabel}
             ref={menuRef}
-            style={{
-              left: rect.left,
-              width: rect.width,
-              maxHeight: rect.maxHeight,
-              ...(rect.top === undefined ? { bottom: rect.bottom } : { top: rect.top }),
-            }}
+            style={{ left: rect.left, top: rect.top, width: rect.width, maxHeight: rect.maxHeight }}
           >
             {options.map((option, index) => (
               <li key={option.value}>

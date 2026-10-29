@@ -24,15 +24,21 @@ function modelKey(model: ProviderRef): string {
   return `${model.id}:${model.model}`;
 }
 
-function measure(trigger: HTMLElement) {
+/** 只用 top 定位：fixed 的包含块不是视口，用 bottom 会把菜单画到窗口外。 */
+function measure(trigger: HTMLElement, itemCount: number) {
   const rect = trigger.getBoundingClientRect();
   const below = window.innerHeight - rect.bottom;
   const above = rect.top;
+  const estimate = Math.min(MENU_MAX, itemCount * 34 + 16);
   const openUp = below < 220 && above > below;
   const maxHeight = Math.max(140, Math.min(MENU_MAX, (openUp ? above : below) - 8));
-  return openUp
-    ? { left: rect.left, width: Math.max(rect.width, 240), bottom: window.innerHeight - rect.top + 4, maxHeight }
-    : { left: rect.left, width: Math.max(rect.width, 240), top: rect.bottom + 4, maxHeight };
+  const height = Math.min(estimate, maxHeight);
+  return {
+    left: rect.left,
+    width: Math.max(rect.width, 240),
+    top: openUp ? Math.max(8, rect.top - height - 4) : rect.bottom + 4,
+    maxHeight,
+  };
 }
 
 export function ModelSelect({
@@ -97,7 +103,7 @@ export function ModelSelect({
           }
           const trigger = rootRef.current?.querySelector<HTMLButtonElement>(".select__trigger");
           if (!trigger) return;
-          setRect(measure(trigger));
+          setRect(measure(trigger, models.length + groups.length));
           setOpen(true);
         }}
       >
@@ -125,12 +131,7 @@ export function ModelSelect({
             role="listbox"
             aria-label={ariaLabel}
             ref={menuRef}
-            style={{
-              left: rect.left,
-              width: rect.width,
-              maxHeight: rect.maxHeight,
-              ...(rect.top === undefined ? { bottom: rect.bottom } : { top: rect.top }),
-            }}
+            style={{ left: rect.left, top: rect.top, width: rect.width, maxHeight: rect.maxHeight }}
           >
             {groups.map((group) => (
               <li key={group.provider} className="model-select__group">

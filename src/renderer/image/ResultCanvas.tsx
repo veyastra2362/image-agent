@@ -24,8 +24,9 @@ export function ResultCanvas({ state, onOpenAsset }: ResultCanvasProps) {
   const historyOnly = state.remembered.filter((asset) => !knownIds.has(asset.id));
 
   const empty = active.length === 0 && completed.length === 0 && historyOnly.length === 0 && problems.length === 0;
-  // 空状态的文案要跟真实情况一致：配了真实服务就别再说"只有离线假服务"。
+  // 空状态文案要跟真实情况一致：没配服务商时提示去配置，而不是说"只有离线假服务"。
   const hasRealProvider = state.models.some((model) => !model.id.includes("fake"));
+  const noModels = state.models.length === 0;
 
   return (
     <section className="canvas" aria-labelledby="canvas-title">
@@ -50,9 +51,11 @@ export function ResultCanvas({ state, onOpenAsset }: ResultCanvasProps) {
         <div className="empty">
           <p className="empty__title">还没有作品</p>
           <p className="empty__body">
-            {hasRealProvider
-              ? "在下方输入一句描述，左侧选好模型后点「生成」。结果会保存到本地作品文件夹。"
-              : "在下方输入一句描述，左侧选好模型后点「生成」。当前只有离线假服务，它返回固定的测试图片，不联网。"}
+            {noModels
+              ? "还没有可用的服务商。到「设置 → API 设置」填写 API URL 与 Key、添加模型后，这里就能开始生成。"
+              : hasRealProvider
+                ? "在下方输入一句描述，左侧选好模型后点「生成」。结果会保存到本地作品文件夹。"
+                : "在下方输入一句描述，左侧选好模型后点「生成」。当前只有离线假服务，它返回固定的测试图片，不联网。"}
           </p>
         </div>
       )}

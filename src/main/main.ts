@@ -279,10 +279,12 @@ function createProviders(store: ProviderSettingsStore): (FakeProvider | OpenAICo
       ? undefined
       : { baseUrl: summary[0]?.baseUrl ?? "", models: summary.flatMap((entry) => entry.models), count: summary.length };
 
-  // 假 provider 放在最后，真实模型因此成为界面的默认选项。
-  // 异步模型故意放慢到约 1.2 秒：既让"生成中 / 取消"在界面上真的看得见，
-  // 也让冒烟测试有一个稳定的取消窗口（默认瞬间完成会点不到）。
-  providers.push(new FakeProvider({ pollRounds: 3, pollIntervalMs: 400 }));
+  // 离线假模型只在端到端冒烟里注册（driver 会带 IMAGE_AGENT_SMOKE_DRIVER=1）。
+  // 正式运行时不注册：没配置服务商就是没有模型，界面上留空，不拿假模型充数。
+  if (process.env.IMAGE_AGENT_SMOKE_DRIVER === "1") {
+    // 异步模型故意放慢到约 1.2 秒，让"生成中 / 取消"在冒烟里有稳定的取消窗口。
+    providers.push(new FakeProvider({ pollRounds: 3, pollIntervalMs: 400 }));
+  }
   return providers;
 }
 function normalizeForCompare(url: string): string {
