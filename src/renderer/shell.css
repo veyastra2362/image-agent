@@ -1422,3 +1422,56 @@ code {
 .navitem.is-active:hover {
   background: color-mix(in srgb, var(--text) 14%, transparent);
 }
+
+/* ---------------------------------------------------------------- 数据管理 */
+
+.data-selection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* 危险操作按钮：只在"清除"这里用，避免和主操作抢注意力。 */
+.button--danger {
+  background: color-mix(in srgb, var(--danger) 16%, transparent);
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+  color: var(--danger);
+  flex: 0 0 auto;
+}
+
+.button--danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 26%, transparent);
+}
+
+/* 数据页里三段操作各自的按钮条，不需要吸附。 */
+.settings__section .settings__footer {
+  position: static;
+  border-top: 0;
+  padding: 0;
+  margin-top: var(--space-1);
+  box-shadow: none;
+  background: none;
+}
+
+/* 名称 + 删除：按钮底边与输入框底边对齐（label 在输入框上方会把居中算歪）。 */
+.settings__field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  align-items: end;
+}
+
+.settings__field-row .button {
+  height: 32px;
+}
+
+/* 服务商标签与“+”按钮等高对齐（之前两者高度不一，看着像错位）。 */
+.profile-tab {
+  height: 26px;
+}
+
+.profile-tab--add {
+  width: 26px;
+  padding: 0;
+  justify-content: center;
+}

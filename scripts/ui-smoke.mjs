@@ -23,8 +23,6 @@ const DRIVER_ENV = {
   IMAGE_AGENT_SMOKE_DRIVER: "1",
   IMAGE_AGENT_ARTIFACTS: artifacts,
   IMAGE_AGENT_ROOT: projectRoot,
-  IMAGE_AGENT_API_KEY: "",
-  IMAGE_AGENT_BASE_URL: "",
 };
 
 const driver = String.raw`
@@ -332,7 +330,7 @@ async function run() {
   // API 面板要等一次 IPC 回来才渲染出表单，先等到它真的出现。
   await waitFor("document.querySelector('.profile-tabs')", "API 面板渲染");
   const tabs = await js("[...document.querySelectorAll('.settings__tab')].map((n) => n.textContent)");
-  check("设置含 API/外观/存储/关于", tabs.join(",") === "API 设置,外观设置,存储,关于", tabs);
+  check("设置含五个分类", tabs.join(",") === "API 设置,外观设置,存储,数据管理,关于", tabs);
   const apiText = await js("document.querySelector('.settings__body').innerText");
   check("API 设置不显示密钥", !/sk-[A-Za-z0-9]{8}/.test(apiText), apiText.slice(0, 120));
   for (const label of ["服务商类型", "API URL", "API Key", "API 接口", "流式传输", "中间步骤图像数", "请求超时"]) {
@@ -378,6 +376,15 @@ async function run() {
   const storagePath = await js("document.querySelector('.path-box__path')?.textContent ?? ''");
   check("默认目录在 C 盘", /^[A-Z]:\\/.test(storagePath), storagePath);
   await shot("13-settings-storage");
+  await js("(() => { [...document.querySelectorAll('.settings__tab')].find((n) => n.textContent === '数据管理').click(); return true; })()");
+  await sleep(250);
+  const dataText = await js("document.querySelector('.settings__body').innerText");
+  check("数据管理含导出/导入/清除", /导出数据/.test(dataText) && /导入数据/.test(dataText) && /清除数据/.test(dataText), dataText.slice(0, 160));
+  const dataBoxes = await js("[...document.querySelectorAll('.settings__body .data-selection')].map((n) => n.querySelectorAll('input').length)");
+  check("三块各有配置/任务与图片两个选项", JSON.stringify(dataBoxes) === JSON.stringify([2, 2, 2]), dataBoxes);
+  const summary = await js("window.appData.summary()");
+  check("数据摘要可读", summary !== undefined && typeof summary.jobs === "number", summary);
+  await shot("15-settings-data");
   await js("(() => { [...document.querySelectorAll('.settings__tab')].find((n) => n.textContent === '关于').click(); return true; })()");
   await sleep(150);
   const aboutText = await js("document.querySelector('.settings__body').innerText");

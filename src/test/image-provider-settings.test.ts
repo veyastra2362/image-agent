@@ -84,7 +84,7 @@ test("持久化：保存后能读回，密钥不回显在 view 里", () => {
     { kind: active.kind, baseUrl: active.baseUrl, models: active.models },
     { kind: DEFAULT_PROVIDER_SETTINGS.kind, baseUrl: DEFAULT_PROVIDER_SETTINGS.baseUrl, models: DEFAULT_PROVIDER_SETTINGS.models },
   );
-  assert.equal(store.view(false).keys[active.id]?.hasApiKey, false);
+  assert.equal(store.view().keys[active.id]?.hasApiKey, false);
 
   store.upsert({ ...valid, id: active.id, label: "主服务" });
   store.setApiKey(active.id, "sk-secret-1");
@@ -101,10 +101,8 @@ test("持久化：保存后能读回，密钥不回显在 view 里", () => {
   });
   reopened.load();
   assert.equal(reopened.active.baseUrl, valid.baseUrl);
-  assert.equal(reopened.view(false).keys.default?.hasApiKey, true);
-  assert.equal(reopened.view(false).keys.default?.apiKeyFromEnv, false);
-  assert.equal(reopened.view(true).keys.default?.apiKeyFromEnv, true);
-  assert.equal(JSON.stringify(reopened.view(false)).includes("sk-secret-1"), false, "view 不能带密钥");
+  assert.equal(reopened.view().keys.default?.hasApiKey, true);
+  assert.equal(JSON.stringify(reopened.view()).includes("sk-secret-1"), false, "view 不能带密钥");
   assert.equal(reopened.keyFingerprint("default")?.length, 12);
 });
 

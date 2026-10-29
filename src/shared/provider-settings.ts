@@ -75,8 +75,6 @@ export interface ProviderProfile extends ProviderSettings {
 /** 单个 profile 在界面上的密钥状态；永远没有密钥本体。 */
 export interface ProviderKeyStatus {
   readonly hasApiKey: boolean;
-  /** 密钥来自 .env / 环境变量（界面不能改，只能去文件里改）。 */
-  readonly apiKeyFromEnv: boolean;
   /** 密钥是否由系统钥匙串加密后落盘（Electron safeStorage）。 */
   readonly apiKeyEncrypted: boolean;
 }

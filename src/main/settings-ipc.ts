@@ -29,8 +29,6 @@ export const SETTINGS_CHANNEL_LIST: readonly string[] = Object.values(SETTINGS_C
 export interface SettingsIpcDeps {
   readonly getWindow: () => BrowserWindow | undefined;
   readonly store: ProviderSettingsStore;
-  /** 密钥是否来自 .env / 环境变量。 */
-  readonly envApiKeyPresent: () => boolean;
   /** 保存成功后重建 provider 表；返回是否成功，失败文案会带回界面。 */
   readonly applyProviders: () => { readonly ok: true } | { readonly ok: false; readonly error: string };
   /** 测试注入。 */
@@ -56,7 +54,7 @@ export function registerSettingsIpc(deps: SettingsIpcDeps): () => void {
 
   ipcMain.handle(SETTINGS_CHANNELS.view, (event): ProviderSettingsView | undefined => {
     if (!isTrustedSender(deps, event)) return undefined;
-    return deps.store.view(deps.envApiKeyPresent());
+    return deps.store.view();
   });
 
   ipcMain.handle(SETTINGS_CHANNELS.save, (event, raw: unknown): Result => {
@@ -72,14 +70,10 @@ export function registerSettingsIpc(deps: SettingsIpcDeps): () => void {
     if (apiKey !== undefined && apiKey.trim().length > 512) return { ok: false, message: "API Key 过长" };
     if (apiKey !== undefined && /\s/.test(apiKey.trim())) return { ok: false, message: "API Key 不能包含空格" };
 
-    if (deps.envApiKeyPresent() && apiKey !== undefined && apiKey.trim() !== "") {
-      // 环境里的密钥优先，界面上的输入不生效；说清楚比默默无视好。
-      return { ok: false, message: "当前 API Key 来自 .env 或环境变量，界面不能覆盖；请直接修改文件后重启应用" };
-    }
 
     deps.store.upsert(profile);
     if (record.clearApiKey === true) deps.store.clearApiKey(profile.id);
-    else if (apiKey !== undefined && apiKey.trim() !== "" && !deps.envApiKeyPresent()) {
+    else if (apiKey !== undefined && apiKey.trim() !== "") {
       deps.store.setApiKey(profile.id, apiKey);
     }
 

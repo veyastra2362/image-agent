@@ -103,27 +103,36 @@ export function useImageAgent(): ImageAgentState {
       if (!disposed) pushToast(notification);
     });
 
-    api
-      .getBootstrap()
-      .then((bootstrap: ImageBootstrap) => {
-        if (disposed) return;
-        setModels(bootstrap.providers);
-        setJobs(bootstrap.jobs);
-        jobsRef.current = bootstrap.jobs;
-        const known = new Set(bootstrap.jobs.flatMap((entry) => entry.assets.map((asset) => asset.id)));
-        setRemembered(loadRememberedAssets(known));
-        setStatus("ready");
-      })
-      .catch((error: unknown) => {
-        if (disposed) return;
-        setLoadError(error instanceof Error ? error.message : String(error));
-        setStatus("error");
-      });
+    const loadBootstrap = () => {
+      api
+        .getBootstrap()
+        .then((bootstrap: ImageBootstrap) => {
+          if (disposed) return;
+          setModels(bootstrap.providers);
+          setJobs(bootstrap.jobs);
+          jobsRef.current = bootstrap.jobs;
+          const known = new Set(bootstrap.jobs.flatMap((entry) => entry.assets.map((asset) => asset.id)));
+          setRemembered(loadRememberedAssets(known));
+          setStatus("ready");
+        })
+        .catch((error: unknown) => {
+          if (disposed) return;
+          setLoadError(error instanceof Error ? error.message : String(error));
+          setStatus("error");
+        });
+    };
+
+    loadBootstrap();
+
+    // 导入/清除数据之后由设置页发出，重新拉一次任务与模型，避免界面停留在旧状态。
+    const onDataChanged = () => loadBootstrap();
+    window.addEventListener("image-agent:data-changed", onDataChanged);
 
     return () => {
       disposed = true;
       unsubscribeTask();
       unsubscribeNotify();
+      window.removeEventListener("image-agent:data-changed", onDataChanged);
     };
   }, [pushToast, receive]);
 

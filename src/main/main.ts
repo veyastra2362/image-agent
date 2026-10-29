@@ -21,9 +21,10 @@ import { parseDevTarget } from "./dev-server-url";
 import { registerImageIpc } from "./ipc";
 import { registerWindowIpc } from "./window-ipc";
 import { registerAppIpc } from "./app-ipc";
-import { loadProviderConfig } from "./config";
 import { ProviderSettingsStore, type SecretCipher } from "./provider-settings-store";
 import { registerSettingsIpc } from "./settings-ipc";
+import { registerDataIpc } from "./data-ipc";
+import { DataManager } from "./data-manager";
 import { ImageGenerationService } from "./image-generation/service";
 import { FakeProvider } from "./image-generation/providers/fake";
 import { OpenAICompatibleProvider } from "./image-generation/providers/openai-compatible";
@@ -45,6 +46,7 @@ let mainWindow: BrowserWindow | undefined;
 let service: ImageGenerationService | undefined;
 let bridge: ReturnType<typeof registerImageIpc> | undefined;
 let settingsStore: ProviderSettingsStore | undefined;
+let dataManager: DataManager | undefined;
 let libraryStore: FileJobStore | undefined;
 let defaultLibraryDir = "";
 let devServerProcess: ChildProcess | undefined;
@@ -100,6 +102,19 @@ function start(): void {
     libraryStore.setDir(initialDir);
     libraryStore.load();
     const store = libraryStore;
+    // 配置变更后要重建 provider 表；数据导入/清除会直接改这两个存储。
+    dataManager = new DataManager({
+      userDataDir: userData,
+      getStore: () => libraryStore as FileJobStore,
+      getSettings: () => settingsStore as ProviderSettingsStore,
+      applyProviders: () => {
+        try {
+          service?.setProviders(createProviders(settingsStore as ProviderSettingsStore));
+        } catch (error) {
+          console.warn("[image-agent] 重建 provider 失败：", (error as Error).message);
+        }
+      },
+    });
 
     // ia-asset://asset/<id>：只服务作品库里登记过、且文件确实存在的资产。
     protocol.handle("ia-asset", (request) => {
@@ -109,11 +124,10 @@ function start(): void {
       return net.fetch(pathToFileURL(file).toString());
     });
 
-    const configured = loadProviderConfig({ rootDir: APP_ROOT });
-    // 界面上填的连接配置落在 userData 里；.env 里已有密钥时以 .env 为准（见 store.view）。
+    // 连接配置全部由应用自己管理（userData/provider-settings.json），不再读 .env。
     settingsStore = new ProviderSettingsStore({ dir: userData, cipher: systemCipher() });
     settingsStore.load();
-    const providers = createProviders(configured, settingsStore);
+    const providers = createProviders(settingsStore);
     const imageService = new ImageGenerationService({
       providers,
       store,
@@ -132,7 +146,7 @@ function start(): void {
       // 窗口控制在启动时注册一次即可：createWindow 会被 activate 再次调用，重复 handle 会抛错。
       registerWindowIpc(() => mainWindow),
       registerAppIpc(() => mainWindow, () => ({
-        // 以真正建出来的 provider 为准：只配了 .env 时这里也应当是"已配置"。
+        // 以真正建出来的 provider 为准，而不是靠配置文件推算。
         providerConfigured: providerSummary !== undefined,
         ...(providerSummary === undefined ? {} : { providerBaseUrl: providerSummary.baseUrl }),
         models: providerSummary?.models ?? [],
@@ -145,15 +159,22 @@ function start(): void {
         settingsFile: librarySettingsFile(userData),
         defaultDir: defaultLibraryDir,
       }),
+      registerDataIpc({
+        getWindow: () => mainWindow,
+        get manager() {
+          return dataManager as DataManager;
+        },
+        // renderer 自己知道它刚做了导入/清除，会重新拉 bootstrap；这里不需要额外推送。
+        onChanged: () => undefined,
+      }),
       registerSettingsIpc({
         getWindow: () => mainWindow,
         get store() {
           return settingsStore as ProviderSettingsStore;
         },
-        envApiKeyPresent: () => configured.configured,
         applyProviders: () => {
           try {
-            service?.setProviders(createProviders(configured, settingsStore as ProviderSettingsStore));
+            service?.setProviders(createProviders(settingsStore as ProviderSettingsStore));
             return { ok: true as const };
           } catch (error) {
             return { ok: false as const, error: String((error as Error).message ?? error).slice(0, 200) };
@@ -214,13 +235,6 @@ app.on("activate", () => {
 });
 
 
-/** 只用 .env 时的兜底模型（来自当初 GET /v1/models 的实测结果）。 */
-const DEFAULT_ENV_MODELS = [
-  { id: "gpt-image-2", displayName: "GPT Image 2" },
-  { id: "gpt-image-2.5-flare", displayName: "GPT Image 2.5 Flare" },
-  { id: "gpt-image-2.5-sunburst", displayName: "GPT Image 2.5 Sunburst" },
-] as const;
-
 /** 真正建出来的真实服务摘要，供"关于/设置"显示；没有真实服务时为 undefined。 */
 let providerSummary: { baseUrl: string; models: string[]; count: number } | undefined;
 
@@ -228,23 +242,15 @@ let providerSummary: { baseUrl: string; models: string[]; count: number } | unde
  * 组装 provider 列表。
  *
  * 每个"有地址 + 有密钥 + 有模型"的配置都会变成一个独立 provider，因此多个服务商可以并存。
- * 密钥优先级：地址与 .env 相同时用 .env（并覆盖界面上的），否则用界面保存的那把。
- * 只用 .env、没在界面里配过东西时，仍然建一个 provider——不能因为加了多服务商就让老配置失效。
+ * 配置与密钥都由应用自己保存（Settings 里的 API 设置），不再从 .env 读取。
  */
-function createProviders(
-  configured: ReturnType<typeof loadProviderConfig>,
-  store: ProviderSettingsStore,
-): (FakeProvider | OpenAICompatibleProvider)[] {
+function createProviders(store: ProviderSettingsStore): (FakeProvider | OpenAICompatibleProvider)[] {
   const providers: (FakeProvider | OpenAICompatibleProvider)[] = [];
   const summary: { baseUrl: string; models: string[] }[] = [];
-  let envMatchedProfile = false;
 
   for (const profile of store.profiles) {
-    const envApplies =
-      configured.configured && normalizeForCompare(configured.config.baseUrl) === normalizeForCompare(profile.baseUrl);
-    const apiKey = envApplies ? configured.config.apiKey : store.keyFor(profile.id);
+    const apiKey = store.keyFor(profile.id);
     if (apiKey === undefined || apiKey === "" || profile.baseUrl === "" || profile.models.length === 0) continue;
-    if (envApplies) envMatchedProfile = true;
 
     try {
       providers.push(
@@ -264,46 +270,14 @@ function createProviders(
     }
   }
 
-  if (!envMatchedProfile && configured.configured) {
-    const active = store.active;
-    const models = active.models.length > 0 ? [...active.models] : DEFAULT_ENV_MODELS.map((model) => model.id);
-    try {
-      providers.push(
-        new OpenAICompatibleProvider({
-          id: "openai-images",
-          displayName: "OpenAI 兼容接口（.env）",
-          baseUrl: configured.config.baseUrl,
-          apiKey: configured.config.apiKey,
-          defaultModel: configured.config.defaultModel ?? models[0] ?? "gpt-image-2",
-          models: models.map((id) => ({
-            id,
-            displayName: DEFAULT_ENV_MODELS.find((model) => model.id === id)?.displayName ?? id,
-          })),
-          timeoutMs: active.timeoutSeconds * 1000,
-        }),
-      );
-      summary.push({ baseUrl: configured.config.baseUrl, models });
-    } catch (error) {
-      console.warn(`[image-agent] .env 配置无效：${(error as Error).message}`);
-    }
-  }
-
   if (summary.length === 0) {
-    console.info(
-      configured.configured
-        ? "[image-agent] 还没有可用的真实服务商：请在设置里填写与 .env 相同的 API URL"
-        : `[image-agent] 未启用真实图片服务：${configured.reason}；可在设置里填写服务商`,
-    );
+    console.info("[image-agent] 还没有可用的真实服务商：在「设置 → API 设置」里填写地址、密钥并启用模型。");
   }
 
   providerSummary =
     summary.length === 0
       ? undefined
-      : {
-          baseUrl: summary[0]?.baseUrl ?? "",
-          models: summary.flatMap((entry) => entry.models),
-          count: summary.length,
-        };
+      : { baseUrl: summary[0]?.baseUrl ?? "", models: summary.flatMap((entry) => entry.models), count: summary.length };
 
   // 假 provider 放在最后，真实模型因此成为界面的默认选项。
   // 异步模型故意放慢到约 1.2 秒：既让"生成中 / 取消"在界面上真的看得见，

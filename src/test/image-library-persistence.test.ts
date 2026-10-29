@@ -263,8 +263,8 @@ test("密钥：有系统加密时只写密文，明文不落盘", () => {
   const written = String(fs.files.get(`${INDEX_DIR}\\provider-settings.json`));
   assert.equal(written.includes("sk-secret-value"), false, "明文不能出现在文件里");
   assert.ok(written.includes("enc"));
-  assert.equal(store.view(false).keys[store.activeId]?.apiKeyEncrypted, true);
-  assert.equal(JSON.stringify(store.view(false)).includes("sk-secret-value"), false);
+  assert.equal(store.view().keys[store.activeId]?.apiKeyEncrypted, true);
+  assert.equal(JSON.stringify(store.view()).includes("sk-secret-value"), false);
 
   const reopened = new ProviderSettingsStore({
     dir: INDEX_DIR,
@@ -274,7 +274,7 @@ test("密钥：有系统加密时只写密文，明文不落盘", () => {
   });
   reopened.load();
   assert.equal(reopened.keyFor(reopened.activeId), "sk-secret-value");
-  assert.equal(reopened.view(false).keys[reopened.activeId]?.apiKeyEncrypted, true);
+  assert.equal(reopened.view().keys[reopened.activeId]?.apiKeyEncrypted, true);
 });
 
 test("密钥：没有系统加密时退回明文，并如实标记未加密", () => {
@@ -282,7 +282,7 @@ test("密钥：没有系统加密时退回明文，并如实标记未加密", ()
   const store = new ProviderSettingsStore({ dir: INDEX_DIR, readFile: fs.readFile, writeFile: fs.writeFile });
   store.upsert({ ...settings, id: store.activeId, label: "主服务" });
   store.setApiKey(store.activeId, "sk-plain");
-  assert.equal(store.view(false).keys[store.activeId]?.apiKeyEncrypted, false);
+  assert.equal(store.view().keys[store.activeId]?.apiKeyEncrypted, false);
   const written = String(fs.files.get(`${INDEX_DIR}\\provider-settings.json`));
   assert.ok(written.includes("sk-plain"));
 });
@@ -304,7 +304,7 @@ test("密钥：解密失败当作没存过，不崩溃", () => {
   });
   store.load();
   assert.equal(store.keyFor("default"), undefined);
-  assert.equal(store.view(false).keys.default?.hasApiKey, false);
+  assert.equal(store.view().keys.default?.hasApiKey, false);
 });
 
 test("密钥：清空后文件里不再有密钥", () => {
@@ -319,7 +319,7 @@ test("密钥：清空后文件里不再有密钥", () => {
   store.clearApiKey(store.activeId);
   const written = String(fs.files.get(`${INDEX_DIR}\\provider-settings.json`));
   assert.equal(written.includes("sk-x"), false);
-  assert.equal(store.view(false).keys[store.activeId]?.hasApiKey, false);
+  assert.equal(store.view().keys[store.activeId]?.hasApiKey, false);
 });
 
 test("多服务商：新建、切换、删除，最后一个不能删", () => {
@@ -362,7 +362,7 @@ test("多服务商：旧版单配置文件自动迁移成一条 profile", () => 
   assert.equal(store.profiles.length, 1);
   assert.equal(store.profiles[0]?.label, "默认服务商");
   assert.equal(store.keyFor("default"), "sk-legacy");
-  assert.equal(store.view(false).keys.default?.apiKeyEncrypted, false);
+  assert.equal(store.view().keys.default?.apiKeyEncrypted, false);
 });
 
 test("多服务商：enabledCount 只算有地址、有模型、有密钥的", () => {
@@ -375,11 +375,13 @@ test("多服务商：enabledCount 只算有地址、有模型、有密钥的", (
   });
   store.upsert({ ...settings, id: "default", label: "空的" });
   store.setApiKey("default", "sk");
-  assert.equal(store.view(false).enabledCount, 1);
+  assert.equal(store.view().enabledCount, 1);
   const second = store.create("第二个");
-  assert.equal(store.view(false).enabledCount, 1, "新配置没地址没密钥");
-  // 新配置补齐地址与模型后，.env 能给它提供密钥，于是两个都算启用。
+  assert.equal(store.view().enabledCount, 1, "新配置没地址没密钥");
+  // 补齐地址与模型但还没有密钥：仍然不算启用。
   store.upsert({ ...settings, id: second.id, label: "第二个" });
-  assert.equal(store.view(true).enabledCount, 2, ".env 提供密钥时两个都算启用");
-  assert.equal(store.view(false).enabledCount, 1, "没有 .env 时第二个缺密钥");
+  assert.equal(store.view().enabledCount, 1, "缺密钥不算启用");
+  // 补上密钥后两个都算启用。
+  store.setApiKey(second.id, "sk-second");
+  assert.equal(store.view().enabledCount, 2, "两个都有地址/模型/密钥");
 });

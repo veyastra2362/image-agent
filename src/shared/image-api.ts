@@ -8,6 +8,7 @@
 import type { ImageAgentApi as ImageAgentIpcApi } from "./image-generation.ts";
 import type { AppEnvironment, EditAction, WindowControls } from "./app-shell.ts";
 import type { ChooseLibraryDirResult, LibrarySettingsView } from "./library.ts";
+import type { DataResult, DataSelection, DataSummary } from "./data-management.ts";
 import type { ModelFetchResult, ProviderProfile, ProviderSettingsView, ProviderTestResult } from "./provider-settings.ts";
 
 /** Renderer 拿到的 API；结果类型在通道两侧是同一个对象。 */
@@ -47,6 +48,13 @@ declare global {
         readonly settings?: ProviderProfile;
         readonly apiKey?: string;
       }) => Promise<ModelFetchResult>;
+    };
+    /** 数据导出/导入/清除；文件路径只能来自系统对话框。 */
+    readonly appData?: {
+      readonly summary: () => Promise<DataSummary | undefined>;
+      readonly export: (selection: DataSelection) => Promise<DataResult>;
+      readonly import: (selection: DataSelection) => Promise<DataResult>;
+      readonly clear: (selection: DataSelection) => Promise<DataResult>;
     };
     /** 作品库落盘位置；目录只能通过系统对话框选择。 */
     readonly appLibrary?: {

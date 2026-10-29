@@ -6,8 +6,7 @@
  * 三条刻意的设计：
  *  1. 密钥永远不回传 renderer；`view()` 只回答"存没存、加没加密"。
  *  2. 有系统钥匙串时只写密文（safeStorage）；拿不到才退回明文，并如实标记。
- *  3. `.env` / 环境变量里已经有密钥时，界面上的配置不能覆盖它——
- *     避免"界面上改了一遍却没作用"这种最难查的配置问题。
+ *  3. 这是唯一的配置来源：应用不读 .env，也不读环境变量作为兜底。
  */
 import { createHash } from "node:crypto";
 import { chmodSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
@@ -241,6 +240,36 @@ export class ProviderSettingsStore {
     return { ok: true };
   }
 
+  /**
+   * 导出用的快照：密钥以明文给出。
+   * safeStorage 的密文换机器就解不开，而备份要能迁移，所以这里必须是明文——
+   * 它只会进用户自己选择的 ZIP，界面也已提示"含 API Key"。
+   */
+  exportPayload(): { profiles: readonly ProviderProfile[]; activeId: string; keys: Record<string, string> } {
+    const keys: Record<string, string> = {};
+    for (const [id, key] of this.#keys) keys[id] = key;
+    return { profiles: this.#profiles, activeId: this.#activeId, keys };
+  }
+
+  /** 恢复出厂：只留一个空配置，所有密钥清空。 */
+  reset(): void {
+    this.#profiles = [defaultProfile()];
+    this.#activeId = DEFAULT_PROFILE_ID;
+    this.#keys.clear();
+    this.#encrypted.clear();
+    this.#persist();
+  }
+
+  /** 导入用：整体替换配置与密钥（密钥是不加密的明文，只在内存里短暂存在）。 */
+  replaceAll(profiles: readonly ProviderProfile[], activeId: string, keys: ReadonlyMap<string, string>): void {
+    this.#profiles = [...profiles];
+    this.#activeId = this.#profiles.some((profile) => profile.id === activeId) ? activeId : (this.#profiles[0]?.id ?? DEFAULT_PROFILE_ID);
+    this.#keys.clear();
+    this.#encrypted.clear();
+    for (const [id, key] of keys) if (this.#profiles.some((profile) => profile.id === id)) this.#keys.set(id, key);
+    this.#persist();
+  }
+
   keyFor(id: string): string | undefined {
     return this.#keys.get(id);
   }
@@ -259,13 +288,12 @@ export class ProviderSettingsStore {
   }
 
   /** 给界面看的视图：多配置 + 每个配置的密钥状态，永远没有密钥本体。 */
-  view(envKeyPresent: boolean): ProviderSettingsView {
+  view(): ProviderSettingsView {
     const keys: Record<string, ProviderKeyStatus> = {};
     for (const profile of this.#profiles) {
       const stored = this.#keys.has(profile.id);
       keys[profile.id] = {
-        hasApiKey: envKeyPresent || stored,
-        apiKeyFromEnv: envKeyPresent,
+        hasApiKey: stored,
         apiKeyEncrypted: stored && this.#encrypted.has(profile.id),
       };
     }
@@ -274,7 +302,7 @@ export class ProviderSettingsStore {
       activeId: this.#activeId,
       keys,
       enabledCount: this.#profiles.filter(
-        (profile) => profile.models.length > 0 && profile.baseUrl !== "" && (envKeyPresent || this.#keys.has(profile.id)),
+        (profile) => profile.models.length > 0 && profile.baseUrl !== "" && this.#keys.has(profile.id),
       ).length,
     };
   }

@@ -33,6 +33,14 @@ const WINDOW = {
 const APP_CHANNEL = "app:environment";
 const EDIT_CHANNEL = "app:edit";
 
+/** 必须与 src/main/data-ipc.ts 的 DATA_CHANNELS 完全一致（由测试校验）。 */
+const DATA = {
+  summary: "data:summary",
+  export: "data:export",
+  import: "data:import",
+  clear: "data:clear",
+} as const;
+
 /** 必须与 src/main/library-ipc.ts 的 LIBRARY_CHANNELS 完全一致（由测试校验）。 */
 const LIBRARY = {
   view: "library:view",
@@ -107,3 +115,12 @@ const library = {
 };
 
 contextBridge.exposeInMainWorld("appLibrary", Object.freeze(library));
+
+const data = {
+  summary: () => ipcRenderer.invoke(DATA.summary),
+  export: (selection: unknown) => ipcRenderer.invoke(DATA.export, selection),
+  import: (selection: unknown) => ipcRenderer.invoke(DATA.import, selection),
+  clear: (selection: unknown) => ipcRenderer.invoke(DATA.clear, selection),
+};
+
+contextBridge.exposeInMainWorld("appData", Object.freeze(data));

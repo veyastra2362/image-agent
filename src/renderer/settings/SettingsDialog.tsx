@@ -9,8 +9,9 @@ import type { AppEnvironment } from "../../shared/app-shell.ts";
 import type { ProviderSettingsView } from "../../shared/provider-settings.ts";
 import { ApiSettingsPanel } from "./ApiSettingsPanel.tsx";
 import { LibrarySettingsPanel } from "./LibrarySettingsPanel.tsx";
+import { DataSettingsPanel } from "./DataSettingsPanel.tsx";
 
-export type SettingsTab = "api" | "appearance" | "storage" | "about";
+export type SettingsTab = "api" | "appearance" | "storage" | "data" | "about";
 
 export interface SettingsDialogProps {
   readonly initialTab: SettingsTab;
@@ -28,6 +29,7 @@ const TABS: readonly { readonly id: SettingsTab; readonly label: string }[] = [
   { id: "api", label: "API 设置" },
   { id: "appearance", label: "外观设置" },
   { id: "storage", label: "存储" },
+  { id: "data", label: "数据管理" },
   { id: "about", label: "关于" },
 ];
 
@@ -181,6 +183,8 @@ export function SettingsDialog({
 
             {tab === "storage" && <LibrarySettingsPanel />}
 
+            {tab === "data" && <DataSettingsPanel />}
+
             {tab === "about" && (
               <section className="settings__section" aria-label="关于">
                 <h3>Image Agent</h3>
@@ -206,8 +210,8 @@ export function SettingsDialog({
                   </div>
                 </dl>
                 <p className="field__hint">
-                  作品与任务记录目前只保存在内存中，关闭应用即清空。截图、图片与任务都不出本机，
-                  只有生成请求会发送到你配置的服务商。
+                  任务与图片会保存到本机作品目录，配置与密钥保存在应用数据目录，重启应用后仍在。
+                  图片与任务不会离开本机，只有生成请求（提示词与参数）会发送到你配置的服务商。
                 </p>
               </section>
             )}

@@ -7,7 +7,7 @@
  *  3. 启动时任何"没结束"的任务都被标成失败并写清原因，而不是假装还在跑。
  *  4. 索引损坏时退回空库并备份原文件，不让应用打不开。
  */
-import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import type { ImageAsset, ImageJob } from "@shared/image-generation";
@@ -238,6 +238,46 @@ export class FileJobStore implements JobStore {
     this.#assets.set(asset.id, stored);
     this.#persist();
     return stored;
+  }
+
+  /** 导入用：允许覆盖同 id 的任务。 */
+  importJob(job: ImageJob): void {
+    this.#jobs.set(job.id, job);
+    this.#requestIds.set(job.requestId, job.id);
+    this.#persist();
+  }
+
+  /** 导入用：允许覆盖同 id 的作品，字节会重新写进当前目录。 */
+  importAsset(asset: ImageAsset, bytes: Uint8Array): ImageAsset {
+    this.#assets.delete(asset.id);
+    return this.saveAsset(asset, bytes);
+  }
+
+  allJobs(): readonly ImageJob[] {
+    return [...this.#jobs.values()];
+  }
+
+  allAssets(): readonly ImageAsset[] {
+    return [...this.#assets.values()];
+  }
+
+  /** 清空作品库：内存表 + 磁盘索引 + 已保存的图片文件。 */
+  clearAll(): { readonly removedFiles: number } {
+    let removedFiles = 0;
+    for (const file of this.#files.values()) {
+      try {
+        unlinkSync(file);
+        removedFiles += 1;
+      } catch {
+        // 文件已经不在了，忽略。
+      }
+    }
+    this.#files.clear();
+    this.#assets.clear();
+    this.#jobs.clear();
+    this.#requestIds.clear();
+    this.#persist();
+    return { removedFiles };
   }
 
   getAsset(id: string): ImageAsset | undefined {

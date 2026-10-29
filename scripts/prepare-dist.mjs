@@ -21,7 +21,7 @@ import path from "node:path";
 
 const TSC_OUTPUT = "out/main/src";
 /** 直接落在 out/main/ 根的主进程模块（其余 src/main/*.ts 以目录为单位整体复制）。 */
-const ROOT_MODULES = ["dev-server-url", "dev-server", "config", "ipc", "window-ipc", "app-ipc", "settings-ipc", "provider-settings-store", "upstream-probe", "library-ipc", "library-store"];
+const ROOT_MODULES = ["dev-server-url", "dev-server", "ipc", "window-ipc", "app-ipc", "settings-ipc", "provider-settings-store", "upstream-probe", "library-ipc", "library-store", "data-ipc", "data-manager"];
 /** 以目录整体搬到 out/main/ 的模块组。 */
 const STAGED_DIRS = ["image-generation"];
 
@@ -70,7 +70,7 @@ if (process.argv.includes("--after-tsc")) {
   await rm(TSC_OUTPUT, { recursive: true, force: true });
 
   for await (const file of walkJs("out/main")) await resolveSharedSpecifiers(file);
-  console.log("staged out/main: main.js, preload.js, ipc.js, config.js, dev-server*.js, image-generation/, shared/");
+  console.log("staged out/main: main.js, preload.js, ipc.js, dev-server*.js, image-generation/, shared/ 以及根级模块");
 } else {
   await rm("out/main", { recursive: true, force: true });
   await rm("out/renderer", { recursive: true, force: true });

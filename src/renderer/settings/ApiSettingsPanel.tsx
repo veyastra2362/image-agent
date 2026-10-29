@@ -70,7 +70,6 @@ export function ApiSettingsPanel({ view, loading, onRefresh }: ApiSettingsPanelP
   }
 
   const patch = (changes: Partial<ProviderProfile>) => setDraft((current) => (current ? { ...current, ...changes } : current));
-  const keyLocked = keyStatus?.apiKeyFromEnv === true;
   const partialDisabled = !(draft.stream && supportsPartialImages(draft.flavor));
   const keyForRequest = apiKey.trim() === "" ? undefined : apiKey.trim();
   const validation = validateProviderProfile(draft);
@@ -218,8 +217,8 @@ export function ApiSettingsPanel({ view, loading, onRefresh }: ApiSettingsPanelP
         </button>
       </div>
 
-      <div className="settings__inline">
-        <label className="field" style={{ flex: 1 }}>
+      <div className="settings__field-row">
+        <label className="field">
           <span className="field__label">名称</span>
           <input
             className="field__input"
@@ -268,27 +267,21 @@ export function ApiSettingsPanel({ view, loading, onRefresh }: ApiSettingsPanelP
       <label className="field">
         <span className="field__label">
           API Key
-          {keyLocked && <span className="field__meta">来自 .env / 环境变量</span>}
-          {!keyLocked && keyStatus?.apiKeyEncrypted && <span className="field__meta">已加密保存</span>}
+          {keyStatus?.apiKeyEncrypted && <span className="field__meta">已加密保存</span>}
         </span>
         <input
           className="field__input"
           type="password"
           autoComplete="off"
           spellCheck={false}
-          disabled={keyLocked}
           value={apiKey}
-          placeholder={
-            keyLocked ? "由 .env 提供，界面不能修改" : keyStatus?.hasApiKey ? "已保存（留空表示不修改）" : "粘贴密钥"
-          }
+          placeholder={keyStatus?.hasApiKey ? "已保存（留空表示不修改）" : "粘贴密钥"}
           onChange={(event) => setApiKey(event.target.value)}
         />
         <span className="field__hint">
-          {keyLocked
-            ? "这个地址的密钥来自 .env 或环境变量，优先级高于界面配置；要修改请改文件后重启。"
-            : keyStatus?.apiKeyEncrypted
-              ? "密钥由系统钥匙串加密后保存在本机，不回传界面、不写入页面存储。"
-              : "密钥只保存在本机 main 进程的配置文件里，不回传界面、不写入页面存储。"}
+          {keyStatus?.apiKeyEncrypted
+            ? "密钥由系统钥匙串加密后保存在本机，不回传界面、不写入页面存储。"
+            : "密钥随应用配置保存在本机，不回传界面、不写入页面存储。"}
         </span>
       </label>
 
