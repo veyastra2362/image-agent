@@ -32,6 +32,14 @@ const WINDOW = {
 /** 必须与 src/shared/app-shell.ts 的 APP_CHANNEL 完全一致（由测试校验）。 */
 const APP_CHANNEL = "app:environment";
 
+/** 必须与 src/main/settings-ipc.ts 的 SETTINGS_CHANNELS 完全一致（由测试校验）。 */
+const SETTINGS = {
+  view: "provider:settings-view",
+  save: "provider:settings-save",
+  test: "provider:settings-test",
+  fetchModels: "provider:fetch-models",
+} as const;
+
 function subscribe<T>(channel: string, listener: (payload: T) => void): Unsubscribe {
   const handler = (_event: IpcRendererEvent, payload: T) => {
     listener(payload);
@@ -67,3 +75,12 @@ contextBridge.exposeInMainWorld("appWindow", Object.freeze(windowControls));
 
 const environment = (): Promise<AppEnvironment> => ipcRenderer.invoke(APP_CHANNEL) as Promise<AppEnvironment>;
 contextBridge.exposeInMainWorld("appInfo", Object.freeze({ environment }));
+
+const settings = {
+  view: () => ipcRenderer.invoke(SETTINGS.view),
+  save: (payload: unknown) => ipcRenderer.invoke(SETTINGS.save, payload),
+  test: (payload?: unknown) => ipcRenderer.invoke(SETTINGS.test, payload),
+  fetchModels: (payload?: unknown) => ipcRenderer.invoke(SETTINGS.fetchModels, payload),
+};
+
+contextBridge.exposeInMainWorld("appSettings", Object.freeze(settings));

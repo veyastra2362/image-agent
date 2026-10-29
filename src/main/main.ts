@@ -20,6 +20,8 @@ import { registerImageIpc } from "./ipc";
 import { registerWindowIpc } from "./window-ipc";
 import { registerAppIpc } from "./app-ipc";
 import { loadProviderConfig } from "./config";
+import { ProviderSettingsStore } from "./provider-settings-store";
+import { registerSettingsIpc } from "./settings-ipc";
 import { ImageGenerationService } from "./image-generation/service";
 import { FakeProvider } from "./image-generation/providers/fake";
 import { OpenAICompatibleProvider } from "./image-generation/providers/openai-compatible";
@@ -38,6 +40,7 @@ const APP_ROOT = path.resolve(BUILD_DIR, "..");
 let mainWindow: BrowserWindow | undefined;
 let service: ImageGenerationService | undefined;
 let bridge: ReturnType<typeof registerImageIpc> | undefined;
+let settingsStore: ProviderSettingsStore | undefined;
 let devServerProcess: ChildProcess | undefined;
 let disposeExtraIpc: readonly (() => void)[] = [];
 
@@ -67,7 +70,10 @@ function start(): void {
     // 离线假 provider 永远在；真实 provider 只在配置了密钥时出现（见 config.ts）。
     const store = new MemoryJobStore();
     const configured = loadProviderConfig({ rootDir: APP_ROOT });
-    const providers = createProviders(configured);
+    // 界面上填的连接配置落在 userData 里；.env 里已有密钥时以 .env 为准（见 store.view）。
+    settingsStore = new ProviderSettingsStore({ dir: app.getPath("userData") });
+    settingsStore.load();
+    const providers = createProviders(configured, settingsStore);
     const imageService = new ImageGenerationService({
       providers,
       store,
@@ -85,11 +91,29 @@ function start(): void {
     disposeExtraIpc = [
       // 窗口控制在启动时注册一次即可：createWindow 会被 activate 再次调用，重复 handle 会抛错。
       registerWindowIpc(() => mainWindow),
-      registerAppIpc(() => mainWindow, () => ({
-        providerConfigured: configured.configured,
-        ...(configured.configured ? { providerBaseUrl: configured.config.baseUrl } : {}),
-        models: configured.configured ? REAL_MODELS.map((model) => model.id) : [],
-      })),
+      registerAppIpc(() => mainWindow, () => {
+        const view = settingsStore?.view(configured.configured) ?? undefined;
+        return {
+          providerConfigured: view?.hasApiKey === true,
+          ...(view?.hasApiKey === true ? { providerBaseUrl: view.settings.baseUrl } : {}),
+          models: view?.hasApiKey === true ? [...view.settings.models] : [],
+        };
+      }),
+      registerSettingsIpc({
+        getWindow: () => mainWindow,
+        get store() {
+          return settingsStore as ProviderSettingsStore;
+        },
+        envApiKeyPresent: () => configured.configured,
+        applyProviders: () => {
+          try {
+            service?.setProviders(createProviders(configured, settingsStore as ProviderSettingsStore));
+            return { ok: true as const };
+          } catch (error) {
+            return { ok: false as const, error: String((error as Error).message ?? error).slice(0, 200) };
+          }
+        },
+      }),
     ];
     openMainWindow();
   });
@@ -143,12 +167,23 @@ app.on("activate", () => {
   openMainWindow();
 });
 
-/** 真实服务上可选的模型。列表来自 GET /v1/models 的实测结果。 */
+/** 没有在设置里填模型时的兜底列表（来自当初 GET /v1/models 的实测结果）。 */
 const REAL_MODELS = [
   { id: "gpt-image-2", displayName: "GPT Image 2" },
   { id: "gpt-image-2.5-flare", displayName: "GPT Image 2.5 Flare" },
   { id: "gpt-image-2.5-sunburst", displayName: "GPT Image 2.5 Sunburst" },
 ] as const;
+
+/**
+ * 实际使用的模型列表：设置里勾选过的优先，否则退回兜底三款。
+ * 已实测能出图的只有 gpt-image-2，其余两款只是出现在模型列表里。
+ */
+function resolveModels(store: ProviderSettingsStore): { id: string; displayName: string }[] {
+  const chosen = store.settings.models;
+  if (chosen.length === 0) return REAL_MODELS.map((model) => ({ ...model }));
+  const known = new Map(REAL_MODELS.map((model) => [model.id as string, model.displayName as string]));
+  return chosen.map((id: string) => ({ id, displayName: known.get(id) ?? id }));
+}
 
 /**
  * 组装 provider 列表。
@@ -158,20 +193,30 @@ const REAL_MODELS = [
  */
 function createProviders(
   configured: ReturnType<typeof loadProviderConfig>,
+  store: ProviderSettingsStore,
 ): (FakeProvider | OpenAICompatibleProvider)[] {
   const providers: (FakeProvider | OpenAICompatibleProvider)[] = [];
 
-  if (configured.configured) {
+  // 密钥优先级：.env / 环境变量 > 设置界面上保存的。
+  const apiKey = configured.configured ? configured.config.apiKey : store.apiKey;
+  const baseUrl = configured.configured ? configured.config.baseUrl : store.settings.baseUrl;
+
+  if (apiKey !== undefined && apiKey !== "" && baseUrl !== "") {
+    const models = resolveModels(store);
     providers.push(
       new OpenAICompatibleProvider({
-        baseUrl: configured.config.baseUrl,
-        apiKey: configured.config.apiKey,
-        defaultModel: configured.config.defaultModel ?? "gpt-image-2",
-        models: REAL_MODELS.map((model) => ({ ...model })),
+        baseUrl,
+        apiKey,
+        defaultModel: configured.configured
+          ? (configured.config.defaultModel ?? models[0]?.id ?? "gpt-image-2")
+          : (store.settings.defaultModel ?? models[0]?.id ?? "gpt-image-2"),
+        models,
+        timeoutMs: store.settings.timeoutSeconds * 1000,
       }),
     );
   } else {
-    console.info(`[image-agent] 未启用真实图片服务：${configured.reason}`);
+    const reason = configured.configured ? "设置里的 API URL 为空" : `未配置密钥（${configured.reason}）`;
+    console.info(`[image-agent] 未启用真实图片服务：${reason}`);
   }
 
   // 假 provider 放在最后，真实模型因此成为界面的默认选项。

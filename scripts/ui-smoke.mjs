@@ -233,9 +233,37 @@ async function run() {
   check("设置含 API/外观/关于", tabs.join(",") === "API 设置,外观设置,关于", tabs);
   const apiText = await js("document.querySelector('.settings__body').innerText");
   check("API 设置不显示密钥", !/sk-[A-Za-z0-9]{8}/.test(apiText), apiText.slice(0, 120));
+  for (const label of ["服务商类型", "API URL", "API Key", "API 接口", "流式传输", "中间步骤图像数", "请求超时"]) {
+    check("API 设置含" + label, apiText.includes(label), "");
+  }
+  const partialChips = await js(
+    "[...document.querySelectorAll('.settings__body [role=radio]')].map((n) => n.textContent).filter((t) => /张$/.test(t))",
+  );
+  check("中间步骤图像可选 0–3", JSON.stringify(partialChips) === JSON.stringify(["0 张", "1 张", "2 张", "3 张"]), partialChips);
+  check("提示说明单图拆分", apiText.includes("拆成多个单图"), "");
+  check("提示说明额外计费", apiText.includes("额外计费"), "");
+  const saved = await js(
+    "window.appSettings.save({ settings: { kind: 'openai-compatible', baseUrl: 'https://example.invalid/v1', flavor: 'responses', models: ['gpt-image-2'], stream: true, partialImages: 3, timeoutSeconds: 240 } })",
+  );
+  check("设置可以保存并重建 provider 表", saved && saved.ok === true, saved);
   await shot("08-settings-api");
   await js("(() => { [...document.querySelectorAll('.settings__tab')].find((n) => n.textContent === '外观设置').click(); return true; })()");
   await sleep(150);
+  const themeChips = await js("[...document.querySelectorAll('.settings__body [role=radio]')].map((n) => n.textContent)");
+  check(
+    "外观设置含跟随系统/白天/黑夜",
+    JSON.stringify(themeChips.slice(0, 3)) === JSON.stringify(["跟随系统", "白天", "黑夜"]),
+    themeChips,
+  );
+  await js("(() => { [...document.querySelectorAll('.settings__body [role=radio]')].find((n) => n.textContent === '白天').click(); return true; })()");
+  await sleep(150);
+  check("切到白天后 data-theme=light", (await js("document.documentElement.dataset.theme")) === "light", "");
+  await js("(() => { [...document.querySelectorAll('.settings__body [role=radio]')].find((n) => n.textContent === '黑夜').click(); return true; })()");
+  await sleep(150);
+  check("切到黑夜后 data-theme=dark", (await js("document.documentElement.dataset.theme")) === "dark", "");
+  await js("(() => { [...document.querySelectorAll('.settings__body [role=radio]')].find((n) => n.textContent === '跟随系统').click(); return true; })()");
+  await sleep(150);
+  check("跟随系统时移除 data-theme", (await js("document.documentElement.dataset.theme ?? ''")) === "", "");
   await shot("09-settings-appearance");
   await js("(() => { [...document.querySelectorAll('.settings__tab')].find((n) => n.textContent === '关于').click(); return true; })()");
   await sleep(150);

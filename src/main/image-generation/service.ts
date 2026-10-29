@@ -55,7 +55,12 @@ const MAX_POLL_TRANSIENT_FAILURES = 3;
 const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
 
 export class ImageGenerationService {
-  private readonly providers: Map<string, ImageProvider>;
+  /**
+   * provider 表在运行中可以被整体替换：用户在设置里改了地址/密钥/模型之后，
+   * main 会重建这张表，而不需要重启应用。进行中的任务仍持有旧的 provider 实例，
+   * 因此不会被中途换掉。
+   */
+  private providers: Map<string, ImageProvider>;
   private readonly store: JobStore;
   private readonly emit: (event: ImageTaskEvent) => void;
   private readonly notify: (notification: Notification) => void;
@@ -75,6 +80,12 @@ export class ImageGenerationService {
     this.newId = deps.newId ?? (() => `job-${randomUUID()}`);
     this.sessionBudget = deps.sessionBudget ?? {};
     this.retryDelayMs = deps.retryDelayMs ?? 0;
+  }
+
+  /** 换掉整张 provider 表。之后的新任务用新实例，旧任务不受影响。 */
+  setProviders(providers: readonly ImageProvider[]): void {
+    this.providers = new Map(providers.map((provider) => [provider.descriptor.id, provider]));
+    this.recomputeBudget();
   }
 
   getBootstrap(): ImageBootstrap {

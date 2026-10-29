@@ -7,6 +7,12 @@
  */
 import type { ImageAgentApi as ImageAgentIpcApi } from "./image-generation.ts";
 import type { AppEnvironment, WindowControls } from "./app-shell.ts";
+import type {
+  ModelFetchResult,
+  ProviderSettings,
+  ProviderSettingsView,
+  ProviderTestResult,
+} from "./provider-settings.ts";
 
 /** Renderer 拿到的 API；结果类型在通道两侧是同一个对象。 */
 export type ImageAgentApi = ImageAgentIpcApi;
@@ -18,5 +24,22 @@ declare global {
     readonly appWindow?: WindowControls;
     /** 版本与配置状态；不含任何密钥。 */
     readonly appInfo?: { readonly environment: () => Promise<AppEnvironment> };
+    /** 服务商连接设置；返回的视图里永远没有密钥本体。 */
+    readonly appSettings?: {
+      readonly view: () => Promise<ProviderSettingsView | undefined>;
+      readonly save: (payload: {
+        readonly settings: ProviderSettings;
+        readonly apiKey?: string;
+        readonly clearApiKey?: boolean;
+      }) => Promise<{ readonly ok: true } | { readonly ok: false; readonly message: string }>;
+      readonly test: (payload?: {
+        readonly settings?: ProviderSettings;
+        readonly apiKey?: string;
+      }) => Promise<ProviderTestResult>;
+      readonly fetchModels: (payload?: {
+        readonly settings?: ProviderSettings;
+        readonly apiKey?: string;
+      }) => Promise<ModelFetchResult>;
+    };
   }
 }

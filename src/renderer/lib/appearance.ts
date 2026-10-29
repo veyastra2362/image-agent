@@ -1,5 +1,5 @@
 /**
- * 本地外观偏好：只存主题与密度，不放任何密钥或提示词。
+ * 本地外观偏好：只存主题（跟随系统 / 白天 / 黑夜）与密度，不放任何密钥或提示词。
  */
 export type ThemePreference = "auto" | "light" | "dark";
 export type DensityPreference = "comfortable" | "compact";
@@ -38,9 +38,15 @@ export function saveAppearance(appearance: Appearance): void {
   }
 }
 
-/** 把偏好写到 <html> 的 data 属性上，样式表据此切换。 */
+/**
+ * 把偏好写到 <html> 的 data 属性上，样式表据此切换。
+ *
+ * "跟随系统"不留 data-theme：样式表用 prefers-color-scheme 判断，
+ * 系统主题一变界面立刻跟着变，不需要应用重启或重新渲染。
+ */
 export function applyAppearance(appearance: Appearance): void {
   const root = document.documentElement;
-  root.dataset.theme = appearance.theme;
+  if (appearance.theme === "auto") delete root.dataset.theme;
+  else root.dataset.theme = appearance.theme;
   root.dataset.density = appearance.density;
 }

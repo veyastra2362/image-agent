@@ -1,11 +1,13 @@
 /**
  * 设置弹窗：API 设置 / 外观设置 / 关于。
  *
- * API 设置只做"展示 + 指引"：密钥只存在于 main 进程读取的 .env，
- * 界面既不接收也不显示密钥，因此不存在"把密钥写进 localStorage 或截图里"的可能。
+ * API 设置的密钥只由 main 保存与使用：界面可以填一把新的，但读回来永远是空的，
+ * 因此不存在"密钥进 localStorage、截图或 React DevTools"的可能。
  */
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { AppEnvironment } from "../../shared/app-shell.ts";
+import type { ProviderSettingsView } from "../../shared/provider-settings.ts";
+import { ApiSettingsPanel } from "./ApiSettingsPanel.tsx";
 
 export type SettingsTab = "api" | "appearance" | "about";
 
@@ -40,6 +42,21 @@ export function SettingsDialog({
 }: SettingsDialogProps) {
   const [tab, setTab] = useState<SettingsTab>(initialTab);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const [providerView, setProviderView] = useState<ProviderSettingsView>();
+  const [settingsLoading, setSettingsLoading] = useState(true);
+
+  const refreshProviderView = useCallback(() => {
+    setSettingsLoading(true);
+    void window.appSettings
+      ?.view()
+      .then((value) => setProviderView(value))
+      .catch(() => setProviderView(undefined))
+      .finally(() => setSettingsLoading(false));
+  }, []);
+
+  useEffect(() => {
+    refreshProviderView();
+  }, [refreshProviderView]);
 
   useEffect(() => {
     closeRef.current?.focus();
@@ -80,54 +97,39 @@ export function SettingsDialog({
 
           <div className="settings__body">
             {tab === "api" && (
-              <section className="settings__section" aria-label="API 设置">
-                <h3>图片服务</h3>
-                <dl className="facts">
-                  <div className="fact">
-                    <dt>状态</dt>
-                    <dd>
-                      {environment?.providerConfigured ? (
-                        <span className="badge badge--ok">已配置</span>
-                      ) : (
-                        <span className="badge badge--muted">未配置</span>
-                      )}
-                    </dd>
-                  </div>
-                  <div className="fact">
-                    <dt>接口地址</dt>
-                    <dd className="fact--mono">{environment?.providerBaseUrl ?? "—"}</dd>
-                  </div>
-                  <div className="fact">
-                    <dt>模型</dt>
-                    <dd className="fact--mono">
-                      {environment?.models.length ? environment.models.join("、") : "—"}
-                    </dd>
-                  </div>
-                  <div className="fact">
-                    <dt>可用服务</dt>
-                    <dd>
-                      {providerCount} 个服务 · {modelCount} 个模型（含离线假服务）
-                    </dd>
-                  </div>
-                </dl>
-                <h3>如何配置密钥</h3>
-                <ol className="settings__steps">
-                  <li>
-                    在项目根目录复制 <code>.env.example</code> 为 <code>.env</code>。
-                  </li>
-                  <li>
-                    填入 <code>IMAGE_AGENT_API_KEY</code> 与 <code>IMAGE_AGENT_BASE_URL</code>。
-                  </li>
-                  <li>重启应用后生效。</li>
-                </ol>
-                <p className="field__hint">
-                  密钥只由主进程从 <code>.env</code> 读取，界面不接收、不回显、不写入任何页面存储；
-                  <code>.env</code> 已在 .gitignore 中。想临时停用真实服务，可用
-                  <code> IMAGE_AGENT_API_KEY= </code>（显式置空）启动。
-                </p>
-              </section>
+              <>
+                <ApiSettingsPanel view={providerView} loading={settingsLoading} onRefresh={refreshProviderView} />
+                <details className="settings__more">
+                  <summary>当前生效状态</summary>
+                  <dl className="facts">
+                    <div className="fact">
+                      <dt>状态</dt>
+                      <dd>
+                        {environment?.providerConfigured ? (
+                          <span className="badge badge--ok">已启用真实服务</span>
+                        ) : (
+                          <span className="badge badge--muted">只有离线假服务</span>
+                        )}
+                      </dd>
+                    </div>
+                    <div className="fact">
+                      <dt>接口地址</dt>
+                      <dd className="fact--mono">{environment?.providerBaseUrl ?? "—"}</dd>
+                    </div>
+                    <div className="fact">
+                      <dt>模型</dt>
+                      <dd className="fact--mono">{environment?.models.length ? environment.models.join("、") : "—"}</dd>
+                    </div>
+                    <div className="fact">
+                      <dt>可用服务</dt>
+                      <dd>
+                        {providerCount} 个服务 · {modelCount} 个模型（含离线假服务）
+                      </dd>
+                    </div>
+                  </dl>
+                </details>
+              </>
             )}
-
             {tab === "appearance" && (
               <section className="settings__section" aria-label="外观设置">
                 <h3>主题</h3>
@@ -135,8 +137,8 @@ export function SettingsDialog({
                   {(
                     [
                       { value: "auto", label: "跟随系统" },
-                      { value: "light", label: "浅色" },
-                      { value: "dark", label: "深色" },
+                      { value: "light", label: "白天" },
+                      { value: "dark", label: "黑夜" },
                     ] as const
                   ).map((option) => (
                     <button
@@ -171,7 +173,7 @@ export function SettingsDialog({
                     </button>
                   ))}
                 </div>
-                <p className="field__hint">外观设置只保存在本机页面存储里，不影响生成结果。</p>
+                <p className="field__hint">\n                  「跟随系统」会随操作系统的浅色/深色设置自动切换。外观只保存在本机页面存储里，不影响生成结果。\n                </p>
               </section>
             )}
 
