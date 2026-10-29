@@ -1598,12 +1598,13 @@ code {
   left: 0;
   right: 0;
   max-height: 340px;
-  /* 滚到底不要把下层页面带着滚；预留滚动条位置，出现时条目不会左右跳 */
+  /* 滚到底不要把下层页面带着滚；两侧都预留滚动条位置，条目始终水平居中 */
   overscroll-behavior: contain;
-  scrollbar-gutter: stable;
+  scrollbar-gutter: stable both-edges;
   overflow-y: auto;
   margin: 0;
-  padding: var(--space-1);
+  /* 横向不留内边距：条目背景紧贴滚动条预留区，左右仍对称 */
+  padding: var(--space-1) 0;
   list-style: none;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
