@@ -6,6 +6,7 @@
 //
 // 用法：npm run build && npm run smoke
 import { spawn } from "node:child_process";
+import { createServer } from "node:http";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
@@ -19,10 +20,25 @@ const driverDir = path.join(artifacts, "driver");
 // driver-only 环境变量：正式应用从不读取它们，避免发布包出现调试后门。
 // 同时把真实服务商的密钥变量清空：冒烟必须离线、免费、结果可复现，
 // 否则（例如本地存在 .env）默认模型会变成真实模型，跑一次就真花钱。
+// 本地桩服务：只实现 GET /v1/models，用来验证"获取上游模型 → 二级弹窗"这条真实路径。
+// 它只监听 127.0.0.1 的随机端口，不联网。
+const modelsStub = createServer((req, res) => {
+  if (req.method === "GET" && (req.url ?? "").endsWith("/models")) {
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ data: [{ id: "stub-model-a" }, { id: "stub-model-b" }] }));
+    return;
+  }
+  res.writeHead(404, { "content-type": "application/json" });
+  res.end(JSON.stringify({ error: { message: "not found" } }));
+});
+await new Promise((resolve) => modelsStub.listen(0, "127.0.0.1", resolve));
+const stubPort = modelsStub.address().port;
+
 const DRIVER_ENV = {
   IMAGE_AGENT_SMOKE_DRIVER: "1",
   IMAGE_AGENT_ARTIFACTS: artifacts,
   IMAGE_AGENT_ROOT: projectRoot,
+  IMAGE_AGENT_STUB_URL: `http://127.0.0.1:${stubPort}/v1`,
 };
 
 const driver = String.raw`
@@ -342,6 +358,72 @@ async function run() {
   check("中间步骤图像可选 0–3", JSON.stringify(partialChips) === JSON.stringify(["0 张", "1 张", "2 张", "3 张"]), partialChips);
   check("提示说明单图拆分", apiText.includes("拆成多个单图"), "");
   check("提示说明额外计费", apiText.includes("额外计费"), "");
+  // 保存按钮在弹窗底部（关闭旁边），而不是面板里
+  const footButtons = await js("[...document.querySelectorAll('.modal__foot button')].map((n) => n.textContent)");
+  check("保存按钮在弹窗底部", footButtons.some((text) => text === "保存" || text === "没有改动"), footButtons);
+
+  // 设置左侧选中态不再是竖条/下划线
+  const tabStyle = await js(
+    "(() => { const s = getComputedStyle(document.querySelector('.settings__tab.is-active')); return { shadow: s.boxShadow, bg: s.backgroundColor }; })()",
+  );
+  check("设置左侧选中态是淡填充", tabStyle.shadow === "none" && tabStyle.bg !== "rgba(0, 0, 0, 0)", tabStyle);
+
+  // 输入框旁边也有模型选择
+  check("底部输入框旁有模型选择", (await js("Boolean(document.querySelector('.dock__model'))")) === true, "");
+
+  // 手动添加模型：先只有按钮，点了才有输入框；加入后出现提示浮层
+  check("默认不显示手动输入框", (await js("!document.querySelector('.settings__body .settings__inline input')")) === true, "");
+  await js("(() => { [...document.querySelectorAll('.settings__body button')].find((n) => n.textContent === '添加模型').click(); return true; })()");
+  await waitFor("document.querySelector('.settings__body .settings__inline input')", "手动输入框出现");
+  check("点击后出现输入框", true, "");
+  await js(
+    "(() => { const el = document.querySelector('.settings__body .settings__inline input'); const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; setter.call(el, 'gpt-image-test'); el.dispatchEvent(new Event('input', { bubbles: true })); return true; })()",
+  );
+  await js("(() => { const row = document.querySelector('.settings__body .settings__inline'); [...row.querySelectorAll('button')].find((n) => n.textContent === '保存').click(); return true; })()");
+  await sleep(250);
+  const chosen = await js("[...document.querySelectorAll('.chosen-models .model-picker__id')].map((n) => n.textContent)");
+  check("手动添加的模型进入列表", chosen.includes("gpt-image-test"), chosen);
+  check("加入后有临时提示浮层", (await js("Boolean(document.querySelector('.settings__toast'))")) === true, "");
+  const editButton = await js("(() => { const b = [...document.querySelectorAll('.chosen-models button')].find((n) => n.textContent === '编辑'); if (!b) return false; b.click(); return true; })()");
+  check("已添加的模型可以编辑", editButton === true && (await js("Boolean(document.querySelector('.chosen-models__input'))")) === true, "");
+  await js("(() => { [...document.querySelectorAll('.chosen-models button')].find((n) => n.getAttribute('aria-label') === '取消')?.click(); return true; })()");
+
+  // 用本地桩服务走一遍"获取上游模型 → 二级弹窗勾选"
+  const stubUrl = process.env.IMAGE_AGENT_STUB_URL;
+  if (stubUrl) {
+    const fill = (selector, value) =>
+      js(
+        "(() => { const el = document.querySelector(" +
+          JSON.stringify(selector) +
+          "); if (!el) return false; const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; setter.call(el, " +
+          JSON.stringify(value) +
+          "); el.dispatchEvent(new Event('input', { bubbles: true })); return true; })()",
+      );
+    await fill('[aria-label="API URL"]', stubUrl);
+    await fill('[aria-label="API Key"]', "sk-stub-key");
+    await js("(() => { [...document.querySelectorAll('.settings__body button')].find((n) => n.textContent === '获取上游模型').click(); return true; })()");
+    // 等请求有个结果：要么弹窗出来，要么有提示浮层说明失败。
+    let pickerOpen = false;
+    for (let i = 0; i < 100; i += 1) {
+      pickerOpen = await js("Boolean(document.querySelector('.picker-modal'))");
+      if (pickerOpen) break;
+      await sleep(150);
+    }
+    const toastText = await js("document.querySelector('.settings__toast')?.textContent ?? ''");
+    check("获取上游模型请求有结果", pickerOpen || toastText !== "", JSON.stringify({ toastText }));
+    if (!pickerOpen) throw new Error("上游模型选择弹窗未出现，提示为：" + toastText);
+    const pickerIds = await js("[...document.querySelectorAll('.picker-modal .model-picker__id')].map((n) => n.textContent)");
+    check(
+      "获取上游模型后弹出二级选择框",
+      pickerIds.includes("stub-model-a") && pickerIds.includes("stub-model-b"),
+      pickerIds,
+    );
+    await shot("16-upstream-picker");
+    await js("(() => { const m = document.querySelector('.picker-modal'); [...m.querySelectorAll('button')].find((b) => b.textContent === '取消').click(); return true; })()");
+    await sleep(200);
+    check("取消后选择框关闭", !(await js("Boolean(document.querySelector('.picker-modal'))")), "");
+  }
+
   const profileTabs = await js("document.querySelectorAll('.profile-tab:not(.profile-tab--add)').length");
   check("服务商可以多开", profileTabs >= 1, profileTabs);
   const saved = await js(
@@ -471,6 +553,7 @@ const child = spawn(electronBinary, [driverDir], {
   env: { ...process.env, ...DRIVER_ENV, ELECTRON_RUN_AS_NODE: undefined },
 });
 const exitCode = await new Promise((resolve) => child.on("exit", (code) => resolve(code ?? 1)));
+modelsStub.close();
 
 let report;
 try {

@@ -21,6 +21,9 @@ export function PromptDock() {
     effectiveCount,
     sizeSummary,
     caps,
+    models,
+    model,
+    setModelKey,
   } = useComposer();
 
   const invalid = !validation.ok && prompt.trim() !== "";
@@ -58,6 +61,21 @@ export function PromptDock() {
 
       <div className="dock__bar">
         <div className="dock__meta">
+          {/* 在这里也能换模型：改完提示词不用再回到左侧栏 */}
+          <select
+            className="dock__model"
+            aria-label="选择模型"
+            value={model ? `${model.id}:${model.model}` : ""}
+            disabled={models.length === 0}
+            onChange={(event) => setModelKey(event.target.value)}
+          >
+            {models.length === 0 && <option value="">没有可用模型</option>}
+            {models.map((candidate) => (
+              <option key={`${candidate.id}:${candidate.model}`} value={`${candidate.id}:${candidate.model}`}>
+                {candidate.displayName}
+              </option>
+            ))}
+          </select>
           <span className="dock__chip">{sizeSummary}</span>
           {caps?.imageToImage === false && <span className="dock__chip dock__chip--muted">无参考图</span>}
           <span className="dock__count">

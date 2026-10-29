@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AppEnvironment } from "../../shared/app-shell.ts";
 import type { ProviderSettingsView } from "../../shared/provider-settings.ts";
-import { ApiSettingsPanel } from "./ApiSettingsPanel.tsx";
+import { ApiSettingsPanel, type FooterAction } from "./ApiSettingsPanel.tsx";
 import { LibrarySettingsPanel } from "./LibrarySettingsPanel.tsx";
 import { DataSettingsPanel } from "./DataSettingsPanel.tsx";
 
@@ -48,6 +48,8 @@ export function SettingsDialog({
   const closeRef = useRef<HTMLButtonElement>(null);
   const [providerView, setProviderView] = useState<ProviderSettingsView>();
   const [settingsLoading, setSettingsLoading] = useState(true);
+  // API 面板把"保存"注册到这里，统一放在弹窗底部（关闭按钮旁边）。
+  const [footerAction, setFooterAction] = useState<FooterAction>();
 
   const refreshProviderView = useCallback(() => {
     setSettingsLoading(true);
@@ -102,7 +104,12 @@ export function SettingsDialog({
           <div className="settings__body">
             {tab === "api" && (
               <>
-                <ApiSettingsPanel view={providerView} loading={settingsLoading} onRefresh={refreshProviderView} />
+                <ApiSettingsPanel
+                  view={providerView}
+                  loading={settingsLoading}
+                  onRefresh={refreshProviderView}
+                  onFooterChange={setFooterAction}
+                />
                 <details className="settings__more">
                   <summary>当前生效状态</summary>
                   <dl className="facts">
@@ -219,6 +226,16 @@ export function SettingsDialog({
         </div>
 
         <footer className="modal__foot">
+          {footerAction !== undefined && (
+            <button
+              type="button"
+              className="button button--primary"
+              disabled={footerAction.disabled}
+              onClick={footerAction.onClick}
+            >
+              {footerAction.label}
+            </button>
+          )}
           <button type="button" className="button button--ghost" onClick={onClose}>
             关闭
           </button>

@@ -1,10 +1,13 @@
 /**
- * API 设置面板：多个服务商并存，可切换、新建、删除。
+ * API 设置面板：多个服务商配置，每个有自己的地址、密钥与模型。
  *
- * 密钥规则：输入框是受控的本地草稿，永远不回填已保存的密钥（main 也不回传）。
- * 输入框留空 = 不改密钥；有内容才会随"保存"一起提交。
+ * 交互约定：
+ *  - 提示是临时浮层，几秒后自动消失，不占版面
+ *  - "保存"在弹窗底部（关闭按钮旁边），由外层通过 onFooterChange 渲染
+ *  - 获取上游模型后弹二级弹窗勾选，而不是在表单里堆一长列
+ *  - 手动添加模型先只显示按钮，点了才出现输入框；已添加的模型可以直接改
  */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   API_FLAVOR_LABELS,
@@ -27,19 +30,40 @@ import {
 
 type Busy = "idle" | "testing" | "fetching" | "saving" | "creating" | "removing";
 
+export interface FooterAction {
+  readonly label: string;
+  readonly disabled: boolean;
+  readonly onClick: () => void;
+}
+
 export interface ApiSettingsPanelProps {
   readonly view: ProviderSettingsView | undefined;
   readonly loading: boolean;
   readonly onRefresh: () => void;
+  /** 把"保存"按钮交给弹窗底部渲染。 */
+  readonly onFooterChange: (action: FooterAction | undefined) => void;
 }
 
-export function ApiSettingsPanel({ view, loading, onRefresh }: ApiSettingsPanelProps) {
+export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: ApiSettingsPanelProps) {
   const [draft, setDraft] = useState<ProviderProfile | undefined>();
   const [apiKey, setApiKey] = useState("");
   const [busy, setBusy] = useState<Busy>("idle");
   const [notice, setNotice] = useState<{ readonly kind: "ok" | "error" | "info"; readonly text: string }>();
-  const [discovered, setDiscovered] = useState<readonly UpstreamModel[] | undefined>();
+  const [pickerModels, setPickerModels] = useState<readonly UpstreamModel[]>();
+  const [pickerChecked, setPickerChecked] = useState<readonly string[]>([]);
+  const [addOpen, setAddOpen] = useState(false);
   const [newModelId, setNewModelId] = useState("");
+  const [editingModel, setEditingModel] = useState<{ readonly index: number; readonly value: string }>();
+
+  // 提示自动消失：操作结果看一眼就够，不该长期占着版面。
+  const flash = useCallback((kind: "ok" | "error" | "info", text: string) => {
+    setNotice({ kind, text });
+  }, []);
+  useEffect(() => {
+    if (notice === undefined) return;
+    const timer = setTimeout(() => setNotice(undefined), notice.kind === "error" ? 7000 : 3200);
+    return () => clearTimeout(timer);
+  }, [notice]);
 
   // 外部刷新或切换服务商后把草稿对齐到落盘值。
   useEffect(() => {
@@ -47,7 +71,8 @@ export function ApiSettingsPanel({ view, loading, onRefresh }: ApiSettingsPanelP
     const active = view.profiles.find((profile) => profile.id === view.activeId) ?? view.profiles[0];
     setDraft(active === undefined ? undefined : { ...active });
     setApiKey("");
-    setDiscovered(undefined);
+    setAddOpen(false);
+    setEditingModel(undefined);
   }, [view]);
 
   const keyStatus = draft === undefined ? undefined : view?.keys[draft.id];
@@ -56,6 +81,45 @@ export function ApiSettingsPanel({ view, loading, onRefresh }: ApiSettingsPanelP
     const saved = view.profiles.find((profile) => profile.id === draft.id);
     return JSON.stringify(saved) !== JSON.stringify(draft) || apiKey.trim() !== "";
   }, [draft, view, apiKey]);
+
+  const patch = useCallback((changes: Partial<ProviderProfile>) => {
+    setDraft((current) => (current ? { ...current, ...changes } : current));
+  }, []);
+
+  const validation = useMemo(() => (draft === undefined ? undefined : validateProviderProfile(draft)), [draft]);
+  const keyForRequest = apiKey.trim() === "" ? undefined : apiKey.trim();
+
+  const handleSave = useCallback(async () => {
+    if (draft === undefined) return;
+    setBusy("saving");
+    const result = await window.appSettings?.save({
+      profile: draft,
+      ...(keyForRequest === undefined ? {} : { apiKey: keyForRequest }),
+    });
+    setBusy("idle");
+    if (result?.ok) {
+      setApiKey("");
+      flash("ok", "已保存，创作页的模型列表已更新。");
+      onRefresh();
+    } else {
+      flash("error", result?.message ?? "保存失败");
+    }
+  }, [draft, keyForRequest, flash, onRefresh]);
+
+  // 把保存按钮注册到弹窗底部；依赖变化时重新注册，保证按钮状态是最新的。
+  useEffect(() => {
+    if (draft === undefined || validation === undefined) {
+      onFooterChange(undefined);
+      return;
+    }
+    onFooterChange({
+      label: busy === "saving" ? "保存中…" : dirty ? "保存" : "没有改动",
+      disabled: busy !== "idle" || !validation.ok || !dirty,
+      onClick: () => void handleSave(),
+    });
+  }, [draft, validation, busy, dirty, handleSave, onFooterChange]);
+
+  useEffect(() => () => onFooterChange(undefined), [onFooterChange]);
 
   if (loading && view === undefined) return <p className="field__hint">正在读取配置…</p>;
   if (view === undefined || draft === undefined) {
@@ -69,10 +133,7 @@ export function ApiSettingsPanel({ view, loading, onRefresh }: ApiSettingsPanelP
     );
   }
 
-  const patch = (changes: Partial<ProviderProfile>) => setDraft((current) => (current ? { ...current, ...changes } : current));
   const partialDisabled = !(draft.stream && supportsPartialImages(draft.flavor));
-  const keyForRequest = apiKey.trim() === "" ? undefined : apiKey.trim();
-  const validation = validateProviderProfile(draft);
   const preview = effectivePartialImages(draft);
 
   async function switchTo(id: string) {
@@ -86,63 +147,43 @@ export function ApiSettingsPanel({ view, loading, onRefresh }: ApiSettingsPanelP
     const created = await window.appSettings?.create();
     setBusy("idle");
     if (created?.ok) {
-      setNotice({ kind: "ok", text: "已新建一个服务商配置，填好后点保存。" });
+      flash("ok", "已新建一个服务商配置，填好后点保存。");
       onRefresh();
     } else {
-      setNotice({ kind: "error", text: created?.message ?? "新建失败" });
+      flash("error", created?.message ?? "新建失败");
     }
   }
 
   async function handleRemove() {
     if (draft === undefined) return;
+    const label = draft.label;
     setBusy("removing");
     const removed = await window.appSettings?.remove(draft.id);
     setBusy("idle");
     if (removed?.ok) {
-      setNotice({ kind: "ok", text: `已删除「${draft.label}」。` });
+      flash("ok", `已删除「${label}」。`);
       onRefresh();
     } else {
-      setNotice({ kind: "error", text: removed?.message ?? "删除失败" });
-    }
-  }
-
-  async function handleSave() {
-    if (draft === undefined) return;
-    setBusy("saving");
-    const result = await window.appSettings?.save({
-      profile: draft,
-      ...(keyForRequest === undefined ? {} : { apiKey: keyForRequest }),
-    });
-    setBusy("idle");
-    if (result?.ok) {
-      setApiKey("");
-      setNotice({ kind: "ok", text: "已保存，创作页的模型列表已更新。" });
-      onRefresh();
-    } else {
-      setNotice({ kind: "error", text: result?.message ?? "保存失败" });
+      flash("error", removed?.message ?? "删除失败");
     }
   }
 
   async function handleTest() {
     setBusy("testing");
-    setNotice({ kind: "info", text: "正在测试连通性…" });
+    flash("info", "正在测试连通性…");
     const result = await window.appSettings?.test({
       id: draft?.id,
       settings: draft,
       ...(keyForRequest === undefined ? {} : { apiKey: keyForRequest }),
     });
     setBusy("idle");
-    if (result?.ok) {
-      setDiscovered(result.models);
-      setNotice({ kind: "ok", text: result.message });
-    } else {
-      setNotice({ kind: "error", text: result?.error ?? "测试失败" });
-    }
+    if (result?.ok) flash("ok", result.message);
+    else flash("error", result?.error ?? "测试失败");
   }
 
   async function handleFetchModels() {
     setBusy("fetching");
-    setNotice({ kind: "info", text: "正在从上游获取模型列表…" });
+    flash("info", "正在从上游获取模型列表…");
     const result = await window.appSettings?.fetchModels({
       id: draft?.id,
       settings: draft,
@@ -150,38 +191,76 @@ export function ApiSettingsPanel({ view, loading, onRefresh }: ApiSettingsPanelP
     });
     setBusy("idle");
     if (result?.ok) {
-      setDiscovered(result.models);
-      setNotice({ kind: "ok", text: `上游返回 ${result.models.length} 个模型，勾选后加入下方列表。` });
+      setPickerModels(result.models);
+      setPickerChecked(result.models.filter((model) => draft?.models.includes(model.id)).map((model) => model.id));
+      setNotice(undefined);
     } else {
-      setNotice({ kind: "error", text: result?.error ?? "获取失败" });
+      flash("error", result?.error ?? "获取失败");
     }
   }
 
-  function toggleModel(id: string, checked: boolean) {
-    if (draft === undefined) return;
-    const models = checked
-      ? draft.models.includes(id)
-        ? draft.models
-        : [...draft.models, id]
-      : draft.models.filter((entry) => entry !== id);
-    const defaultModel =
-      draft.defaultModel !== undefined && models.includes(draft.defaultModel) ? draft.defaultModel : models[0];
-    patch({ models: models.slice(0, MAX_MODELS), ...(defaultModel === undefined ? {} : { defaultModel }) });
+  function applyPicker() {
+    const picked = pickerChecked;
+    const upstream = pickerModels ?? [];
+    setDraft((current) => {
+      if (!current) return current;
+      const upstreamIds = new Set(upstream.map((model) => model.id));
+      // 只动"来自上游列表"的那些：手动加的模型不受影响。
+      const kept = current.models.filter((id) => !upstreamIds.has(id) || picked.includes(id));
+      const models = [...kept, ...picked.filter((id) => !kept.includes(id))].slice(0, MAX_MODELS);
+      const defaultModel =
+        current.defaultModel !== undefined && models.includes(current.defaultModel) ? current.defaultModel : models[0];
+      return { ...current, models, ...(defaultModel === undefined ? {} : { defaultModel }) };
+    });
+    setPickerModels(undefined);
   }
 
-  function addManualModel() {
+  function setModelAt(index: number, value: string) {
+    setDraft((current) => {
+      if (!current) return current;
+      const models = current.models.map((id, i) => (i === index ? value : id));
+      const defaultModel =
+        current.defaultModel !== undefined && models.includes(current.defaultModel) ? current.defaultModel : models[0];
+      return { ...current, models, ...(defaultModel === undefined ? {} : { defaultModel }) };
+    });
+  }
+
+  function removeModelAt(index: number) {
+    setDraft((current) => {
+      if (!current) return current;
+      const models = current.models.filter((_, i) => i !== index);
+      const defaultModel =
+        current.defaultModel !== undefined && models.includes(current.defaultModel) ? current.defaultModel : models[0];
+      return { ...current, models, ...(defaultModel === undefined ? {} : { defaultModel }) };
+    });
+  }
+
+  /** 手动添加那条：单独一个保存按钮，把输入框里的 id 加入列表。 */
+  function commitManualModel() {
     const id = newModelId.trim();
     if (id === "" || draft === undefined) return;
     if (draft.models.includes(id)) {
-      setNotice({ kind: "error", text: `「${id}」已经在列表里了` });
+      flash("error", `「${id}」已经在列表里了`);
       return;
     }
-    toggleModel(id, true);
+    setDraft((current) => {
+      if (!current) return current;
+      const models = [...current.models, id].slice(0, MAX_MODELS);
+      return { ...current, models, defaultModel: current.defaultModel ?? models[0] };
+    });
     setNewModelId("");
+    setAddOpen(false);
+    flash("ok", `已加入「${id}」，别忘了保存。`);
   }
 
   return (
     <section className="settings__section" aria-label="API 设置">
+      {notice && (
+        <div className={`settings__toast settings__toast--${notice.kind}`} role="status">
+          {notice.text}
+        </div>
+      )}
+
       <div className="settings__row">
         <h3>服务商</h3>
         <span className={`badge ${view.enabledCount > 0 ? "badge--ok" : "badge--muted"}`}>
@@ -197,22 +276,19 @@ export function ApiSettingsPanel({ view, loading, onRefresh }: ApiSettingsPanelP
       )}
 
       <div className="profile-tabs" role="tablist" aria-label="服务商配置">
-        {view.profiles.map((profile) => {
-          const status = view.keys[profile.id];
-          return (
-            <button
-              key={profile.id}
-              type="button"
-              role="tab"
-              aria-selected={profile.id === draft.id}
-              className={`profile-tab ${profile.id === draft.id ? "is-active" : ""}`}
-              onClick={() => void switchTo(profile.id)}
-            >
-              <span className="profile-tab__label">{profile.label}</span>
-              <span className={`profile-tab__dot ${status?.hasApiKey ? "is-on" : ""}`} aria-hidden="true" />
-            </button>
-          );
-        })}
+        {view.profiles.map((profile) => (
+          <button
+            key={profile.id}
+            type="button"
+            role="tab"
+            aria-selected={profile.id === draft.id}
+            className={`profile-tab ${profile.id === draft.id ? "is-active" : ""}`}
+            onClick={() => void switchTo(profile.id)}
+          >
+            <span className="profile-tab__label">{profile.label}</span>
+            <span className={`profile-tab__dot ${view.keys[profile.id]?.hasApiKey ? "is-on" : ""}`} aria-hidden="true" />
+          </button>
+        ))}
         <button
           type="button"
           className="profile-tab profile-tab--add"
@@ -265,6 +341,7 @@ export function ApiSettingsPanel({ view, loading, onRefresh }: ApiSettingsPanelP
         <span className="field__label">API URL</span>
         <input
           className="field__input"
+          aria-label="API URL"
           value={draft.baseUrl}
           placeholder={draft.kind === "fal" ? "https://queue.fal.run" : "https://api.example.com/v1"}
           onChange={(event) => patch({ baseUrl: event.target.value })}
@@ -279,6 +356,7 @@ export function ApiSettingsPanel({ view, loading, onRefresh }: ApiSettingsPanelP
         <input
           className="field__input"
           type="password"
+          aria-label="API Key"
           autoComplete="off"
           spellCheck={false}
           value={apiKey}
@@ -327,64 +405,119 @@ export function ApiSettingsPanel({ view, loading, onRefresh }: ApiSettingsPanelP
         </div>
       </div>
 
-      {discovered !== undefined && (
-        <div className="model-picker" aria-label="上游模型">
-          <p className="field__hint">勾选要启用到界面上的模型（共 {discovered.length} 个）：</p>
-          <div className="model-picker__list">
-            {discovered.map((model) => (
-              <label key={model.id} className="model-picker__item">
-                <input
-                  type="checkbox"
-                  checked={draft.models.includes(model.id)}
-                  onChange={(event) => toggleModel(model.id, event.target.checked)}
-                />
-                <span className="model-picker__id">{model.id}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-      )}
-
       {draft.models.length > 0 ? (
         <ul className="chosen-models">
-          {draft.models.map((id) => (
-            <li key={id} className="chosen-models__item">
-              <span className="model-picker__id">{id}</span>
-              <button
-                type="button"
-                className={`chip ${draft.defaultModel === id ? "is-active" : ""}`}
-                onClick={() => patch({ defaultModel: id })}
-                title="设为默认模型"
-              >
-                {draft.defaultModel === id ? "默认" : "设为默认"}
-              </button>
-              <button type="button" className="modal__close" aria-label={`移除 ${id}`} onClick={() => toggleModel(id, false)}>
-                ×
-              </button>
-            </li>
-          ))}
+          {draft.models.map((id, index) => {
+            const editing = editingModel?.index === index;
+            return (
+              <li key={`${id}-${index}`} className="chosen-models__item">
+                {editing ? (
+                  <>
+                    <input
+                      className="field__input chosen-models__input"
+                      value={editingModel?.value ?? ""}
+                      autoFocus
+                      onChange={(event) => setEditingModel({ index, value: event.target.value })}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          const next = editingModel?.value.trim() ?? "";
+                          if (next !== "") setModelAt(index, next);
+                          setEditingModel(undefined);
+                        }
+                        if (event.key === "Escape") setEditingModel(undefined);
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="button button--tiny"
+                      onClick={() => {
+                        const next = editingModel?.value.trim() ?? "";
+                        if (next !== "") setModelAt(index, next);
+                        setEditingModel(undefined);
+                      }}
+                    >
+                      保存
+                    </button>
+                    <button type="button" className="modal__close" onClick={() => setEditingModel(undefined)} aria-label="取消">
+                      ×
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span className="model-picker__id" title={id}>
+                      {id}
+                    </span>
+                    <button
+                      type="button"
+                      className={`chip ${draft.defaultModel === id ? "is-active" : ""}`}
+                      onClick={() => patch({ defaultModel: id })}
+                      title="设为默认模型"
+                    >
+                      {draft.defaultModel === id ? "默认" : "设为默认"}
+                    </button>
+                    <button
+                      type="button"
+                      className="button button--tiny"
+                      onClick={() => setEditingModel({ index, value: id })}
+                    >
+                      编辑
+                    </button>
+                    <button
+                      type="button"
+                      className="modal__close"
+                      aria-label={`移除 ${id}`}
+                      onClick={() => removeModelAt(index)}
+                    >
+                      ×
+                    </button>
+                  </>
+                )}
+              </li>
+            );
+          })}
         </ul>
       ) : (
         <p className="field__hint">还没有启用任何模型；保存后这个服务商不会出现在创作页。</p>
       )}
 
-      <div className="settings__inline">
-        <input
-          className="field__input"
-          value={newModelId}
-          placeholder="手动填写模型 ID，例如 gpt-image-2"
-          onChange={(event) => setNewModelId(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              addManualModel();
-            }
-          }}
-        />
-        <button type="button" className="button button--ghost" onClick={addManualModel}>
-          添加
-        </button>
-      </div>
+      {/* 手动添加：默认只有一个按钮，点了才出现输入框和它自己的保存按钮。 */}
+      {addOpen ? (
+        <div className="settings__inline">
+          <input
+            className="field__input"
+            value={newModelId}
+            autoFocus
+            placeholder="模型 ID，例如 gpt-image-2"
+            onChange={(event) => setNewModelId(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                commitManualModel();
+              }
+            }}
+          />
+          <button type="button" className="button button--ghost" onClick={commitManualModel}>
+            保存
+          </button>
+          <button
+            type="button"
+            className="button button--ghost"
+            onClick={() => {
+              setAddOpen(false);
+              setNewModelId("");
+            }}
+          >
+            取消
+          </button>
+        </div>
+      ) : (
+        <div>
+          <button type="button" className="button button--ghost" onClick={() => setAddOpen(true)}>
+            添加模型
+          </button>
+        </div>
+      )}
 
       <h3>流式传输</h3>
       <label className="switch">
@@ -445,26 +578,60 @@ export function ApiSettingsPanel({ view, loading, onRefresh }: ApiSettingsPanelP
         </span>
       </label>
 
-      {notice && (
-        <p className={`settings__notice settings__notice--${notice.kind}`} role="status">
-          {notice.text}
-        </p>
+      {validation !== undefined && !validation.ok && (
+        <p className="field__hint field__hint--warn">还差一步：{validation.error}</p>
       )}
-      {!validation.ok && <p className="field__hint field__hint--warn">还差一步：{validation.error}</p>}
 
-      <div className="settings__footer">
-        <button
-          type="button"
-          className="button button--primary"
-          disabled={busy !== "idle" || !validation.ok || !dirty}
-          onClick={() => void handleSave()}
-        >
-          {busy === "saving" ? "保存中…" : dirty ? "保存" : "没有改动"}
-        </button>
-        <button type="button" className="button button--ghost" onClick={onRefresh}>
+      <p className="field__hint">
+        「重新读取」= 丢弃未保存的改动，从磁盘重新加载配置。切换配置、导入备份或在外部改过文件之后用它。
+        <button type="button" className="button button--tiny" onClick={onRefresh} style={{ marginLeft: 8 }}>
           重新读取
         </button>
-      </div>
+      </p>
+
+      {/* 获取上游模型的结果：二级弹窗勾选 */}
+      {pickerModels !== undefined && (
+        <div
+          className="modal-backdrop"
+          onMouseDown={(event) => event.target === event.currentTarget && setPickerModels(undefined)}
+        >
+          <div className="modal picker-modal" role="dialog" aria-modal="true" aria-label="选择上游模型">
+            <header className="modal__head">
+              <h2>选择上游模型</h2>
+              <button type="button" className="modal__close" onClick={() => setPickerModels(undefined)} aria-label="关闭">
+                ×
+              </button>
+            </header>
+            <div className="modal__body">
+              <p className="field__hint">共 {pickerModels.length} 个，勾选要启用到创作页的模型。</p>
+              <div className="model-picker__list">
+                {pickerModels.map((model) => (
+                  <label key={model.id} className="model-picker__item">
+                    <input
+                      type="checkbox"
+                      checked={pickerChecked.includes(model.id)}
+                      onChange={(event) =>
+                        setPickerChecked((current) =>
+                          event.target.checked ? [...current, model.id] : current.filter((id) => id !== model.id),
+                        )
+                      }
+                    />
+                    <span className="model-picker__id">{model.id}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <footer className="modal__foot">
+              <button type="button" className="button button--ghost" onClick={() => setPickerModels(undefined)}>
+                取消
+              </button>
+              <button type="button" className="button button--primary" onClick={applyPicker}>
+                加入所选（{pickerChecked.length}）
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
