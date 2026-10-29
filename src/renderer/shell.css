@@ -2565,3 +2565,34 @@ code {
 .size-dialog__panel .chips {
   gap: var(--space-2);
 }
+
+/* 下拉选项里的小缩略图（参考图用） */
+.select__option-thumb {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  object-fit: cover;
+}
+
+/* 清空参考图按钮 */
+.dock__ref-clear {
+  align-self: flex-end;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 16px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+
+.dock__ref-clear:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}

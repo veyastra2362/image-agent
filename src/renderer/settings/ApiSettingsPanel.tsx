@@ -652,7 +652,11 @@ function describeCapabilities(caps: ImageCapabilities | undefined): string {
   if (caps === undefined) return "未知（未加载）";
   return [
     caps.textToImage ? "文生图" : "",
-    caps.imageToImage ? `参考图（≤${caps.referenceImageLimit}）` : "不支持参考图",
+    caps.imageToImage
+      ? Number.isFinite(caps.referenceImageLimit)
+        ? `参考图（≤${caps.referenceImageLimit}）`
+        : "参考图（不限）"
+      : "不支持参考图",
     caps.seed ? "可固定 seed" : "无 seed",
     caps.negativePrompt ? "支持负面词" : "无负面词",
     caps.async ? "异步任务" : "同步返回",

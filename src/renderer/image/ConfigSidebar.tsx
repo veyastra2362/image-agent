@@ -3,7 +3,7 @@
  *
  * 提示词在右下角的输入框里，这里只放"参数"。
  */
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { LIMITS } from "../../shared/image-generation.ts";
 import { FORMAT_LABELS } from "../lib/output-spec.ts";
@@ -47,21 +47,41 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
   } = useComposer();
 
   // 悬停 1.5 秒才弹出大图预览，避免只是划过去就闪一下。
+  // 菜单展开时不弹（菜单里本身有缩略图）；点选之后也要重新悬停才会再弹。
   const [peek, setPeek] = useState<{ x: number; y: number }>();
+  const [menuOpen, setMenuOpen] = useState(false);
   const peekTimer = useRef<number | undefined>(undefined);
+
+  const cancelPeek = () => {
+    window.clearTimeout(peekTimer.current);
+    setPeek(undefined);
+  };
 
   const startPeek = (event: React.MouseEvent<HTMLElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
     window.clearTimeout(peekTimer.current);
     peekTimer.current = window.setTimeout(() => {
+      // 菜单开着、或这期间点过下拉，就不再自动弹大图。
+      if (menuOpenRef.current || !armedRef.current) return;
       setPeek({ x: rect.right + 10, y: rect.top });
     }, 1500);
+    armedRef.current = true;
   };
 
   const stopPeek = () => {
-    window.clearTimeout(peekTimer.current);
-    setPeek(undefined);
+    armedRef.current = false;
+    cancelPeek();
   };
+
+  const menuOpenRef = useRef(false);
+  const armedRef = useRef(false);
+  menuOpenRef.current = menuOpen;
+
+  // 选中项变化（例如刚点完某个选项）时收起大图，必须重新移入才再出现。
+  useEffect(() => {
+    cancelPeek();
+    armedRef.current = false;
+  }, [references.length]);
 
   return (
     <div className="sidebar__body">
@@ -138,7 +158,11 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
       >
         <span className="field__label">
           参考图
-          {references.length > 0 && <span className="field__meta">{references.length} / {referenceLimit}</span>}
+          {references.length > 0 && (
+            <span className="field__meta">
+              {Number.isFinite(referenceLimit) ? `${references.length} / ${referenceLimit}` : `${references.length} 张`}
+            </span>
+          )}
           {!caps?.imageToImage && <span className="field__meta">当前模型不支持</span>}
         </span>
         <Select
@@ -149,6 +173,10 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
           onChange={(next) => {
             if (next !== "") setReferenceFromAsset(next);
           }}
+          onOpenChange={(open) => {
+            setMenuOpen(open);
+            if (open) cancelPeek();
+          }}
           leading={
             references[0] === undefined ? undefined : (
               <img className="ref-field__thumb" src={references[0].src} alt="" />
@@ -156,7 +184,11 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
           }
           options={[
             { value: "", label: references.length > 0 ? "已选参考图" : "不使用参考图" },
-            ...referenceOptions.map((option) => ({ value: option.id, label: option.label })),
+            ...referenceOptions.map((option) => ({
+              value: option.id,
+              label: option.label,
+              thumbnail: option.previewUrl,
+            })),
           ]}
         />
         {caps?.imageToImage && referenceOptions.length === 0 && (

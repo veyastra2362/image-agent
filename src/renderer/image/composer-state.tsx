@@ -65,12 +65,13 @@ export interface ComposerValue {
   readonly negativePrompt: string;
   readonly setNegativePrompt: (value: string) => void;
 
-  readonly referenceOptions: readonly { readonly id: string; readonly label: string }[];
+  readonly referenceOptions: readonly { readonly id: string; readonly label: string; readonly previewUrl: string }[];
   /** 当前参考图：可多张，数量受能力位限制。 */
   readonly references: readonly ReferenceImage[];
   readonly setReferenceFromAsset: (id: string | undefined) => void;
   readonly uploadReference: (file: File) => Promise<void>;
   readonly clearReference: (id: string) => void;
+  readonly clearAllReferences: () => void;
   readonly referenceBusy: boolean;
   readonly referenceValid: boolean;
   readonly referenceLimit: number;
@@ -142,7 +143,8 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
   const effectiveCount = Math.min(Math.max(1, count), maxCount);
 
   const referenceOptions = useMemo(() => referenceSources(state), [state]);
-  const referenceLimit = Math.max(1, caps?.referenceImageLimit ?? 1);
+  // Infinity = 不限张数；没声明能力时按 0 处理（不能加参考图）。
+  const referenceLimit = caps?.referenceImageLimit ?? 0;
   const referenceValid = references.length > 0 && (caps?.imageToImage ?? false);
 
   /** 从作品库加一张：预览地址用作品自身的 URL。 */
@@ -202,6 +204,7 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
   const clearReference = useCallback((id: string) => {
     setReferences((current) => current.filter((item) => item.id !== id));
   }, []);
+  const clearAllReferences = useCallback(() => setReferences([]), []);
 
   const validation = validateCreateJobInput({
     requestId,
@@ -268,6 +271,7 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
     setReferenceFromAsset,
     uploadReference,
     clearReference,
+    clearAllReferences,
     referenceBusy,
     referenceValid,
     referenceLimit,
@@ -297,18 +301,23 @@ export function resolveModel(models: readonly ProviderRef[], key: string | undef
 }
 
 export function referenceSources(state: ImageAgentState) {
-  const options = new Map<string, { id: string; label: string }>();
+  const options = new Map<string, { id: string; label: string; previewUrl: string }>();
   for (const entry of state.jobs) {
     for (const asset of entry.assets) {
       options.set(asset.id, {
         id: asset.id,
-        label: `${asset.prompt.slice(0, 18)}… · ${asset.width}×${asset.height}`,
+        label: `${asset.prompt.slice(0, 14)} · ${asset.width}×${asset.height}`,
+        previewUrl: asset.previewUrl,
       });
     }
   }
   for (const asset of state.remembered) {
     if (!options.has(asset.id)) {
-      options.set(asset.id, { id: asset.id, label: `${asset.prompt.slice(0, 18)}… · 历史记忆` });
+      options.set(asset.id, {
+        id: asset.id,
+        label: `${asset.prompt.slice(0, 14)} · 历史记忆`,
+        previewUrl: asset.previewUrl,
+      });
     }
   }
   return [...options.values()];

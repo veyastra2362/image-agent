@@ -13,6 +13,8 @@ export interface SelectOption {
   readonly value: string;
   readonly label: string;
   readonly disabled?: boolean;
+  /** 选项左侧的小缩略图（参考图之类）。 */
+  readonly thumbnail?: string;
 }
 
 export interface SelectProps {
@@ -26,6 +28,8 @@ export interface SelectProps {
   readonly className?: string;
   /** 触发器里放在文字前面的东西（比如参考图缩略图）。 */
   readonly leading?: ReactNode;
+  /** 展开/收起回调：外部需要知道菜单是否打开（比如悬停预览要避开菜单）。 */
+  readonly onOpenChange?: (open: boolean) => void;
 }
 
 interface MenuRect {
@@ -69,6 +73,7 @@ export function Select({
   disabled = false,
   className,
   leading,
+  onOpenChange,
 }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [rect, setRect] = useState<MenuRect>();
@@ -84,7 +89,12 @@ export function Select({
     setRect(measure(trigger, options.length));
     setActiveIndex(Math.max(0, options.findIndex((option) => option.value === value)));
     setOpen(true);
+    onOpenChange?.(true);
   };
+
+  useEffect(() => {
+    if (!open) onOpenChange?.(false);
+  }, [open, onOpenChange]);
 
   useEffect(() => {
     if (!open) return;
@@ -189,6 +199,9 @@ export function Select({
                   onMouseEnter={() => setActiveIndex(index)}
                   onClick={() => commit(option)}
                 >
+                  {option.thumbnail !== undefined && (
+                    <img className="select__option-thumb" src={option.thumbnail} alt="" loading="lazy" />
+                  )}
                   <span className="select__option-label">{option.label}</span>
                   {option.value === value && (
                     <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" focusable="false">

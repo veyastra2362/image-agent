@@ -84,6 +84,7 @@ export interface ImageCapabilities {
   readonly textToImage: boolean;
   readonly imageToImage: boolean;
   readonly masks: boolean;
+  /** 参考图上限；Infinity 表示不限。 */
   readonly referenceImageLimit: number;
   readonly aspectRatios: readonly AspectRatio[];
   readonly outputCountLimit: number;

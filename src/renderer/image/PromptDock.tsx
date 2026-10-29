@@ -33,6 +33,7 @@ export function PromptDock() {
     references,
     uploadReference,
     clearReference,
+    clearAllReferences,
     referenceBusy,
     referenceLimit,
   } = useComposer();
@@ -83,8 +84,14 @@ export function PromptDock() {
               </figcaption>
             </figure>
           ))}
-          {references.length < referenceLimit && (
+          {Number.isFinite(referenceLimit) && references.length < referenceLimit && (
             <span className="dock__ref-hint">可再加 {referenceLimit - references.length} 张</span>
+          )}
+          {references.length >= 2 && (
+            <button type="button" className="dock__ref-clear" onClick={clearAllReferences} title="清空所有参考图">
+              <CloseIcon size={9} />
+              清空
+            </button>
           )}
         </div>
       )}

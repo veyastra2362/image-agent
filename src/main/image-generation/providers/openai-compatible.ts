@@ -110,7 +110,8 @@ const CAPABILITIES: ImageCapabilities = {
   // 实测前先打开，用一张真实参考图验证 /images/edits。
   imageToImage: true,
   masks: false,
-  referenceImageLimit: 4,
+  // 参考图不限张数（实测两张可用；上限由上游决定，这里不设人为限制）。
+  referenceImageLimit: Number.POSITIVE_INFINITY,
   aspectRatios: SUPPORTED_RATIOS,
   outputCountLimit: 4,
   seed: false,
