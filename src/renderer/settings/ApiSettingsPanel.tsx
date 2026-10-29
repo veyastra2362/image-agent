@@ -189,6 +189,13 @@ export function ApiSettingsPanel({ view, loading, onRefresh }: ApiSettingsPanelP
         </span>
       </div>
 
+      {view.enabledCount === 0 && (
+        <p className="settings__notice settings__notice--info">
+          还没有可用的真实服务。连接信息现在只由这里管理（应用不再读取 .env 或环境变量），
+          填好 API URL 与 Key、勾选模型后保存即可立即生效。
+        </p>
+      )}
+
       <div className="profile-tabs" role="tablist" aria-label="服务商配置">
         {view.profiles.map((profile) => {
           const status = view.keys[profile.id];
