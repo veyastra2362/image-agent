@@ -61,15 +61,29 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
   const menuOpenRef = useRef(false);
   menuOpenRef.current = menuOpen;
 
-  const startPeek = (event: React.MouseEvent<HTMLElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
+  /** 进入这一格的时刻；配合 mousemove 兜底，手抖也不会把计时清零。 */
+  const enteredAt = useRef(0);
+
+  const showPeek = () => {
+    const el = fieldRef.current;
+    if (!el || menuOpenRef.current) return;
+    const rect = el.getBoundingClientRect();
+    setPeek({ x: rect.right + 10, y: rect.top });
+  };
+
+  const startPeek = () => {
+    enteredAt.current = performance.now();
     window.clearTimeout(peekTimer.current);
-    peekTimer.current = window.setTimeout(() => {
-      // 1.5 秒后：菜单还开着、或指针已经移走，就不弹。
-      if (menuOpenRef.current) return;
-      if (fieldRef.current?.matches(":hover") !== true) return;
-      setPeek({ x: rect.right + 10, y: rect.top });
-    }, 1500);
+    // 主路径：进入后静止 1.5 秒就弹。
+    peekTimer.current = window.setTimeout(showPeek, 1500);
+  };
+
+  /** 指针在格子里移动时也检查一次：静止计时被浏览器节流时还有这条路。 */
+  const movePeek = () => {
+    if (menuOpenRef.current) return;
+    if (peek !== undefined) return;
+    if (enteredAt.current === 0) enteredAt.current = performance.now();
+    if (performance.now() - enteredAt.current >= 1500) showPeek();
   };
 
   const stopPeek = () => {
@@ -155,6 +169,7 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
         ref={fieldRef}
         className="field ref-field"
         onMouseEnter={startPeek}
+        onMouseMove={movePeek}
         onMouseLeave={stopPeek}
         onMouseDown={stopPeek}
       >

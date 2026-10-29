@@ -82,6 +82,7 @@ export function Select({
   const menuRef = useRef<HTMLUListElement>(null);
   const listId = useId();
   const selected = options.find((option) => option.value === value);
+  const hasThumbnails = options.some((option) => option.thumbnail !== undefined);
 
   const openMenu = () => {
     const trigger = rootRef.current?.querySelector<HTMLButtonElement>(".select__trigger");
@@ -199,9 +200,12 @@ export function Select({
                   onMouseEnter={() => setActiveIndex(index)}
                   onClick={() => commit(option)}
                 >
-                  {option.thumbnail !== undefined && (
+                  {/* 有缩略图的列表里，没图的选项留一个等宽占位，保证文字左对齐 */}
+                  {option.thumbnail !== undefined ? (
                     <img className="select__option-thumb" src={option.thumbnail} alt="" loading="lazy" />
-                  )}
+                  ) : hasThumbnails ? (
+                    <span className="select__option-thumb select__option-thumb--empty" aria-hidden="true" />
+                  ) : null}
                   <span className="select__option-label">{option.label}</span>
                   {option.value === value && (
                     <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" focusable="false">

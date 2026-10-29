@@ -1614,7 +1614,8 @@ code {
 .select__option {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  /* 左对齐：选项文字紧跟缩略图，勾选图标靠右 */
+  justify-content: flex-start;
   gap: var(--space-3);
   width: 100%;
   padding: 6px var(--space-3);
@@ -1634,6 +1635,11 @@ code {
 
 .select__option.is-selected {
   color: var(--text);
+}
+
+.select__option > svg {
+  margin-left: auto;
+  flex: 0 0 auto;
 }
 
 .select__option-label {
@@ -2597,4 +2603,9 @@ code {
 /* 清空参考图的方块是按钮，不该是看原图的放大镜光标 */
 .dock__ref-button--clear {
   cursor: pointer;
+}
+
+.select__option-thumb--empty {
+  background: none;
+  border-color: transparent;
 }
