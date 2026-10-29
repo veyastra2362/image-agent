@@ -11,7 +11,9 @@
  *   out/renderer/index.html     Vite 产物
  * 即 main 与 preload 同在 out/main，渲染产物在它上一级的 renderer/。
  */
-import { app, BrowserWindow, Menu, shell } from "electron";
+import { app, BrowserWindow, Menu, net, protocol, safeStorage, shell } from "electron";
+import { readFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 import type { ChildProcess } from "node:child_process";
 import path from "node:path";
 import { startDevServer } from "./dev-server";
@@ -20,12 +22,14 @@ import { registerImageIpc } from "./ipc";
 import { registerWindowIpc } from "./window-ipc";
 import { registerAppIpc } from "./app-ipc";
 import { loadProviderConfig } from "./config";
-import { ProviderSettingsStore } from "./provider-settings-store";
+import { ProviderSettingsStore, type SecretCipher } from "./provider-settings-store";
 import { registerSettingsIpc } from "./settings-ipc";
 import { ImageGenerationService } from "./image-generation/service";
 import { FakeProvider } from "./image-generation/providers/fake";
 import { OpenAICompatibleProvider } from "./image-generation/providers/openai-compatible";
-import { MemoryJobStore } from "./image-generation/store";
+import { FileJobStore, parseAssetUrl } from "./library-store";
+import { librarySettingsFile, registerLibraryIpc } from "./library-ipc";
+import { LIBRARY_DIR_NAME } from "@shared/library";
 
 const APP_ID = "com.imageagent.desktop";
 const APP_NAME = "image-agent";
@@ -41,11 +45,24 @@ let mainWindow: BrowserWindow | undefined;
 let service: ImageGenerationService | undefined;
 let bridge: ReturnType<typeof registerImageIpc> | undefined;
 let settingsStore: ProviderSettingsStore | undefined;
+let libraryStore: FileJobStore | undefined;
+let defaultLibraryDir = "";
 let devServerProcess: ChildProcess | undefined;
 let disposeExtraIpc: readonly (() => void)[] = [];
 
 /** 关窗之后、进程退出之前，macOS 的 activate 事件不应该被当成"应用已就绪"。 */
 let quitting = false;
+
+/**
+ * 作品图片通过自定义协议读：
+ *  - renderer 只拿到 ia-asset://asset/<id>，拿不到磁盘路径，也没有任意读文件的通道
+ *  - 解析时必须命中作品库登记过的 assetId，未知 id 一律 404
+ *
+ * registerSchemesAsPrivileged 必须在 app ready 之前调用。
+ */
+protocol.registerSchemesAsPrivileged([
+  { scheme: "ia-asset", privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } },
+]);
 
 // 单实例：重复启动时聚焦已有窗口，避免两个进程写同一份作品库。
 if (!app.requestSingleInstanceLock()) {
@@ -68,10 +85,33 @@ function start(): void {
 
   app.whenReady().then(() => {
     // 离线假 provider 永远在；真实 provider 只在配置了密钥时出现（见 config.ts）。
-    const store = new MemoryJobStore();
+    const userData = app.getPath("userData");
+    defaultLibraryDir = path.join(app.getPath("pictures"), LIBRARY_DIR_NAME);
+
+    // 作品落盘：索引在 userData，图片在用户选的目录（默认"图片/Image Agent"）。
+    libraryStore = new FileJobStore({ indexDir: userData });
+    let initialDir = defaultLibraryDir;
+    try {
+      const raw = JSON.parse(readFileSync(librarySettingsFile(userData), "utf8")) as { dir?: unknown };
+      if (typeof raw.dir === "string" && raw.dir.trim() !== "") initialDir = raw.dir;
+    } catch {
+      // 没有设置文件就用默认目录。
+    }
+    libraryStore.setDir(initialDir);
+    libraryStore.load();
+    const store = libraryStore;
+
+    // ia-asset://asset/<id>：只服务作品库里登记过、且文件确实存在的资产。
+    protocol.handle("ia-asset", (request) => {
+      const assetId = parseAssetUrl(request.url);
+      const file = assetId === undefined ? undefined : libraryStore?.fileForAsset(assetId);
+      if (file === undefined) return new Response("not found", { status: 404 });
+      return net.fetch(pathToFileURL(file).toString());
+    });
+
     const configured = loadProviderConfig({ rootDir: APP_ROOT });
     // 界面上填的连接配置落在 userData 里；.env 里已有密钥时以 .env 为准（见 store.view）。
-    settingsStore = new ProviderSettingsStore({ dir: app.getPath("userData") });
+    settingsStore = new ProviderSettingsStore({ dir: userData, cipher: systemCipher() });
     settingsStore.load();
     const providers = createProviders(configured, settingsStore);
     const imageService = new ImageGenerationService({
@@ -91,13 +131,19 @@ function start(): void {
     disposeExtraIpc = [
       // 窗口控制在启动时注册一次即可：createWindow 会被 activate 再次调用，重复 handle 会抛错。
       registerWindowIpc(() => mainWindow),
-      registerAppIpc(() => mainWindow, () => {
-        const view = settingsStore?.view(configured.configured) ?? undefined;
-        return {
-          providerConfigured: view?.hasApiKey === true,
-          ...(view?.hasApiKey === true ? { providerBaseUrl: view.settings.baseUrl } : {}),
-          models: view?.hasApiKey === true ? [...view.settings.models] : [],
-        };
+      registerAppIpc(() => mainWindow, () => ({
+        // 以真正建出来的 provider 为准：只配了 .env 时这里也应当是"已配置"。
+        providerConfigured: providerSummary !== undefined,
+        ...(providerSummary === undefined ? {} : { providerBaseUrl: providerSummary.baseUrl }),
+        models: providerSummary?.models ?? [],
+      })),
+      registerLibraryIpc({
+        getWindow: () => mainWindow,
+        get store() {
+          return libraryStore as FileJobStore;
+        },
+        settingsFile: librarySettingsFile(userData),
+        defaultDir: defaultLibraryDir,
       }),
       registerSettingsIpc({
         getWindow: () => mainWindow,
@@ -167,61 +213,117 @@ app.on("activate", () => {
   openMainWindow();
 });
 
-/** 没有在设置里填模型时的兜底列表（来自当初 GET /v1/models 的实测结果）。 */
-const REAL_MODELS = [
+
+/** 只用 .env 时的兜底模型（来自当初 GET /v1/models 的实测结果）。 */
+const DEFAULT_ENV_MODELS = [
   { id: "gpt-image-2", displayName: "GPT Image 2" },
   { id: "gpt-image-2.5-flare", displayName: "GPT Image 2.5 Flare" },
   { id: "gpt-image-2.5-sunburst", displayName: "GPT Image 2.5 Sunburst" },
 ] as const;
 
-/**
- * 实际使用的模型列表：设置里勾选过的优先，否则退回兜底三款。
- * 已实测能出图的只有 gpt-image-2，其余两款只是出现在模型列表里。
- */
-function resolveModels(store: ProviderSettingsStore): { id: string; displayName: string }[] {
-  const chosen = store.settings.models;
-  if (chosen.length === 0) return REAL_MODELS.map((model) => ({ ...model }));
-  const known = new Map(REAL_MODELS.map((model) => [model.id as string, model.displayName as string]));
-  return chosen.map((id: string) => ({ id, displayName: known.get(id) ?? id }));
-}
+/** 真正建出来的真实服务摘要，供"关于/设置"显示；没有真实服务时为 undefined。 */
+let providerSummary: { baseUrl: string; models: string[]; count: number } | undefined;
 
 /**
  * 组装 provider 列表。
  *
- * 真实 provider 只在 .env / 环境变量里配好了密钥时创建；没有配置就只留下假 provider，
- * 应用照常可用。密钥本身只留在 main 的这个对象里，renderer 只看到模型与能力。
+ * 每个"有地址 + 有密钥 + 有模型"的配置都会变成一个独立 provider，因此多个服务商可以并存。
+ * 密钥优先级：地址与 .env 相同时用 .env（并覆盖界面上的），否则用界面保存的那把。
+ * 只用 .env、没在界面里配过东西时，仍然建一个 provider——不能因为加了多服务商就让老配置失效。
  */
 function createProviders(
   configured: ReturnType<typeof loadProviderConfig>,
   store: ProviderSettingsStore,
 ): (FakeProvider | OpenAICompatibleProvider)[] {
   const providers: (FakeProvider | OpenAICompatibleProvider)[] = [];
+  const summary: { baseUrl: string; models: string[] }[] = [];
+  let envMatchedProfile = false;
 
-  // 密钥优先级：.env / 环境变量 > 设置界面上保存的。
-  const apiKey = configured.configured ? configured.config.apiKey : store.apiKey;
-  const baseUrl = configured.configured ? configured.config.baseUrl : store.settings.baseUrl;
+  for (const profile of store.profiles) {
+    const envApplies =
+      configured.configured && normalizeForCompare(configured.config.baseUrl) === normalizeForCompare(profile.baseUrl);
+    const apiKey = envApplies ? configured.config.apiKey : store.keyFor(profile.id);
+    if (apiKey === undefined || apiKey === "" || profile.baseUrl === "" || profile.models.length === 0) continue;
+    if (envApplies) envMatchedProfile = true;
 
-  if (apiKey !== undefined && apiKey !== "" && baseUrl !== "") {
-    const models = resolveModels(store);
-    providers.push(
-      new OpenAICompatibleProvider({
-        baseUrl,
-        apiKey,
-        defaultModel: configured.configured
-          ? (configured.config.defaultModel ?? models[0]?.id ?? "gpt-image-2")
-          : (store.settings.defaultModel ?? models[0]?.id ?? "gpt-image-2"),
-        models,
-        timeoutMs: store.settings.timeoutSeconds * 1000,
-      }),
-    );
-  } else {
-    const reason = configured.configured ? "设置里的 API URL 为空" : `未配置密钥（${configured.reason}）`;
-    console.info(`[image-agent] 未启用真实图片服务：${reason}`);
+    try {
+      providers.push(
+        new OpenAICompatibleProvider({
+          id: profile.id,
+          displayName: profile.label,
+          baseUrl: profile.baseUrl,
+          apiKey,
+          defaultModel: profile.defaultModel ?? profile.models[0],
+          models: profile.models.map((id) => ({ id, displayName: id })),
+          timeoutMs: profile.timeoutSeconds * 1000,
+        }),
+      );
+      summary.push({ baseUrl: profile.baseUrl, models: [...profile.models] });
+    } catch (error) {
+      console.warn(`[image-agent] 服务商「${profile.label}」配置无效，已跳过：${(error as Error).message}`);
+    }
   }
+
+  if (!envMatchedProfile && configured.configured) {
+    const active = store.active;
+    const models = active.models.length > 0 ? [...active.models] : DEFAULT_ENV_MODELS.map((model) => model.id);
+    try {
+      providers.push(
+        new OpenAICompatibleProvider({
+          id: "openai-images",
+          displayName: "OpenAI 兼容接口（.env）",
+          baseUrl: configured.config.baseUrl,
+          apiKey: configured.config.apiKey,
+          defaultModel: configured.config.defaultModel ?? models[0] ?? "gpt-image-2",
+          models: models.map((id) => ({
+            id,
+            displayName: DEFAULT_ENV_MODELS.find((model) => model.id === id)?.displayName ?? id,
+          })),
+          timeoutMs: active.timeoutSeconds * 1000,
+        }),
+      );
+      summary.push({ baseUrl: configured.config.baseUrl, models });
+    } catch (error) {
+      console.warn(`[image-agent] .env 配置无效：${(error as Error).message}`);
+    }
+  }
+
+  if (summary.length === 0) {
+    console.info(
+      configured.configured
+        ? "[image-agent] 还没有可用的真实服务商：请在设置里填写与 .env 相同的 API URL"
+        : `[image-agent] 未启用真实图片服务：${configured.reason}；可在设置里填写服务商`,
+    );
+  }
+
+  providerSummary =
+    summary.length === 0
+      ? undefined
+      : {
+          baseUrl: summary[0]?.baseUrl ?? "",
+          models: summary.flatMap((entry) => entry.models),
+          count: summary.length,
+        };
 
   // 假 provider 放在最后，真实模型因此成为界面的默认选项。
   providers.push(new FakeProvider());
   return providers;
+}
+function normalizeForCompare(url: string): string {
+  return url.trim().replace(/\/+$/, "").toLowerCase();
+}
+function systemCipher(): SecretCipher | undefined {
+  try {
+    if (!safeStorage.isEncryptionAvailable()) return undefined;
+    return {
+      available: true,
+      encrypt: (plain) => safeStorage.encryptString(plain).toString("base64"),
+      decrypt: (payload) => safeStorage.decryptString(Buffer.from(payload, "base64")),
+    };
+  } catch (error) {
+    console.warn("[image-agent] 系统加密不可用，API Key 会以明文保存：", (error as Error).message);
+    return undefined;
+  }
 }
 
 function createWindow(): BrowserWindow {

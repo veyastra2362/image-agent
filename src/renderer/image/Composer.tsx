@@ -10,7 +10,7 @@ import {
   type OutputSpec,
   type ProviderRef,
 } from "../../shared/image-generation.ts";
-import { formatCost, newRequestId } from "../lib/format.ts";
+import { newRequestId } from "../lib/format.ts";
 import { FORMAT_LABELS, describeSpec } from "../lib/output-spec.ts";
 import { SizeDialog } from "./SizeDialog.tsx";
 import type { ImageAgentState } from "./use-image-agent.ts";
@@ -44,7 +44,6 @@ export function Composer({ state, models, onSubmitted, onOpenLastResult, focusPr
   const [count, setCount] = useState(1);
   const [seed, setSeed] = useState("");
   const [negativePrompt, setNegativePrompt] = useState("");
-  const [budgetLimit, setBudgetLimit] = useState("");
   const [referenceAssetId, setReferenceAssetId] = useState<string>();
   const [submitError, setSubmitError] = useState<string>();
   const [pending, setPending] = useState(false);
@@ -99,7 +98,6 @@ export function Composer({ state, models, onSubmitted, onOpenLastResult, focusPr
     count: effectiveCount,
     ...(caps?.seed && seed.trim() !== "" ? { seed: Number(seed) } : {}),
     ...(caps?.negativePrompt && negativePrompt.trim() !== "" ? { negativePrompt } : {}),
-    ...(budgetLimit.trim() === "" ? {} : { budgetLimit: Number(budgetLimit) }),
   });
   const canSubmit = validation.ok && model !== undefined && !pending && state.status === "ready";
   const sizeSummary = describeSpec(effectiveSpec, customRatio);
@@ -305,29 +303,10 @@ export function Composer({ state, models, onSubmitted, onOpenLastResult, focusPr
             )}
           </div>
 
-          {model && (
-            <label className="field">
-              <span className="field__label">
-                本次预算上限（可选）
-                <span className="field__meta">上游价格见服务商页</span>
-              </span>
-              <input
-                className="field__input"
-                type="text"
-                inputMode="decimal"
-                value={budgetLimit}
-                onChange={(event) => setBudgetLimit(event.target.value.replace(/[^0-9.]/g, ""))}
-                placeholder="未填写则不按预算拦截"
-              />
-            </label>
-          )}
 
           <div className="composer__summary" aria-live="polite">
             <dl>
-              <div>
-                <dt>预计费用</dt>
-                <dd>{costOf(model, effectiveCount)}</dd>
-              </div>
+
               <div>
                 <dt>上传</dt>
                 <dd>
@@ -391,11 +370,6 @@ function resolveModel(models: readonly ProviderRef[], key: string | undefined): 
   return preferred ?? models.find((candidate) => candidate.default) ?? models[0];
 }
 
-function costOf(model: ProviderRef | undefined, count: number): string {
-  if (!model) return "—";
-  if (!model.costPerImage || !model.currency) return "上游未提供";
-  return `${(model.costPerImage * count).toFixed(4)} ${model.currency}`;
-}
 
 function referenceSources(state: ImageAgentState) {
   const options = new Map<string, { id: string; label: string }>();

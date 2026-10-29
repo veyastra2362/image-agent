@@ -66,15 +66,68 @@ export type ModelFetchResult =
   | { readonly ok: true; readonly models: readonly UpstreamModel[] }
   | { readonly ok: false; readonly error: string };
 
-/**
- * 界面能看到的配置状态。
- * 没有 `apiKey` 字段——密钥永远不会回传 renderer，只告诉它"存没存"。
- */
-export interface ProviderSettingsView {
-  readonly settings: ProviderSettings;
+/** 一个可选的服务商配置：id 由 main 生成，label 给用户看。 */
+export interface ProviderProfile extends ProviderSettings {
+  readonly id: string;
+  readonly label: string;
+}
+
+/** 单个 profile 在界面上的密钥状态；永远没有密钥本体。 */
+export interface ProviderKeyStatus {
   readonly hasApiKey: boolean;
   /** 密钥来自 .env / 环境变量（界面不能改，只能去文件里改）。 */
   readonly apiKeyFromEnv: boolean;
+  /** 密钥是否由系统钥匙串加密后落盘（Electron safeStorage）。 */
+  readonly apiKeyEncrypted: boolean;
+}
+
+/** 界面能看到的配置状态：多个服务商 + 密钥状态（不含密钥）。 */
+export interface ProviderSettingsView {
+  readonly profiles: readonly ProviderProfile[];
+  readonly activeId: string;
+  readonly keys: Readonly<Record<string, ProviderKeyStatus>>;
+  /** 当前同时生效的服务商数量（有密钥且有模型的）。 */
+  readonly enabledCount: number;
+}
+
+export const MAX_PROFILES = 8;
+const PROFILE_ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,47}$/;
+const MAX_LABEL_LENGTH = 40;
+
+export const DEFAULT_PROFILE_ID = "default";
+export const DEFAULT_PROFILE_LABEL = "默认服务商";
+
+/** 校验界面提交的单个 profile：id + label + 字段。 */
+export function validateProviderProfile(
+  raw: unknown,
+): { readonly ok: true; readonly value: ProviderProfile } | { readonly ok: false; readonly error: string } {
+  if (typeof raw !== "object" || raw === null) return { ok: false, error: "服务商配置格式不正确" };
+  const record = raw as Record<string, unknown>;
+  if (typeof record.id !== "string" || !PROFILE_ID_PATTERN.test(record.id)) {
+    return { ok: false, error: "服务商内部 ID 不合法" };
+  }
+  const label = typeof record.label === "string" ? record.label.trim() : "";
+  if (label === "" || label.length > MAX_LABEL_LENGTH) {
+    return { ok: false, error: `名称不能为空，且不超过 ${MAX_LABEL_LENGTH} 个字符` };
+  }
+  const validated = validateProviderSettings(record);
+  if (!validated.ok) return validated;
+  return { ok: true, value: { ...validated.value, id: record.id, label } };
+}
+
+/** 校验整份文件（多个 profile + activeId）。 */
+export function validateProviderFile(raw: unknown): readonly ProviderProfile[] | undefined {
+  if (typeof raw !== "object" || raw === null) return undefined;
+  const list = (raw as { profiles?: unknown }).profiles;
+  if (!Array.isArray(list) || list.length === 0 || list.length > MAX_PROFILES) return undefined;
+  const profiles: ProviderProfile[] = [];
+  for (const entry of list) {
+    const validated = validateProviderProfile(entry);
+    if (!validated.ok) return undefined;
+    if (profiles.some((profile) => profile.id === validated.value.id)) return undefined;
+    profiles.push(validated.value);
+  }
+  return profiles;
 }
 
 export const DEFAULT_PROVIDER_SETTINGS: ProviderSettings = {

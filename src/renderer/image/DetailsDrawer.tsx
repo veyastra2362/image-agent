@@ -1,10 +1,10 @@
 /**
  * 详情抽屉：模型、原始提示词、Agent 改写、实际发送的提示词、参数、时间、
- * 费用与错误原文。所有内容来自 main 记录的任务快照，不在这里推断。
+ * 尺寸/格式与错误原文。所有内容来自 main 记录的任务快照，不在这里推断。
  */
 import { useEffect, useRef } from "react";
 import type { ImageAsset, ImageJob } from "../../shared/image-generation.ts";
-import { formatBytes, formatCost, formatDuration, formatTime } from "../lib/format.ts";
+import { formatBytes, formatDuration, formatTime } from "../lib/format.ts";
 import { describeStatus } from "../lib/job-status.ts";
 import type { ImageAgentState } from "./use-image-agent.ts";
 
@@ -87,7 +87,6 @@ function AssetDetails({
         value={job.referenceAssetIds.length === 0 ? "无" : job.referenceAssetIds.join("、")}
         {...(job.uploadsUserAssets ? { warn: "参考图已上传给该服务商" } : {})}
       />
-      <Fact label="费用" value={formatCost(job)} />
       <Fact label="耗时" value={formatDuration(job)} />
       <Fact label="创建 / 完成" value={`${formatTime(job.createdAt)} / ${formatTime(job.finishedAt)}`} />
       <Fact label="文件" value={`PNG · ${asset.width}×${asset.height} · ${formatBytes(asset.byteLength)}`} />

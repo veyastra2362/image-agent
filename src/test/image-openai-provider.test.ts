@@ -59,7 +59,6 @@ test("能力声明是保守的：不支持 seed/负面词/取消", () => {
   assert.equal(caps.cancel, false);
   assert.equal(caps.async, false);
   assert.deepEqual(caps.aspectRatios, ["1:1", "4:3", "3:4"]);
-  assert.equal(provider.descriptor.billable, true);
   assert.equal(provider.descriptor.uploadsUserAssets, false);
 });
 

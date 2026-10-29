@@ -38,7 +38,6 @@ function baseJob(status: JobStatus, overrides: Partial<ImageJob> = {}): ImageJob
     uploadsUserAssets: false,
     aspectRatio: "1:1",
     count: 1,
-    billableImages: 0,
     attempts: 0,
     createdAt: 1000,
     updatedAt: 1000,

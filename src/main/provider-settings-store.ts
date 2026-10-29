@@ -1,12 +1,12 @@
 /**
- * 服务商配置存储：把界面里填的设置、以及 API Key 落到本机。
+ * 服务商配置存储：多个服务商并存，每个都有自己的地址、密钥与模型。
  *
- * 目录：`app.getPath("userData")/provider-settings.json`（Windows 上是
- * `%APPDATA%/image-agent`）。文件权限尽力设为 0600。
+ * 目录：`app.getPath("userData")/provider-settings.json`。文件权限尽力设为 0600。
  *
- * 两点刻意的设计：
- *  1. 密钥单独存放，读写都不经过 renderer；`view()` 只回答"有没有存过"。
- *  2. `.env` / 环境变量里已经有密钥时，文件里的密钥不生效，界面也只能去改文件——
+ * 三条刻意的设计：
+ *  1. 密钥永远不回传 renderer；`view()` 只回答"存没存、加没加密"。
+ *  2. 有系统钥匙串时只写密文（safeStorage）；拿不到才退回明文，并如实标记。
+ *  3. `.env` / 环境变量里已经有密钥时，界面上的配置不能覆盖它——
  *     避免"界面上改了一遍却没作用"这种最难查的配置问题。
  */
 import { createHash } from "node:crypto";
@@ -14,23 +14,44 @@ import { chmodSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "n
 import path from "node:path";
 
 import {
+  DEFAULT_PROFILE_ID,
+  DEFAULT_PROFILE_LABEL,
   DEFAULT_PROVIDER_SETTINGS,
-  validateProviderSettings,
-  type ProviderSettings,
+  MAX_PROFILES,
+  validateProviderFile,
+  validateProviderProfile,
+  type ProviderKeyStatus,
+  type ProviderProfile,
   type ProviderSettingsView,
 } from "@shared/provider-settings";
 
 const FILE_NAME = "provider-settings.json";
-const FILE_VERSION = 1;
+const FILE_VERSION = 3;
+
+interface StoredKey {
+  readonly enc?: string;
+  readonly plain?: string;
+}
 
 interface StoredFile {
   readonly version: number;
-  readonly settings: ProviderSettings;
-  readonly apiKey?: string;
+  readonly profiles: readonly ProviderProfile[];
+  readonly activeId: string;
+  readonly keys: Readonly<Record<string, StoredKey>>;
+}
+
+/** 由 main 注入的系统加密能力；测试里可以替换成任何实现。 */
+export interface SecretCipher {
+  readonly available: boolean;
+  encrypt(plain: string): string;
+  decrypt(payload: string): string;
 }
 
 export interface ProviderSettingsStoreOptions {
   readonly dir: string;
+  /** 系统钥匙串加密；不可用时退回明文并明确告知界面。 */
+  readonly cipher?: SecretCipher;
+  readonly newId?: () => string;
   /** 测试可替换；默认真正的 fs。 */
   readonly readFile?: (file: string) => string;
   readonly writeFile?: (file: string, data: string) => void;
@@ -40,20 +61,43 @@ export class ProviderSettingsStore {
   readonly #dir: string;
   readonly #readFile: (file: string) => string;
   readonly #writeFile: (file: string, data: string) => void;
-  #settings: ProviderSettings = DEFAULT_PROVIDER_SETTINGS;
-  #apiKey: string | undefined;
+  readonly #cipher: SecretCipher | undefined;
+  readonly #newId: () => string;
+
+  #profiles: ProviderProfile[] = [defaultProfile()];
+  #activeId = DEFAULT_PROFILE_ID;
+  /** id → 密钥明文（只在内存里）。 */
+  readonly #keys = new Map<string, string>();
+  /** 哪几把密钥是加密落盘的。 */
+  readonly #encrypted = new Set<string>();
 
   constructor(options: ProviderSettingsStoreOptions) {
     this.#dir = options.dir;
     this.#readFile = options.readFile ?? ((file) => readFileSync(file, "utf8"));
     this.#writeFile = options.writeFile ?? defaultWrite;
+    this.#cipher = options.cipher?.available === true ? options.cipher : undefined;
+    this.#newId =
+      options.newId ??
+      (() => `p${Date.now().toString(36)}${Math.floor(Math.random() * 1e4).toString(36)}`.slice(0, 24));
   }
 
   get file(): string {
     return path.join(this.#dir, FILE_NAME);
   }
 
-  /** 读盘。文件损坏或格式不对就退回默认值——不能因为配置文件坏了打不开应用。 */
+  get profiles(): readonly ProviderProfile[] {
+    return this.#profiles;
+  }
+
+  get activeId(): string {
+    return this.#activeId;
+  }
+
+  get active(): ProviderProfile {
+    return this.#profiles.find((profile) => profile.id === this.#activeId) ?? this.#profiles[0] ?? defaultProfile();
+  }
+
+  /** 读盘。文件损坏或格式不对就退回默认配置——不能因为配置文件坏了打不开应用。 */
   load(): void {
     let raw: string;
     try {
@@ -71,64 +115,208 @@ export class ProviderSettingsStore {
     }
     if (typeof parsed !== "object" || parsed === null) return;
 
-    const candidate = parsed as Partial<StoredFile>;
-    const validated = validateProviderSettings(candidate.settings);
-    if (validated.ok) this.#settings = validated.value;
-    else console.warn(`[image-agent] 配置无效，已忽略：${validated.error}`);
+    const candidate = parsed as Partial<StoredFile> & {
+      settings?: unknown;
+      apiKey?: string;
+      apiKeyEnc?: string;
+    };
 
-    if (typeof candidate.apiKey === "string" && candidate.apiKey.trim() !== "") {
-      this.#apiKey = candidate.apiKey.trim();
+    // v2 及更早：单服务商 { settings, apiKey/apiKeyEnc }，迁移成一条 profile。
+    if (candidate.profiles === undefined && candidate.settings !== undefined) {
+      const legacy = validateProviderProfile({
+        ...(candidate.settings as object),
+        id: DEFAULT_PROFILE_ID,
+        label: DEFAULT_PROFILE_LABEL,
+      });
+      if (legacy.ok) {
+        this.#profiles = [legacy.value];
+        this.#activeId = legacy.value.id;
+        const key = this.#readLegacyKey(candidate);
+        if (key !== undefined) {
+          this.#keys.set(legacy.value.id, key);
+          if (typeof candidate.apiKeyEnc === "string" && candidate.apiKeyEnc !== "") {
+            this.#encrypted.add(legacy.value.id);
+          }
+        }
+      } else {
+        console.warn(`[image-agent] 旧版配置无效，已忽略：${legacy.error}`);
+      }
+      return;
+    }
+
+    const profiles = validateProviderFile(candidate);
+    if (profiles === undefined) {
+      console.warn("[image-agent] 服务商配置无效，已退回默认配置");
+      return;
+    }
+    this.#profiles = [...profiles];
+    const activeId = typeof candidate.activeId === "string" ? candidate.activeId : "";
+    this.#activeId = this.#profiles.some((profile) => profile.id === activeId)
+      ? activeId
+      : (this.#profiles[0]?.id ?? DEFAULT_PROFILE_ID);
+
+    const keys = candidate.keys;
+    if (typeof keys === "object" && keys !== null) {
+      for (const profile of this.#profiles) {
+        const stored = (keys as Record<string, StoredKey>)[profile.id];
+        if (typeof stored !== "object" || stored === null) continue;
+        const plain = this.#decodeKey(stored);
+        if (plain !== undefined) {
+          this.#keys.set(profile.id, plain);
+          // 密文读出来的，记下"已加密"，界面据此显示状态。
+          if (typeof stored.enc === "string" && stored.enc !== "") this.#encrypted.add(profile.id);
+        }
+      }
     }
   }
 
-  /** 只写设置；密钥保持不变。 */
-  saveSettings(next: ProviderSettings): void {
-    this.#settings = next;
+  #readLegacyKey(candidate: { apiKey?: string; apiKeyEnc?: string }): string | undefined {
+    if (typeof candidate.apiKeyEnc === "string" && candidate.apiKeyEnc !== "") {
+      const decrypted = this.#decodeKey({ enc: candidate.apiKeyEnc });
+      if (decrypted !== undefined) return decrypted;
+    }
+    if (typeof candidate.apiKey === "string" && candidate.apiKey.trim() !== "") {
+      return candidate.apiKey.trim();
+    }
+    return undefined;
+  }
+
+  /** 解密失败（换机器/钥匙串失效）当作没存过，并留下日志而不是崩溃。 */
+  #decodeKey(stored: StoredKey): string | undefined {
+    if (typeof stored.enc === "string" && stored.enc !== "" && this.#cipher !== undefined) {
+      try {
+        const plain = this.#cipher.decrypt(stored.enc).trim();
+        if (plain !== "") return plain;
+      } catch (error) {
+        console.warn("[image-agent] 已保存的 API Key 无法解密（可能换了系统账户），请重新填写：", (error as Error).message);
+        return undefined;
+      }
+    }
+    if (typeof stored.plain === "string" && stored.plain.trim() !== "") return stored.plain.trim();
+    return undefined;
+  }
+
+  setActive(id: string): boolean {
+    if (!this.#profiles.some((profile) => profile.id === id)) return false;
+    this.#activeId = id;
+    this.#persist();
+    return true;
+  }
+
+  /** 新建一个空配置并切换过去。 */
+  create(label?: string): ProviderProfile {
+    if (this.#profiles.length >= MAX_PROFILES) throw new Error(`最多 ${MAX_PROFILES} 个服务商`);
+    const id = this.#uniqueId();
+    const profile: ProviderProfile = {
+      ...DEFAULT_PROVIDER_SETTINGS,
+      id,
+      label: label?.trim() || `服务商 ${this.#profiles.length + 1}`,
+    };
+    this.#profiles = [...this.#profiles, profile];
+    this.#activeId = id;
+    this.#persist();
+    return profile;
+  }
+
+  upsert(profile: ProviderProfile): void {
+    const index = this.#profiles.findIndex((entry) => entry.id === profile.id);
+    if (index === -1) {
+      if (this.#profiles.length >= MAX_PROFILES) throw new Error(`最多 ${MAX_PROFILES} 个服务商`);
+      this.#profiles = [...this.#profiles, profile];
+    } else {
+      this.#profiles = this.#profiles.map((entry) => (entry.id === profile.id ? profile : entry));
+    }
     this.#persist();
   }
 
-  setApiKey(key: string): void {
+  /** 删掉一个配置；最后一个不允许删。 */
+  remove(id: string): { readonly ok: true } | { readonly ok: false; readonly error: string } {
+    if (this.#profiles.length <= 1) return { ok: false, error: "至少要保留一个服务商配置" };
+    if (!this.#profiles.some((profile) => profile.id === id)) return { ok: false, error: "配置不存在" };
+    this.#profiles = this.#profiles.filter((profile) => profile.id !== id);
+    this.#keys.delete(id);
+    this.#encrypted.delete(id);
+    if (this.#activeId === id) this.#activeId = this.#profiles[0]?.id ?? DEFAULT_PROFILE_ID;
+    this.#persist();
+    return { ok: true };
+  }
+
+  keyFor(id: string): string | undefined {
+    return this.#keys.get(id);
+  }
+
+  setApiKey(id: string, key: string): void {
     const trimmed = key.trim();
-    this.#apiKey = trimmed === "" ? undefined : trimmed;
+    if (trimmed === "") this.#keys.delete(id);
+    else this.#keys.set(id, trimmed);
     this.#persist();
   }
 
-  clearApiKey(): void {
-    this.#apiKey = undefined;
+  clearApiKey(id: string): void {
+    this.#keys.delete(id);
+    this.#encrypted.delete(id);
     this.#persist();
   }
 
-  get settings(): ProviderSettings {
-    return this.#settings;
-  }
-
-  get apiKey(): string | undefined {
-    return this.#apiKey;
-  }
-
-  /**
-   * 给界面看的视图。`apiKeyFromEnv` 为真时，界面上存的密钥不生效，
-   * 需要用户去 .env / 环境变量里改。
-   */
+  /** 给界面看的视图：多配置 + 每个配置的密钥状态，永远没有密钥本体。 */
   view(envKeyPresent: boolean): ProviderSettingsView {
+    const keys: Record<string, ProviderKeyStatus> = {};
+    for (const profile of this.#profiles) {
+      const stored = this.#keys.has(profile.id);
+      keys[profile.id] = {
+        hasApiKey: envKeyPresent || stored,
+        apiKeyFromEnv: envKeyPresent,
+        apiKeyEncrypted: stored && this.#encrypted.has(profile.id),
+      };
+    }
     return {
-      settings: this.#settings,
-      hasApiKey: envKeyPresent || this.#apiKey !== undefined,
-      apiKeyFromEnv: envKeyPresent,
+      profiles: this.#profiles,
+      activeId: this.#activeId,
+      keys,
+      enabledCount: this.#profiles.filter(
+        (profile) => profile.models.length > 0 && profile.baseUrl !== "" && (envKeyPresent || this.#keys.has(profile.id)),
+      ).length,
     };
   }
 
-  /** 密钥指纹：只用于"改的是不是同一把钥匙"，不可逆推密钥。 */
-  keyFingerprint(): string | undefined {
-    if (this.#apiKey === undefined) return undefined;
-    return createHash("sha256").update(this.#apiKey).digest("hex").slice(0, 12);
+  /** 密钥指纹：只用于判断"是不是同一把钥匙"，不可逆推密钥。 */
+  keyFingerprint(id: string): string | undefined {
+    const key = this.#keys.get(id);
+    if (key === undefined) return undefined;
+    return createHash("sha256").update(key).digest("hex").slice(0, 12);
+  }
+
+  #uniqueId(): string {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const candidate = this.#newId().toLowerCase().replace(/[^a-z0-9-]/g, "");
+      if (candidate !== "" && /^[a-z0-9][a-z0-9-]*$/.test(candidate) && !this.#profiles.some((p) => p.id === candidate)) {
+        return candidate;
+      }
+    }
+    return `p${Date.now().toString(36)}`;
   }
 
   #persist(): void {
+    const keys: Record<string, StoredKey> = {};
+    for (const [id, plain] of this.#keys) {
+      if (this.#cipher !== undefined) {
+        try {
+          keys[id] = { enc: this.#cipher.encrypt(plain) };
+          this.#encrypted.add(id);
+          continue;
+        } catch (error) {
+          console.warn("[image-agent] 密钥加密失败，退回明文保存：", (error as Error).message);
+        }
+      }
+      keys[id] = { plain };
+      this.#encrypted.delete(id);
+    }
+
     const data: StoredFile = {
       version: FILE_VERSION,
-      settings: this.#settings,
-      ...(this.#apiKey === undefined ? {} : { apiKey: this.#apiKey }),
+      profiles: this.#profiles,
+      activeId: this.#activeId,
+      keys,
     };
     try {
       this.#writeFile(this.file, JSON.stringify(data, null, 2));
@@ -136,6 +324,10 @@ export class ProviderSettingsStore {
       console.error("[image-agent] 保存服务商配置失败", error);
     }
   }
+}
+
+function defaultProfile(): ProviderProfile {
+  return { ...DEFAULT_PROVIDER_SETTINGS, id: DEFAULT_PROFILE_ID, label: DEFAULT_PROFILE_LABEL };
 }
 
 function defaultWrite(file: string, data: string): void {

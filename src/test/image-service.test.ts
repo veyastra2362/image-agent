@@ -44,8 +44,6 @@ describe("ImageGenerationService（离线 fake provider）", () => {
     const job = await waitForTerminal(service, created.event.job.id);
     assert.equal(job.status, "succeeded");
     assert.equal(job.assetIds.length, 1);
-    assert.equal(job.billableImages, 0);
-    assert.equal(job.estimatedCost, undefined);
 
     const succeededIndex = events.findIndex((event) => event.job.status === "succeeded");
     assert.ok(succeededIndex >= 0);
@@ -151,27 +149,6 @@ describe("ImageGenerationService（离线 fake provider）", () => {
     const count = await service.createJob(request({ model: "fake-sync-1", count: 2 }));
     assert.equal(count.ok, false);
     if (!count.ok) assert.equal(count.error.code, "unsupported-capability");
-  });
-
-  it("会话预算：超过预算的任务在提交前被拦截并给出通知", async () => {
-    const store = new MemoryJobStore();
-    const notifications: Notification[] = [];
-    const service = new ImageGenerationService({
-      providers: [new FakeProvider()],
-      store,
-      emit: () => {},
-      notify: (notification) => notifications.push(notification),
-      sessionBudget: { limit: 1 },
-    });
-    const result = await service.createJob(request({ budgetLimit: 0.0001, count: 1 }));
-    // fake provider 不计费，因此预算不生效：cost 为 0 时任何限额都应放行。
-    assert.equal(result.ok, true);
-    if (result.ok) {
-      const job = await waitForTerminal(service, result.event.job.id);
-      assert.equal(job.status, "succeeded");
-    }
-    assert.equal(notifications.length, 0);
-    assert.equal(service.getBootstrap().budget.spent, 0);
   });
 
   it("参考图：不存在的 asset ID 被拒绝", async () => {

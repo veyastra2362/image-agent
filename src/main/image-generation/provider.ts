@@ -10,9 +10,6 @@ export interface ProviderModel {
   readonly id: string;
   readonly displayName: string;
   readonly capabilities: ImageCapabilities;
-  /** 每张图的费用；undefined 表示上游未提供价格，界面不得估算。 */
-  readonly costPerImage?: number;
-  readonly currency?: string;
 }
 
 export interface ProviderDescriptor {
@@ -23,8 +20,6 @@ export interface ProviderDescriptor {
   readonly models: readonly ProviderModel[];
   /** 参考图是否需要上传给远端服务。本地 provider 为 false。 */
   readonly uploadsUserAssets: boolean;
-  /** 调用是否产生费用。本地 provider 为 false，预算与费用统计据此跳过。 */
-  readonly billable: boolean;
 }
 
 export interface ProviderGenerateRequest {

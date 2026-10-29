@@ -32,10 +32,20 @@ const WINDOW = {
 /** 必须与 src/shared/app-shell.ts 的 APP_CHANNEL 完全一致（由测试校验）。 */
 const APP_CHANNEL = "app:environment";
 
+/** 必须与 src/main/library-ipc.ts 的 LIBRARY_CHANNELS 完全一致（由测试校验）。 */
+const LIBRARY = {
+  view: "library:view",
+  chooseDir: "library:choose-dir",
+  openDir: "library:open-dir",
+} as const;
+
 /** 必须与 src/main/settings-ipc.ts 的 SETTINGS_CHANNELS 完全一致（由测试校验）。 */
 const SETTINGS = {
   view: "provider:settings-view",
   save: "provider:settings-save",
+  remove: "provider:settings-remove",
+  activate: "provider:settings-activate",
+  create: "provider:settings-create",
   test: "provider:settings-test",
   fetchModels: "provider:fetch-models",
 } as const;
@@ -79,8 +89,19 @@ contextBridge.exposeInMainWorld("appInfo", Object.freeze({ environment }));
 const settings = {
   view: () => ipcRenderer.invoke(SETTINGS.view),
   save: (payload: unknown) => ipcRenderer.invoke(SETTINGS.save, payload),
+  remove: (id: string) => ipcRenderer.invoke(SETTINGS.remove, id),
+  activate: (id: string) => ipcRenderer.invoke(SETTINGS.activate, id),
+  create: () => ipcRenderer.invoke(SETTINGS.create),
   test: (payload?: unknown) => ipcRenderer.invoke(SETTINGS.test, payload),
   fetchModels: (payload?: unknown) => ipcRenderer.invoke(SETTINGS.fetchModels, payload),
 };
 
 contextBridge.exposeInMainWorld("appSettings", Object.freeze(settings));
+
+const library = {
+  view: () => ipcRenderer.invoke(LIBRARY.view),
+  chooseDir: () => ipcRenderer.invoke(LIBRARY.chooseDir),
+  openDir: () => ipcRenderer.invoke(LIBRARY.openDir),
+};
+
+contextBridge.exposeInMainWorld("appLibrary", Object.freeze(library));

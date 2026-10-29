@@ -66,7 +66,6 @@ export const FAKE_DESCRIPTOR: ProviderDescriptor = {
   defaultModel: "fake-sync-1",
   models: MODELS,
   uploadsUserAssets: false,
-  billable: false,
 };
 
 export interface FakeProviderOptions {

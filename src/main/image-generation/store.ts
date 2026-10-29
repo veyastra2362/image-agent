@@ -1,8 +1,9 @@
 /**
- * 会话内的任务与作品存储。
+ * 任务与作品存储。
  *
- * S1 只要求"无网络跑通完整生成流程"，因此这里是内存实现：不写数据库、不写磁盘，
- * 重启后任务与作品清空。持久化落盘由 S4 替换本模块的实现，接口保持不变。
+ * `saveAsset` 接收原始字节并返回"落库后"的 asset：内存实现会补上 data URL 预览，
+ * 磁盘实现（library-store.ts）会把图片写进用户目录并返回指向该文件的 URL。
+ * service 必须使用返回值，因为只有存储知道最终预览地址。
  */
 import type { ImageAsset, ImageJob, ImageTaskEvent } from "@shared/image-generation";
 
@@ -13,20 +14,17 @@ export interface JobStore {
   listJobs(): readonly ImageJob[];
   listActiveJobs(): readonly ImageJob[];
 
-  saveAsset(asset: ImageAsset): void;
+  saveAsset(asset: ImageAsset, bytes?: Uint8Array): ImageAsset;
   getAsset(id: string): ImageAsset | undefined;
   hasAsset(id: string): boolean;
   listAssetsForJob(jobId: string): readonly ImageAsset[];
-
-  addCost(amount: number): void;
-  spent(): number;
 }
 
+/** 离线测试用：不落盘，资产以 data URL 保存在内存里。 */
 export class MemoryJobStore implements JobStore {
   private readonly jobs = new Map<string, ImageJob>();
   private readonly requestIds = new Map<string, string>();
   private readonly assets = new Map<string, ImageAsset>();
-  private cost = 0;
 
   saveJob(job: ImageJob): void {
     this.jobs.set(job.id, job);
@@ -52,9 +50,14 @@ export class MemoryJobStore implements JobStore {
     );
   }
 
-  saveAsset(asset: ImageAsset): void {
+  saveAsset(asset: ImageAsset, bytes?: Uint8Array): ImageAsset {
     if (this.assets.has(asset.id)) throw new Error(`asset ${asset.id} 已存在`);
-    this.assets.set(asset.id, asset);
+    const stored =
+      bytes === undefined
+        ? asset
+        : { ...asset, previewUrl: `data:${asset.mimeType};base64,${Buffer.from(bytes).toString("base64")}` };
+    this.assets.set(asset.id, stored);
+    return stored;
   }
 
   getAsset(id: string): ImageAsset | undefined {
@@ -69,15 +72,6 @@ export class MemoryJobStore implements JobStore {
     return [...this.assets.values()]
       .filter((asset) => asset.jobId === jobId)
       .sort((a, b) => a.createdAt - b.createdAt);
-  }
-
-  addCost(amount: number): void {
-    if (!Number.isFinite(amount) || amount < 0) throw new Error("费用必须是有限非负数");
-    this.cost += amount;
-  }
-
-  spent(): number {
-    return this.cost;
   }
 }
 

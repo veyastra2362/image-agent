@@ -1,5 +1,5 @@
 /**
- * API 设置面板。
+ * API 设置面板：多个服务商并存，可切换、新建、删除。
  *
  * 密钥规则：输入框是受控的本地草稿，永远不回填已保存的密钥（main 也不回传）。
  * 输入框留空 = 不改密钥；有内容才会随"保存"一起提交。
@@ -11,18 +11,21 @@ import {
   API_TIMEOUT_RANGE,
   FAL_QUEUE_NOTE,
   MAX_MODELS,
+  MAX_PROFILES,
   PARTIAL_IMAGE_RANGE,
   PROVIDER_KIND_LABELS,
   PROVIDER_KINDS,
   effectivePartialImages,
   supportsPartialImages,
-  validateProviderSettings,
+  validateProviderProfile,
   type ApiFlavor,
   type ProviderKind,
-  type ProviderSettings,
+  type ProviderProfile,
   type ProviderSettingsView,
   type UpstreamModel,
 } from "../../shared/provider-settings.ts";
+
+type Busy = "idle" | "testing" | "fetching" | "saving" | "creating" | "removing";
 
 export interface ApiSettingsPanelProps {
   readonly view: ProviderSettingsView | undefined;
@@ -30,40 +33,32 @@ export interface ApiSettingsPanelProps {
   readonly onRefresh: () => void;
 }
 
-type Busy = "idle" | "testing" | "fetching" | "saving";
-
-function useDraft(view: ProviderSettingsView | undefined) {
-  const [draft, setDraft] = useState<ProviderSettings | undefined>(view?.settings);
-  const [pristine, setPristine] = useState<ProviderSettings | undefined>(view?.settings);
-
-  // 外部刷新（保存成功、重新读取）后把草稿对齐到落盘值。
-  useEffect(() => {
-    if (view === undefined) return;
-    setPristine(view.settings);
-    setDraft((current) => current ?? view.settings);
-  }, [view]);
-
-  return { draft, setDraft, pristine, setPristine };
-}
-
 export function ApiSettingsPanel({ view, loading, onRefresh }: ApiSettingsPanelProps) {
-  const { draft, setDraft, pristine, setPristine } = useDraft(view);
+  const [draft, setDraft] = useState<ProviderProfile | undefined>();
   const [apiKey, setApiKey] = useState("");
   const [busy, setBusy] = useState<Busy>("idle");
   const [notice, setNotice] = useState<{ readonly kind: "ok" | "error" | "info"; readonly text: string }>();
   const [discovered, setDiscovered] = useState<readonly UpstreamModel[] | undefined>();
   const [newModelId, setNewModelId] = useState("");
 
-  const patch = (changes: Partial<ProviderSettings>) => setDraft((current) => (current ? { ...current, ...changes } : current));
-  const dirty = useMemo(() => {
-    if (draft === undefined || pristine === undefined) return false;
-    return JSON.stringify(draft) !== JSON.stringify(pristine) || apiKey.trim() !== "";
-  }, [draft, pristine, apiKey]);
+  // 外部刷新或切换服务商后把草稿对齐到落盘值。
+  useEffect(() => {
+    if (view === undefined) return;
+    const active = view.profiles.find((profile) => profile.id === view.activeId) ?? view.profiles[0];
+    setDraft(active === undefined ? undefined : { ...active });
+    setApiKey("");
+    setDiscovered(undefined);
+  }, [view]);
 
-  if (loading && draft === undefined) {
-    return <p className="field__hint">正在读取配置…</p>;
-  }
-  if (draft === undefined) {
+  const keyStatus = draft === undefined ? undefined : view?.keys[draft.id];
+  const dirty = useMemo(() => {
+    if (draft === undefined || view === undefined) return false;
+    const saved = view.profiles.find((profile) => profile.id === draft.id);
+    return JSON.stringify(saved) !== JSON.stringify(draft) || apiKey.trim() !== "";
+  }, [draft, view, apiKey]);
+
+  if (loading && view === undefined) return <p className="field__hint">正在读取配置…</p>;
+  if (view === undefined || draft === undefined) {
     return (
       <div className="settings__section">
         <p className="field__hint">读不到配置文件。</p>
@@ -74,21 +69,53 @@ export function ApiSettingsPanel({ view, loading, onRefresh }: ApiSettingsPanelP
     );
   }
 
-  const keyLocked = view?.apiKeyFromEnv === true;
+  const patch = (changes: Partial<ProviderProfile>) => setDraft((current) => (current ? { ...current, ...changes } : current));
+  const keyLocked = keyStatus?.apiKeyFromEnv === true;
   const partialDisabled = !(draft.stream && supportsPartialImages(draft.flavor));
-
   const keyForRequest = apiKey.trim() === "" ? undefined : apiKey.trim();
+  const validation = validateProviderProfile(draft);
+  const preview = effectivePartialImages(draft);
+
+  async function switchTo(id: string) {
+    if (id === view?.activeId) return;
+    await window.appSettings?.activate(id);
+    onRefresh();
+  }
+
+  async function handleCreate() {
+    setBusy("creating");
+    const created = await window.appSettings?.create();
+    setBusy("idle");
+    if (created?.ok) {
+      setNotice({ kind: "ok", text: "已新建一个服务商配置，填好后点保存。" });
+      onRefresh();
+    } else {
+      setNotice({ kind: "error", text: created?.message ?? "新建失败" });
+    }
+  }
+
+  async function handleRemove() {
+    if (draft === undefined) return;
+    setBusy("removing");
+    const removed = await window.appSettings?.remove(draft.id);
+    setBusy("idle");
+    if (removed?.ok) {
+      setNotice({ kind: "ok", text: `已删除「${draft.label}」。` });
+      onRefresh();
+    } else {
+      setNotice({ kind: "error", text: removed?.message ?? "删除失败" });
+    }
+  }
 
   async function handleSave() {
     if (draft === undefined) return;
     setBusy("saving");
     const result = await window.appSettings?.save({
-      settings: draft,
+      profile: draft,
       ...(keyForRequest === undefined ? {} : { apiKey: keyForRequest }),
     });
     setBusy("idle");
     if (result?.ok) {
-      setPristine(draft);
       setApiKey("");
       setNotice({ kind: "ok", text: "已保存，创作页的模型列表已更新。" });
       onRefresh();
@@ -101,6 +128,7 @@ export function ApiSettingsPanel({ view, loading, onRefresh }: ApiSettingsPanelP
     setBusy("testing");
     setNotice({ kind: "info", text: "正在测试连通性…" });
     const result = await window.appSettings?.test({
+      id: draft?.id,
       settings: draft,
       ...(keyForRequest === undefined ? {} : { apiKey: keyForRequest }),
     });
@@ -117,6 +145,7 @@ export function ApiSettingsPanel({ view, loading, onRefresh }: ApiSettingsPanelP
     setBusy("fetching");
     setNotice({ kind: "info", text: "正在从上游获取模型列表…" });
     const result = await window.appSettings?.fetchModels({
+      id: draft?.id,
       settings: draft,
       ...(keyForRequest === undefined ? {} : { apiKey: keyForRequest }),
     });
@@ -152,16 +181,62 @@ export function ApiSettingsPanel({ view, loading, onRefresh }: ApiSettingsPanelP
     setNewModelId("");
   }
 
-  const validation = validateProviderSettings(draft);
-  const preview = effectivePartialImages(draft);
-
   return (
     <section className="settings__section" aria-label="API 设置">
       <div className="settings__row">
         <h3>服务商</h3>
-        <span className={`badge ${view?.hasApiKey ? "badge--ok" : "badge--muted"}`}>
-          {view?.hasApiKey ? "已配置密钥" : "未配置密钥"}
+        <span className={`badge ${view.enabledCount > 0 ? "badge--ok" : "badge--muted"}`}>
+          已启用 {view.enabledCount} 个
         </span>
+      </div>
+
+      <div className="profile-tabs" role="tablist" aria-label="服务商配置">
+        {view.profiles.map((profile) => {
+          const status = view.keys[profile.id];
+          return (
+            <button
+              key={profile.id}
+              type="button"
+              role="tab"
+              aria-selected={profile.id === draft.id}
+              className={`profile-tab ${profile.id === draft.id ? "is-active" : ""}`}
+              onClick={() => void switchTo(profile.id)}
+            >
+              <span className="profile-tab__label">{profile.label}</span>
+              <span className={`profile-tab__dot ${status?.hasApiKey ? "is-on" : ""}`} aria-hidden="true" />
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          className="profile-tab profile-tab--add"
+          onClick={() => void handleCreate()}
+          disabled={busy !== "idle" || view.profiles.length >= MAX_PROFILES}
+          title={view.profiles.length >= MAX_PROFILES ? `最多 ${MAX_PROFILES} 个` : "新建服务商"}
+        >
+          ＋
+        </button>
+      </div>
+
+      <div className="settings__inline">
+        <label className="field" style={{ flex: 1 }}>
+          <span className="field__label">名称</span>
+          <input
+            className="field__input"
+            value={draft.label}
+            maxLength={40}
+            onChange={(event) => patch({ label: event.target.value })}
+          />
+        </label>
+        <button
+          type="button"
+          className="button button--ghost"
+          disabled={busy !== "idle" || view.profiles.length <= 1}
+          onClick={() => void handleRemove()}
+          title={view.profiles.length <= 1 ? "至少要保留一个配置" : "删除这个配置"}
+        >
+          删除
+        </button>
       </div>
 
       <label className="field">
@@ -188,17 +263,13 @@ export function ApiSettingsPanel({ view, loading, onRefresh }: ApiSettingsPanelP
           placeholder={draft.kind === "fal" ? "https://queue.fal.run" : "https://api.example.com/v1"}
           onChange={(event) => patch({ baseUrl: event.target.value })}
         />
-        <span className="field__hint">
-          {draft.kind === "fal"
-            ? "填写 fal 的队列根地址；具体模型的 app id 在下方模型列表里填。"
-            : "包含版本前缀，例如 https://api.example.com/v1。"}
-        </span>
       </label>
 
       <label className="field">
         <span className="field__label">
           API Key
           {keyLocked && <span className="field__meta">来自 .env / 环境变量</span>}
+          {!keyLocked && keyStatus?.apiKeyEncrypted && <span className="field__meta">已加密保存</span>}
         </span>
         <input
           className="field__input"
@@ -207,13 +278,17 @@ export function ApiSettingsPanel({ view, loading, onRefresh }: ApiSettingsPanelP
           spellCheck={false}
           disabled={keyLocked}
           value={apiKey}
-          placeholder={keyLocked ? "由 .env 提供，界面不能修改" : view?.hasApiKey ? "已保存（留空表示不修改）" : "粘贴密钥"}
+          placeholder={
+            keyLocked ? "由 .env 提供，界面不能修改" : keyStatus?.hasApiKey ? "已保存（留空表示不修改）" : "粘贴密钥"
+          }
           onChange={(event) => setApiKey(event.target.value)}
         />
         <span className="field__hint">
           {keyLocked
-            ? "密钥来自 .env 或环境变量，优先级高于界面配置；要修改请改文件后重启。"
-            : "密钥只保存在本机 main 进程的配置文件里，不回传界面、不写入页面存储。"}
+            ? "这个地址的密钥来自 .env 或环境变量，优先级高于界面配置；要修改请改文件后重启。"
+            : keyStatus?.apiKeyEncrypted
+              ? "密钥由系统钥匙串加密后保存在本机，不回传界面、不写入页面存储。"
+              : "密钥只保存在本机 main 进程的配置文件里，不回传界面、不写入页面存储。"}
         </span>
       </label>
 
@@ -238,12 +313,7 @@ export function ApiSettingsPanel({ view, loading, onRefresh }: ApiSettingsPanelP
       <div className="settings__row">
         <h3>模型</h3>
         <div className="settings__row-actions">
-          <button
-            type="button"
-            className="button button--ghost"
-            disabled={busy !== "idle"}
-            onClick={() => void handleTest()}
-          >
+          <button type="button" className="button button--ghost" disabled={busy !== "idle"} onClick={() => void handleTest()}>
             {busy === "testing" ? "测试中…" : "测试连通性"}
           </button>
           <button
@@ -295,7 +365,7 @@ export function ApiSettingsPanel({ view, loading, onRefresh }: ApiSettingsPanelP
           ))}
         </ul>
       ) : (
-        <p className="field__hint">还没有启用任何模型；保存后只会看到离线假服务。</p>
+        <p className="field__hint">还没有启用任何模型；保存后这个服务商不会出现在创作页。</p>
       )}
 
       <div className="settings__inline">
@@ -318,11 +388,7 @@ export function ApiSettingsPanel({ view, loading, onRefresh }: ApiSettingsPanelP
 
       <h3>流式传输</h3>
       <label className="switch">
-        <input
-          type="checkbox"
-          checked={draft.stream}
-          onChange={(event) => patch({ stream: event.target.checked })}
-        />
+        <input type="checkbox" checked={draft.stream} onChange={(event) => patch({ stream: event.target.checked })} />
         <span>开启流式传输</span>
       </label>
       <p className="field__hint">

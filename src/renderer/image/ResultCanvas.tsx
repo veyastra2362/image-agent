@@ -5,7 +5,7 @@
  */
 import type { CSSProperties } from "react";
 import type { ImageTaskEvent } from "../../shared/image-generation.ts";
-import { formatCost, formatDuration } from "../lib/format.ts";
+import { formatDuration } from "../lib/format.ts";
 import { describeStatus } from "../lib/job-status.ts";
 import { cancellable, latestSucceededJob, type ImageAgentState } from "./use-image-agent.ts";
 
@@ -31,12 +31,7 @@ export function ResultCanvas({ state, onOpenAsset }: ResultCanvasProps) {
         <h2 id="canvas-title">结果</h2>
         <div className="canvas__meta">
           <span>{state.jobs.length} 个任务</span>
-          {state.budget && (
-            <span>
-              本会话费用：{state.budget.spent.toFixed(4)} {state.budget.currency}
-              {state.budget.limit === undefined ? "" : `（上限 ${state.budget.limit}）`}
-            </span>
-          )}
+
         </div>
       </header>
 
@@ -53,7 +48,7 @@ export function ResultCanvas({ state, onOpenAsset }: ResultCanvasProps) {
         <div className="empty">
           <p className="empty__title">还没有作品</p>
           <p className="empty__body">
-            左侧输入一句描述，选择模型后点「生成」。当前只有离线假服务，它返回固定的测试图片，不联网、不产生费用。
+            左侧输入一句描述，选择模型后点「生成」。当前只有离线假服务，它返回固定的测试图片，不联网。
           </p>
         </div>
       )}
@@ -128,7 +123,7 @@ function ActiveJob({ event, onCancel }: { readonly event: ImageTaskEvent; readon
         </p>
         <p className="active-job__meta">
           {event.job.providerDisplayName} · {event.job.modelDisplayName} · {event.job.count} 张 ·{" "}
-          {event.job.aspectRatio} · {formatCost(event.job)}
+          {event.job.aspectRatio}
         </p>
       </div>
       <div className="active-job__progress" role="progressbar" aria-label="生成进度" aria-valuetext={presentation.label}>
@@ -162,8 +157,7 @@ function ResultGroup({
         <p className="result-group__prompt">{event.job.submittedPrompt}</p>
         <p className="result-group__meta">
           {isLatest ? <span className="tag">最新</span> : null}
-          {event.job.modelDisplayName} · {event.job.aspectRatio} · {formatDuration(event.job)} ·{" "}
-          {formatCost(event.job)}
+          {event.job.modelDisplayName} · {event.job.aspectRatio} · {formatDuration(event.job)}
           {event.job.referenceAssetIds.length > 0 ? " · 基于参考图" : ""}
         </p>
       </header>

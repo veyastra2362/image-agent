@@ -829,21 +829,32 @@ code {
   flex: 1;
 }
 
-/* 保存条吸在面板底部：API 表单很长，按钮不能沉到滚动区最下面。 */
+/*
+ * 保存条吸在面板底部：API 表单很长，按钮不能沉到滚动区最下面。
+ * 贴着滚动区下边缘、带阴影和实底，滚过的内容不会被半透明糊住；
+ * 滚到最底时它落回文档流末尾，因此不会有内容永远够不到。
+ */
+.settings__body {
+  padding-bottom: 0;
+}
+
 .settings__footer {
   position: sticky;
   bottom: 0;
+  z-index: 2;
   display: flex;
   gap: var(--space-2);
   align-items: center;
-  padding: var(--space-2) 0 var(--space-1);
+  margin-top: var(--space-1);
+  padding: var(--space-3) 0 var(--space-2);
   border-top: 1px solid var(--border);
   background: var(--bg-elevated);
+  box-shadow: 0 -10px 18px -12px rgb(0 0 0 / 55%);
 }
 
-.settings__notice {
-  position: sticky;
-  bottom: 52px;
+/* 吸底条遮住的是"还有内容"的暗示，滚到底后所有控件都能露出来。 */
+.settings__section {
+  padding-bottom: var(--space-1);
 }
 
 .settings__footer .button--primary {
@@ -971,4 +982,91 @@ code {
 
 .settings__body {
   max-height: 66vh;
+}
+
+/* ---------------------------------------------------------------- 存储设置 */
+
+.path-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+}
+
+.path-box__path {
+  display: block;
+  padding: var(--space-1) 0;
+  background: none;
+  border: 0;
+  font-size: var(--fs-sm);
+  color: var(--text);
+  word-break: break-all;
+}
+
+.path-box__actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* ---------------------------------------------------------------- 多服务商 */
+
+.profile-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.profile-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 4px var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-sunken);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--fs-sm);
+  max-width: 200px;
+}
+
+.profile-tab:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.profile-tab.is-active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--text);
+}
+
+.profile-tab__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 有密钥的小圆点：不用文字也能看出哪个配置可用。 */
+.profile-tab__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  flex: 0 0 auto;
+}
+
+.profile-tab__dot.is-on {
+  background: var(--success);
+}
+
+.profile-tab--add {
+  padding: 4px 10px;
+  font-size: var(--fs-md);
+  line-height: 1;
 }

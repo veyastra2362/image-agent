@@ -177,7 +177,6 @@ export const ERROR_CODES = [
   "unsupported-capability",
   "reference-not-found",
   "job-not-found",
-  "budget-exceeded",
   "provider-unavailable",
   "provider-failed",
   "cancelled",
@@ -199,9 +198,6 @@ export interface ProviderRef {
   readonly default: boolean;
   /** 模型级能力。UI 只显示这里声明支持的参数。 */
   readonly capabilities: ImageCapabilities;
-  /** 每张图费用；undefined 表示上游未提供，UI 必须显示"上游未提供"，不得估算。 */
-  readonly costPerImage?: number;
-  readonly currency?: string;
   /** 参考图是否会上传离开本机；UI 在提交前提示用户。 */
   readonly uploadsUserAssets: boolean;
 }
@@ -222,8 +218,6 @@ export interface CreateImageJobInput {
   readonly count: number;
   readonly seed?: number;
   readonly negativePrompt?: string;
-  /** 用户为本次生成填写的预算上限（单位由 provider 声明）；未填写时不做预算拦截。 */
-  readonly budgetLimit?: number;
   /** 画面尺寸来源：auto / 比例 / 自定义。省略时按比例处理。 */
   readonly sizeMode?: SizeMode;
   /** 自定义宽高（sizeMode = "custom" 时必填）。 */
@@ -266,11 +260,6 @@ export interface ImageJob {
   readonly count: number;
   readonly seed?: number;
   readonly negativePrompt?: string;
-  /** 每次成功生成要产生费用的图片数。本地 fake provider 为 0。 */
-  readonly billableImages: number;
-  readonly budgetLimit?: number;
-  /** 上游未提供价格时保持 undefined，界面显示"上游未提供"，绝不估算。 */
-  readonly estimatedCost?: { readonly amount: number; readonly currency: string };
   readonly agentRun?: AgentRunRecord;
   readonly attempts: number;
   readonly createdAt: number;
@@ -304,18 +293,6 @@ export interface ImageTaskEvent {
   readonly assets: readonly ImageAsset[];
 }
 
-export interface BudgetStatus {
-  readonly currency: string;
-  readonly limit?: number;
-  readonly spent: number;
-}
-
-/** 会话预算：limit 为用户自设上限，spent 为本会话已确认的花费。 */
-export interface RuntimeBudget {
-  readonly limit?: number;
-  readonly spent?: number;
-}
-
 export interface Notification {
   readonly level: "info" | "warning" | "error";
   readonly message: string;
@@ -324,7 +301,6 @@ export interface Notification {
 export interface ImageBootstrap {
   readonly providers: readonly ProviderRef[];
   readonly jobs: readonly ImageTaskEvent[];
-  readonly budget: BudgetStatus;
 }
 
 export type Unsubscribe = () => void;
@@ -369,7 +345,6 @@ const ALLOWED_INPUT_KEYS = new Set([
   "count",
   "seed",
   "negativePrompt",
-  "budgetLimit",
   "sizeMode",
   "width",
   "height",
@@ -387,7 +362,6 @@ export const LIMITS = {
   maxOutputCount: 4,
   maxReferenceImages: 4,
   seedMax: 2_147_483_647,
-  budgetMax: 10_000,
   /** 自定义宽高允许范围；与 MAX_IMAGE_EDGE / MIN_IMAGE_EDGE 一致。 */
   edgeMin: MIN_IMAGE_EDGE,
   edgeMax: MAX_IMAGE_EDGE,
@@ -499,19 +473,6 @@ export function validateCreateJobInput(raw: unknown): ValidationResult<CreateIma
     }
   }
 
-  let budgetLimit: number | undefined;
-  if (raw.budgetLimit !== undefined) {
-    if (
-      typeof raw.budgetLimit !== "number" ||
-      !Number.isFinite(raw.budgetLimit) ||
-      raw.budgetLimit <= 0 ||
-      raw.budgetLimit > LIMITS.budgetMax
-    ) {
-      return fail("invalid-request", `预算上限必须是 0–${LIMITS.budgetMax} 之间的正数`);
-    }
-    budgetLimit = raw.budgetLimit;
-  }
-
   let sizeMode: SizeMode | undefined;
   if (raw.sizeMode !== undefined) {
     if (raw.sizeMode !== "auto" && raw.sizeMode !== "ratio" && raw.sizeMode !== "custom") {
@@ -579,7 +540,6 @@ export function validateCreateJobInput(raw: unknown): ValidationResult<CreateIma
       count: raw.count,
       ...(seed === undefined ? {} : { seed }),
       ...(negativePrompt === undefined ? {} : { negativePrompt }),
-      ...(budgetLimit === undefined ? {} : { budgetLimit }),
       ...(sizeMode === undefined ? {} : { sizeMode }),
       ...(widthResult.value === undefined ? {} : { width: widthResult.value }),
       ...(heightResult.value === undefined ? {} : { height: heightResult.value }),
@@ -596,6 +556,9 @@ export function validateJobId(raw: unknown): ValidationResult<string> {
   }
   return { ok: true, value: raw };
 }
+
+// ---------------------------------------------------------------------------
+// 能力校验与状态映射（纯逻辑）
 
 // ---------------------------------------------------------------------------
 // 能力校验与状态映射（纯逻辑）
@@ -732,36 +695,4 @@ export function applyTransition(job: ImageJob, transition: StatusTransition): Im
     ...(transition.error ? { error: transition.error } : {}),
     ...(transition.remoteTaskId ? { remoteTaskId: transition.remoteTaskId } : {}),
   };
-}
-
-// ---------------------------------------------------------------------------
-// 预算
-// ---------------------------------------------------------------------------
-
-export interface BudgetCheckInput {
-  readonly budget: RuntimeBudget;
-  readonly costPerImage: number;
-  readonly count: number;
-  readonly requestLimit?: number;
-}
-
-export type BudgetResult =
-  | { readonly ok: true; readonly cost: number }
-  | { readonly ok: false; readonly cost: number; readonly reason: "request-limit" | "total-limit" };
-
-/**
- * 预算检查。costPerImage 为 0 表示本地 fake provider，不参与预算。
- * 任何拦截都发生在提交之前，并且只基于已知价格或用户自设限额。
- */
-export function checkBudget(input: BudgetCheckInput): BudgetResult {
-  const cost = input.costPerImage * input.count;
-  if (cost <= 0) return { ok: true, cost: 0 };
-  if (input.requestLimit !== undefined && cost > input.requestLimit) {
-    return { ok: false, cost, reason: "request-limit" };
-  }
-  const spent = input.budget.spent ?? 0;
-  if (input.budget.limit !== undefined && spent + cost > input.budget.limit) {
-    return { ok: false, cost, reason: "total-limit" };
-  }
-  return { ok: true, cost };
 }

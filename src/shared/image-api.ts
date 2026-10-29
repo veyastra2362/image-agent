@@ -7,12 +7,8 @@
  */
 import type { ImageAgentApi as ImageAgentIpcApi } from "./image-generation.ts";
 import type { AppEnvironment, WindowControls } from "./app-shell.ts";
-import type {
-  ModelFetchResult,
-  ProviderSettings,
-  ProviderSettingsView,
-  ProviderTestResult,
-} from "./provider-settings.ts";
+import type { ChooseLibraryDirResult, LibrarySettingsView } from "./library.ts";
+import type { ModelFetchResult, ProviderProfile, ProviderSettingsView, ProviderTestResult } from "./provider-settings.ts";
 
 /** Renderer 拿到的 API；结果类型在通道两侧是同一个对象。 */
 export type ImageAgentApi = ImageAgentIpcApi;
@@ -28,18 +24,31 @@ declare global {
     readonly appSettings?: {
       readonly view: () => Promise<ProviderSettingsView | undefined>;
       readonly save: (payload: {
-        readonly settings: ProviderSettings;
+        readonly profile: ProviderProfile;
         readonly apiKey?: string;
         readonly clearApiKey?: boolean;
       }) => Promise<{ readonly ok: true } | { readonly ok: false; readonly message: string }>;
+      readonly remove: (id: string) => Promise<{ readonly ok: true } | { readonly ok: false; readonly message: string }>;
+      readonly activate: (id: string) => Promise<{ readonly ok: true } | { readonly ok: false; readonly message: string }>;
+      readonly create: () => Promise<
+        { readonly ok: true; readonly profile: ProviderProfile } | { readonly ok: false; readonly message: string }
+      >;
       readonly test: (payload?: {
-        readonly settings?: ProviderSettings;
+        readonly id?: string;
+        readonly settings?: ProviderProfile;
         readonly apiKey?: string;
       }) => Promise<ProviderTestResult>;
       readonly fetchModels: (payload?: {
-        readonly settings?: ProviderSettings;
+        readonly id?: string;
+        readonly settings?: ProviderProfile;
         readonly apiKey?: string;
       }) => Promise<ModelFetchResult>;
+    };
+    /** 作品库落盘位置；目录只能通过系统对话框选择。 */
+    readonly appLibrary?: {
+      readonly view: () => Promise<LibrarySettingsView | undefined>;
+      readonly chooseDir: () => Promise<ChooseLibraryDirResult>;
+      readonly openDir: () => Promise<{ readonly ok: true } | { readonly ok: false; readonly message: string }>;
     };
   }
 }

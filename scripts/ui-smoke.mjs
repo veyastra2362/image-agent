@@ -36,6 +36,16 @@ if (process.env.IMAGE_AGENT_SMOKE_DRIVER !== "1") process.exit(2);
 const { app, BrowserWindow } = require("electron");
 const { pathToFileURL } = require("node:url");
 
+// 隔离运行环境：userData 与作品目录都放进 artifacts，避免污染真实配置、
+// 也避免上一轮的作品被持久化后带进这一轮。
+const ARTIFACT_ROOT = process.env.IMAGE_AGENT_ARTIFACTS;
+const USER_DATA = path.join(ARTIFACT_ROOT, "userdata");
+const LIBRARY_DIR = path.join(ARTIFACT_ROOT, "library");
+fs.mkdirSync(USER_DATA, { recursive: true });
+fs.mkdirSync(LIBRARY_DIR, { recursive: true });
+fs.writeFileSync(path.join(USER_DATA, "library-settings.json"), JSON.stringify({ dir: LIBRARY_DIR }));
+app.setPath("userData", USER_DATA);
+
 // 加载真实的 out/main/main.js（会创建应用窗口并注册 IPC）。
 // CJS 优先用 require；动态 import 作为 Electron 日后切换加载方式的后备。
 const appMain = path.join(process.env.IMAGE_AGENT_ROOT, "out/main/main.js");
@@ -161,6 +171,15 @@ async function run() {
   await waitFor("document.querySelector('.result-grid img')", "结果图片出现");
   const resultCount = await js("document.querySelectorAll('.result-grid img').length");
   check("生成结果进入画布", resultCount === 1, resultCount);
+  // 图片走 ia-asset:// 自定义协议从磁盘读，而不是 data URL 常驻内存。
+  const imageProbe = await js(
+    "(() => { const img = document.querySelector('.result-grid img'); return { src: img ? img.currentSrc || img.src : '', w: img ? img.naturalWidth : 0 }; })()",
+  );
+  check("结果图通过 ia-asset 协议加载", String(imageProbe.src).startsWith("ia-asset://asset/"), imageProbe.src);
+  check("图片真的解码出像素", imageProbe.w > 0, imageProbe.w);
+  check("作品索引已写盘", fs.existsSync(path.join(USER_DATA, "library.json")), USER_DATA);
+  const assetFiles = fs.existsSync(path.join(LIBRARY_DIR, "assets")) ? fs.readdirSync(path.join(LIBRARY_DIR, "assets")) : [];
+  check("图片文件已落到作品目录", assetFiles.length >= 1, assetFiles);
   const jobStates = await js("[...document.querySelectorAll('.job-row .status')].map((n) => n.textContent)");
   check("任务栏显示已完成", jobStates.some((text) => text.includes("已完成")), jobStates);
   await shot("02-succeeded");
@@ -170,7 +189,7 @@ async function run() {
   const drawerText = await js("document.querySelector('.drawer').innerText");
   check("详情显示模型", drawerText.includes("Fake Sync 1"), drawerText.slice(0, 160));
   check("详情显示原始提示词", drawerText.includes("原始提示词"), "");
-  check("费用不伪造", drawerText.includes("不产生费用") || drawerText.includes("上游未提供"), "");
+  check("详情不再出现费用字段", !drawerText.includes("费用"), "");
   await shot("03-drawer");
   await js("window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); true");
   await sleep(200);
@@ -229,8 +248,10 @@ async function run() {
   // ---- 设置弹窗 ----
   await js("document.querySelector('.titlebar__icon').click(); true");
   await waitFor("document.querySelector('.settings')", "设置弹窗打开");
+  // API 面板要等一次 IPC 回来才渲染出表单，先等到它真的出现。
+  await waitFor("document.querySelector('.profile-tabs')", "API 面板渲染");
   const tabs = await js("[...document.querySelectorAll('.settings__tab')].map((n) => n.textContent)");
-  check("设置含 API/外观/关于", tabs.join(",") === "API 设置,外观设置,关于", tabs);
+  check("设置含 API/外观/存储/关于", tabs.join(",") === "API 设置,外观设置,存储,关于", tabs);
   const apiText = await js("document.querySelector('.settings__body').innerText");
   check("API 设置不显示密钥", !/sk-[A-Za-z0-9]{8}/.test(apiText), apiText.slice(0, 120));
   for (const label of ["服务商类型", "API URL", "API Key", "API 接口", "流式传输", "中间步骤图像数", "请求超时"]) {
@@ -242,10 +263,14 @@ async function run() {
   check("中间步骤图像可选 0–3", JSON.stringify(partialChips) === JSON.stringify(["0 张", "1 张", "2 张", "3 张"]), partialChips);
   check("提示说明单图拆分", apiText.includes("拆成多个单图"), "");
   check("提示说明额外计费", apiText.includes("额外计费"), "");
+  const profileTabs = await js("document.querySelectorAll('.profile-tab:not(.profile-tab--add)').length");
+  check("服务商可以多开", profileTabs >= 1, profileTabs);
   const saved = await js(
-    "window.appSettings.save({ settings: { kind: 'openai-compatible', baseUrl: 'https://example.invalid/v1', flavor: 'responses', models: ['gpt-image-2'], stream: true, partialImages: 3, timeoutSeconds: 240 } })",
+    "window.appSettings.save({ profile: { id: 'default', label: '测试服务商', kind: 'openai-compatible', baseUrl: 'https://example.invalid/v1', flavor: 'responses', models: ['gpt-image-2'], stream: true, partialImages: 3, timeoutSeconds: 240 } })",
   );
   check("设置可以保存并重建 provider 表", saved && saved.ok === true, saved);
+  const keyState = await js("window.appSettings.view().then((v) => v.keys[v.activeId])");
+  check("密钥状态有加密标记字段", keyState !== undefined && typeof keyState.apiKeyEncrypted === "boolean", keyState);
   await shot("08-settings-api");
   await js("(() => { [...document.querySelectorAll('.settings__tab')].find((n) => n.textContent === '外观设置').click(); return true; })()");
   await sleep(150);
@@ -265,6 +290,13 @@ async function run() {
   await sleep(150);
   check("跟随系统时移除 data-theme", (await js("document.documentElement.dataset.theme ?? ''")) === "", "");
   await shot("09-settings-appearance");
+  await js("(() => { [...document.querySelectorAll('.settings__tab')].find((n) => n.textContent === '存储').click(); return true; })()");
+  await sleep(200);
+  const storageText = await js("document.querySelector('.settings__body').innerText");
+  check("存储页显示保存位置", /作品保存位置/.test(storageText) && /选择文件夹/.test(storageText), storageText.slice(0, 120));
+  const storagePath = await js("document.querySelector('.path-box__path')?.textContent ?? ''");
+  check("默认目录在 C 盘", /^[A-Z]:\\/.test(storagePath), storagePath);
+  await shot("13-settings-storage");
   await js("(() => { [...document.querySelectorAll('.settings__tab')].find((n) => n.textContent === '关于').click(); return true; })()");
   await sleep(150);
   const aboutText = await js("document.querySelector('.settings__body').innerText");

@@ -1,5 +1,5 @@
 /**
- * 任务编排：校验 → 预算 → 排队 → 提交 → 轮询 → 保存结果。
+ * 任务编排：校验 → 排队 → 提交 → 轮询 → 保存结果。
  *
  * 这里不包含任何厂商协议细节；所有网络/格式工作都在 provider adapter 里完成。
  * 所有输入都来自 IPC 或网络，一律先校验再做任何副作用。
@@ -7,13 +7,11 @@
 import { randomUUID } from "node:crypto";
 import {
   applyTransition,
-  checkBudget,
   checkCapabilities,
   validateCreateJobInput,
   validateJobId,
   resolveRatioSize,
   type AspectRatio,
-  type BudgetStatus,
   type ImageAsset,
   type ImageBootstrap,
   type ImageJob,
@@ -21,7 +19,6 @@ import {
   type ImageTaskEvent,
   type Notification,
   type ProviderRef,
-  type RuntimeBudget,
 } from "@shared/image-generation";
 import { readPngSize } from "./fixtures";
 import { transcodeImage } from "./transcode";
@@ -37,7 +34,6 @@ export interface ServiceDependencies {
   readonly notify: (notification: Notification) => void;
   readonly now?: () => number;
   readonly newId?: () => string;
-  readonly sessionBudget?: RuntimeBudget;
   readonly retryDelayMs?: number;
 }
 
@@ -66,10 +62,8 @@ export class ImageGenerationService {
   private readonly notify: (notification: Notification) => void;
   private readonly now: () => number;
   private readonly newId: () => string;
-  private readonly sessionBudget: RuntimeBudget;
   private readonly retryDelayMs: number;
   private readonly runs = new Map<string, ActiveRun>();
-  private budget: BudgetStatus | undefined;
 
   constructor(deps: ServiceDependencies) {
     this.providers = new Map(deps.providers.map((provider) => [provider.descriptor.id, provider]));
@@ -78,22 +72,18 @@ export class ImageGenerationService {
     this.notify = deps.notify;
     this.now = deps.now ?? Date.now;
     this.newId = deps.newId ?? (() => `job-${randomUUID()}`);
-    this.sessionBudget = deps.sessionBudget ?? {};
     this.retryDelayMs = deps.retryDelayMs ?? 0;
   }
 
   /** 换掉整张 provider 表。之后的新任务用新实例，旧任务不受影响。 */
   setProviders(providers: readonly ImageProvider[]): void {
     this.providers = new Map(providers.map((provider) => [provider.descriptor.id, provider]));
-    this.recomputeBudget();
   }
 
   getBootstrap(): ImageBootstrap {
-    this.recomputeBudget();
     return {
       providers: this.providerRefs(),
       jobs: this.store.listJobs().map((job) => toTaskEvent(job, this.store)),
-      budget: this.budgetStatus(),
     };
   }
 
@@ -178,22 +168,6 @@ export class ImageGenerationService {
       return { ok: false, error: { code: "unsupported-capability", message: capabilityError, retryable: false } };
     }
 
-    const billableImages = provider.descriptor.billable ? input.count : 0;
-    const costPerImage = billableImages > 0 ? (model.costPerImage ?? 0) : 0;
-    const budgetCheck = checkBudget({
-      budget: this.sessionBudget,
-      costPerImage,
-      count: input.count,
-      ...(input.budgetLimit === undefined ? {} : { requestLimit: input.budgetLimit }),
-    });
-    if (!budgetCheck.ok) {
-      const message = budgetCheck.reason === "request-limit" ? "超过本次预算上限" : "超过会话预算上限";
-      this.notify({
-        level: "warning",
-        message: `${message}（需要 ${budgetCheck.cost}，未提交任何请求）。`,
-      });
-      return { ok: false, error: { code: "budget-exceeded", message, retryable: false } };
-    }
 
     const submittedPrompt = input.agentPrompt ?? input.prompt;
     const createdAt = this.now();
@@ -219,11 +193,7 @@ export class ImageGenerationService {
       count: input.count,
       ...(input.seed === undefined ? {} : { seed: input.seed }),
       ...(input.negativePrompt === undefined ? {} : { negativePrompt: input.negativePrompt }),
-      billableImages,
-      ...(input.budgetLimit === undefined ? {} : { budgetLimit: input.budgetLimit }),
-      ...(costPerImage > 0 && model.currency
-        ? { estimatedCost: { amount: costPerImage * input.count, currency: model.currency } }
-        : {}),
+
       ...(input.agentPrompt === undefined
         ? {}
         : { agentRun: { planner: "manual", useRewrittenPrompt: true, instruction: input.prompt } }),
@@ -283,8 +253,6 @@ export class ImageGenerationService {
         displayName: `${provider.descriptor.displayName} · ${model.displayName}`,
         default: provider.descriptor.defaultModel === model.id,
         capabilities: model.capabilities,
-        ...(model.costPerImage === undefined ? {} : { costPerImage: model.costPerImage }),
-        ...(model.currency === undefined ? {} : { currency: model.currency }),
         uploadsUserAssets: provider.descriptor.uploadsUserAssets,
       })),
     );
@@ -449,7 +417,7 @@ export class ImageGenerationService {
     const format = job.format ?? "png";
     const compression = job.compression ?? 0;
 
-    const assets: ImageAsset[] = [];
+    const pending: { asset: ImageAsset; bytes: Uint8Array }[] = [];
     const createdAt = this.now();
     for (const image of images) {
       const validated = validateImage(image, job, createdAt);
@@ -459,16 +427,17 @@ export class ImageGenerationService {
       }
       const source = Buffer.from(image.bytes);
       let finalAsset = validated.asset;
+      let finalBytes: Uint8Array = image.bytes;
       if (format !== "png") {
         try {
           const converted = await transcodeImage({ bytes: source, format, compression });
+          finalBytes = converted.bytes;
           finalAsset = {
             ...validated.asset,
             mimeType: converted.mimeType,
             byteLength: converted.bytes.length,
             width: converted.width,
             height: converted.height,
-            previewUrl: `data:${converted.mimeType};base64,${converted.bytes.toString("base64")}`,
           };
         } catch (error) {
           this.transition(job, {
@@ -482,14 +451,11 @@ export class ImageGenerationService {
           return;
         }
       }
-      assets.push(finalAsset);
+      pending.push({ asset: finalAsset, bytes: finalBytes });
     }
 
-    for (const asset of assets) this.store.saveAsset(asset);
-
-    const costPerImage = this.modelOf(job)?.costPerImage ?? 0;
-    if (job.billableImages > 0 && costPerImage > 0) this.store.addCost(costPerImage * assets.length);
-    this.recomputeBudget();
+    // 由存储决定最终的 previewUrl（写盘后指向文件，内存实现用 data URL）。
+    const assets = pending.map((entry) => this.store.saveAsset(entry.asset, entry.bytes));
 
     this.commit(
       applyTransition(
@@ -499,21 +465,7 @@ export class ImageGenerationService {
     );
   }
 
-  private recomputeBudget(): void {
-    this.budget = {
-      currency: "USD",
-      spent: this.store.spent(),
-      ...(this.sessionBudget.limit === undefined ? {} : { limit: this.sessionBudget.limit }),
-    };
-  }
 
-  private budgetStatus(): BudgetStatus {
-    return this.budget ?? {
-      currency: "USD",
-      spent: this.store.spent(),
-      ...(this.sessionBudget.limit === undefined ? {} : { limit: this.sessionBudget.limit }),
-    };
-  }
 }
 
 function isTerminal(status: ImageJob["status"]): boolean {
@@ -575,7 +527,8 @@ function validateImage(
       height: size.height,
       prompt: job.prompt,
       ...(job.agentPrompt === undefined ? {} : { agentPrompt: job.agentPrompt }),
-      previewUrl: `data:image/png;base64,${bytes.toString("base64")}`,
+      // 预览地址由存储决定；这里先留空。
+      previewUrl: "",
       createdAt,
     },
   };

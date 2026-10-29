@@ -8,8 +8,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { AppEnvironment } from "../../shared/app-shell.ts";
 import type { ProviderSettingsView } from "../../shared/provider-settings.ts";
 import { ApiSettingsPanel } from "./ApiSettingsPanel.tsx";
+import { LibrarySettingsPanel } from "./LibrarySettingsPanel.tsx";
 
-export type SettingsTab = "api" | "appearance" | "about";
+export type SettingsTab = "api" | "appearance" | "storage" | "about";
 
 export interface SettingsDialogProps {
   readonly initialTab: SettingsTab;
@@ -26,6 +27,7 @@ export interface SettingsDialogProps {
 const TABS: readonly { readonly id: SettingsTab; readonly label: string }[] = [
   { id: "api", label: "API 设置" },
   { id: "appearance", label: "外观设置" },
+  { id: "storage", label: "存储" },
   { id: "about", label: "关于" },
 ];
 
@@ -176,6 +178,8 @@ export function SettingsDialog({
                 <p className="field__hint">\n                  「跟随系统」会随操作系统的浅色/深色设置自动切换。外观只保存在本机页面存储里，不影响生成结果。\n                </p>
               </section>
             )}
+
+            {tab === "storage" && <LibrarySettingsPanel />}
 
             {tab === "about" && (
               <section className="settings__section" aria-label="关于">

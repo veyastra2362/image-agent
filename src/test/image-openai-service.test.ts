@@ -113,9 +113,7 @@ test("真实链路：提交 → 上游调用 → 图片落库 → succeeded", as
   const job = await waitForTerminal(service, created.event.job.id);
   assert.equal(job.status, "succeeded");
   assert.equal(job.assetIds.length, 2);
-  // 上游没给价格，就不能编一个出来。
-  assert.equal(job.estimatedCost, undefined);
-  assert.equal(job.billableImages, 2);
+
   for (const assetId of job.assetIds) assert.ok(store.getAsset(assetId));
 
   const call = seen.find((entry) => entry.url === "/v1/images/generations");

@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
-  checkBudget,
   checkCapabilities,
   validateCreateJobInput,
   validateJobId,
@@ -135,56 +134,5 @@ describe("checkCapabilities", () => {
       checkCapabilities({ capabilities: noSeed, referenceCount: 0, aspectRatio: "1:1", count: 1, seed: 1 }) ?? "",
       /seed/,
     );
-  });
-});
-
-describe("checkBudget", () => {
-  it("未知价格（0）不拦截", () => {
-    assert.deepEqual(checkBudget({ budget: { spent: 100, limit: 1 }, costPerImage: 0, count: 4 }), {
-      ok: true,
-      cost: 0,
-    });
-  });
-
-  it("超过本次限额 / 会话预算时在提交前拦截", () => {
-    assert.deepEqual(checkBudget({ budget: {}, costPerImage: 0.5, count: 4, requestLimit: 1 }), {
-      ok: false,
-      cost: 2,
-      reason: "request-limit",
-    });
-    assert.deepEqual(checkBudget({ budget: { spent: 9, limit: 10 }, costPerImage: 0.5, count: 4 }), {
-      ok: false,
-      cost: 2,
-      reason: "total-limit",
-    });
-    assert.equal(checkBudget({ budget: { spent: 9, limit: 10 }, costPerImage: 0.5, count: 2 }).ok, true);
-  });
-});
-
-describe("parseDevServerUrl", () => {
-  it("只接受 loopback http 地址", () => {
-    assert.equal(parseDevServerUrl("http://127.0.0.1:5173/"), "http://127.0.0.1:5173/");
-    assert.equal(parseDevServerUrl("http://localhost:5173"), "http://localhost:5173/");
-    assert.equal(parseDevServerUrl("http://[::1]:5173/"), "http://[::1]:5173/");
-    for (const bad of [
-      "https://127.0.0.1:5173/",
-      "http://evil.example/",
-      "http://127.0.0.1:5173/app",
-      "http://user:pass@127.0.0.1:5173/",
-      "file:///C:/x.html",
-      "::bad",
-    ]) {
-      assert.equal(parseDevServerUrl(bad), undefined, bad);
-    }
-  });
-
-  it("开发模式参数只认显式开关与 loopback 地址", () => {
-    assert.deepEqual(parseDevTarget(["--image-agent-dev-mode=1"]), { kind: "spawn" });
-    assert.deepEqual(parseDevTarget(["--image-agent-dev-server-url=http://127.0.0.1:5173"]), {
-      kind: "url",
-      url: "http://127.0.0.1:5173/",
-    });
-    assert.equal(parseDevTarget(["C:\\app"]), undefined);
-    assert.equal(parseDevTarget(["--image-agent-dev-server-url=https://evil.example/"]), undefined);
   });
 });

@@ -5,7 +5,6 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
-  BudgetStatus,
   ImageBootstrap,
   ImageRequestResult,
   ImageTaskEvent,
@@ -29,7 +28,6 @@ export interface ImageAgentState {
   readonly loadError?: string;
   readonly models: readonly ProviderRef[];
   readonly jobs: readonly ImageTaskEvent[];
-  readonly budget?: BudgetStatus;
   readonly toasts: readonly ToastItem[];
   readonly remembered: readonly RememberedAsset[];
   readonly submit: (input: unknown) => Promise<{ ok: boolean; message?: string }>;
@@ -61,7 +59,6 @@ export function useImageAgent(): ImageAgentState {
   const [loadError, setLoadError] = useState<string>();
   const [models, setModels] = useState<readonly ProviderRef[]>([]);
   const [jobs, setJobs] = useState<readonly ImageTaskEvent[]>([]);
-  const [budget, setBudget] = useState<BudgetStatus>();
   const [toasts, setToasts] = useState<readonly ToastItem[]>([]);
   const [remembered, setRemembered] = useState<readonly RememberedAsset[]>([]);
   const [selectedAssetId, setSelectedAssetId] = useState<string>();
@@ -111,7 +108,6 @@ export function useImageAgent(): ImageAgentState {
       .then((bootstrap: ImageBootstrap) => {
         if (disposed) return;
         setModels(bootstrap.providers);
-        setBudget(bootstrap.budget);
         setJobs(bootstrap.jobs);
         jobsRef.current = bootstrap.jobs;
         const known = new Set(bootstrap.jobs.flatMap((entry) => entry.assets.map((asset) => asset.id)));
@@ -180,7 +176,6 @@ export function useImageAgent(): ImageAgentState {
     ...(loadError === undefined ? {} : { loadError }),
     models,
     jobs,
-    ...(budget === undefined ? {} : { budget }),
     toasts,
     remembered,
     submit,

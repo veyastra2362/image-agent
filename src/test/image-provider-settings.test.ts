@@ -79,37 +79,53 @@ test("partial_images 只在 流式 + Responses 时生效", () => {
 test("持久化：保存后能读回，密钥不回显在 view 里", () => {
   const { store } = memoryStore();
   store.load();
-  assert.deepEqual(store.settings, DEFAULT_PROVIDER_SETTINGS);
-  assert.equal(store.view(false).hasApiKey, false);
+  const active = store.active;
+  assert.deepEqual(
+    { kind: active.kind, baseUrl: active.baseUrl, models: active.models },
+    { kind: DEFAULT_PROVIDER_SETTINGS.kind, baseUrl: DEFAULT_PROVIDER_SETTINGS.baseUrl, models: DEFAULT_PROVIDER_SETTINGS.models },
+  );
+  assert.equal(store.view(false).keys[active.id]?.hasApiKey, false);
 
-  store.saveSettings(valid);
-  store.setApiKey("sk-secret-1");
+  store.upsert({ ...valid, id: active.id, label: "主服务" });
+  store.setApiKey(active.id, "sk-secret-1");
 
   const reopened = new ProviderSettingsStore({
     dir: "C:\\fake\\userData",
-    readFile: () => JSON.stringify({ version: 1, settings: valid, apiKey: "sk-secret-1" }),
+    readFile: () =>
+      JSON.stringify({
+        version: 3,
+        profiles: [{ ...valid, id: "default", label: "主服务" }],
+        activeId: "default",
+        keys: { default: { plain: "sk-secret-1" } },
+      }),
   });
   reopened.load();
-  assert.deepEqual(reopened.settings, valid);
-  assert.equal(reopened.view(false).hasApiKey, true);
-  assert.equal(reopened.view(false).apiKeyFromEnv, false);
-  assert.equal(reopened.view(true).apiKeyFromEnv, true);
+  assert.equal(reopened.active.baseUrl, valid.baseUrl);
+  assert.equal(reopened.view(false).keys.default?.hasApiKey, true);
+  assert.equal(reopened.view(false).keys.default?.apiKeyFromEnv, false);
+  assert.equal(reopened.view(true).keys.default?.apiKeyFromEnv, true);
   assert.equal(JSON.stringify(reopened.view(false)).includes("sk-secret-1"), false, "view 不能带密钥");
-  assert.equal(reopened.keyFingerprint()?.length, 12);
+  assert.equal(reopened.keyFingerprint("default")?.length, 12);
 });
 
 test("持久化：损坏或越界的文件退回默认值而不是崩溃", () => {
-  for (const raw of ["not json", "{}", JSON.stringify({ settings: { ...valid, partialImages: 9 } })]) {
+  for (const raw of [
+    "not json",
+    "{}",
+    JSON.stringify({ version: 3, profiles: [{ ...valid, id: "default", label: "x", partialImages: 9 }], activeId: "default", keys: {} }),
+  ]) {
     const store = new ProviderSettingsStore({ dir: "C:\\fake", readFile: () => raw });
     store.load();
-    assert.deepEqual(store.settings, DEFAULT_PROVIDER_SETTINGS, raw);
+    assert.equal(store.profiles.length, 1, raw);
+    assert.equal(store.profiles[0]?.partialImages, DEFAULT_PROVIDER_SETTINGS.partialImages, raw);
   }
 });
 
-test("持久化：明文里只有用户选择的设置与密钥，不写其他东西", () => {
+test("持久化：文件里只有用户选择的设置与密钥，不写其他东西", () => {
   const { store, files } = memoryStore();
-  store.saveSettings(valid);
-  store.setApiKey("sk-secret-2");
+  const active = store.active;
+  store.upsert({ ...valid, id: active.id, label: "主服务" });
+  store.setApiKey(active.id, "sk-secret-2");
   const written = [...files.values()].join("\n");
   assert.ok(written.includes("sk-secret-2"));
   assert.ok(written.includes("https://api.example.com/v1"));

@@ -28,8 +28,6 @@ export interface OpenAICompatibleModelSpec {
   readonly id: string;
   readonly displayName: string;
   /** 每张图费用；上游未提供时省略，界面显示"上游未提供"。 */
-  readonly costPerImage?: number;
-  readonly currency?: string;
 }
 
 export interface OpenAICompatibleOptions {
@@ -148,17 +146,14 @@ export class OpenAICompatibleProvider implements ImageProvider {
       id: options.id ?? "openai-images",
       displayName: options.displayName ?? "OpenAI 兼容图片服务",
       description:
-        options.description ?? "调用你自己配置的 OpenAI 兼容接口；提示词与参考图会上传到该服务商，按张计费。",
+        options.description ?? "调用你自己配置的 OpenAI 兼容接口；提示词会发送到该服务商。",
       defaultModel,
       models: options.models.map<ProviderModel>((spec) => ({
         id: spec.id,
         displayName: spec.displayName,
         capabilities: CAPABILITIES,
-        ...(spec.costPerImage === undefined ? {} : { costPerImage: spec.costPerImage }),
-        ...(spec.currency === undefined ? {} : { currency: spec.currency }),
       })),
       uploadsUserAssets: false,
-      billable: true,
     };
   }
 

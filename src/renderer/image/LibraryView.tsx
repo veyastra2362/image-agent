@@ -26,7 +26,7 @@ export function LibraryView({ state, onOpenAsset }: LibraryViewProps) {
       <header className="page__head">
         <h2 id="library-title">作品库</h2>
         <span className="page__meta">
-          {assets.length} 张本会话作品
+          {assets.length} 张作品（已保存到本地文件夹）
           {historyOnly.length > 0 ? ` · ${historyOnly.length} 张历史记忆` : ""}
         </span>
       </header>
@@ -152,14 +152,7 @@ export function ProviderView({ models, state }: ProviderViewProps) {
                         <dt>输出格式</dt>
                         <dd>{caps.transcode ? "PNG / JPEG / WebP" : "仅 PNG"}</dd>
                       </div>
-                      <div className="fact">
-                        <dt>费用</dt>
-                        <dd>
-                          {model.costPerImage && model.currency
-                            ? `${model.costPerImage} ${model.currency}/张`
-                            : "上游未提供"}
-                        </dd>
-                      </div>
+
                     </dl>
                   </li>
                 );
@@ -168,9 +161,7 @@ export function ProviderView({ models, state }: ProviderViewProps) {
           </article>
         ))
       )}
-      <p className="field__hint">
-        本会话已产生 {state.budget?.spent.toFixed(4) ?? "0"} {state.budget?.currency ?? ""}（仅统计有价格的服务）。
-      </p>
+
     </section>
   );
 }
