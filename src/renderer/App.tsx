@@ -115,7 +115,10 @@ export function App() {
   );
 
   return (
-    <div className="app">
+    // ComposerProvider 必须包在视图切换之外：切到作品库再切回来时，
+    // 画面/参考图/提示词这些草稿不能重置。
+    <ComposerProvider state={state} models={state.models} onSubmitted={() => undefined} focusPromptToken={focusPrompt}>
+      <div className="app">
       <header className="titlebar" onDoubleClick={handleDoubleClick}>
         <div className="titlebar__lead">
           <button
@@ -191,12 +194,6 @@ export function App() {
       </header>
 
       {view === "create" && (
-        <ComposerProvider
-          state={state}
-          models={state.models}
-          onSubmitted={() => undefined}
-          focusPromptToken={focusPrompt}
-        >
           <div className={`shell ${appearance.sidebarCollapsed ? "is-collapsed" : ""}`}>
             <aside className="sidebar" aria-label="创作配置">
               <ConfigSidebar onCollapse={() => setAppearance((current) => ({ ...current, sidebarCollapsed: true }))} />
@@ -208,7 +205,6 @@ export function App() {
               <PromptDock />
             </main>
           </div>
-        </ComposerProvider>
       )}
 
       {view === "library" && (
@@ -259,6 +255,7 @@ export function App() {
           </div>
         ))}
       </div>
-    </div>
+      </div>
+    </ComposerProvider>
   );
 }

@@ -3,8 +3,6 @@
  *
  * 提示词在右下角的输入框里，这里只放"参数"。
  */
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { LIMITS } from "../../shared/image-generation.ts";
 import { FORMAT_LABELS } from "../lib/output-spec.ts";
 import { useComposer } from "./composer-state.tsx";
@@ -46,57 +44,8 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
     prompt,
   } = useComposer();
 
-  // 悬停 1.5 秒才弹出大图预览，避免只是划过去就闪一下。
-  // 菜单展开时不弹（菜单里本身有缩略图）；点选之后也要重新悬停才会再弹。
-  const [peek, setPeek] = useState<{ x: number; y: number }>();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const peekTimer = useRef<number | undefined>(undefined);
-
-  const cancelPeek = () => {
-    window.clearTimeout(peekTimer.current);
-    setPeek(undefined);
-  };
-
-  const fieldRef = useRef<HTMLDivElement>(null);
-  const menuOpenRef = useRef(false);
-  menuOpenRef.current = menuOpen;
-
-  /** 进入这一格的时刻；配合 mousemove 兜底，手抖也不会把计时清零。 */
-  const enteredAt = useRef(0);
-
-  const showPeek = () => {
-    const el = fieldRef.current;
-    if (!el || menuOpenRef.current) return;
-    const rect = el.getBoundingClientRect();
-    setPeek({ x: rect.right + 10, y: rect.top });
-  };
-
-  const startPeek = () => {
-    enteredAt.current = performance.now();
-    window.clearTimeout(peekTimer.current);
-    // 主路径：进入后静止 1.5 秒就弹。
-    peekTimer.current = window.setTimeout(showPeek, 1500);
-  };
-
-  /** 指针在格子里移动时也检查一次：静止计时被浏览器节流时还有这条路。 */
-  const movePeek = () => {
-    if (menuOpenRef.current) return;
-    if (peek !== undefined) return;
-    if (enteredAt.current === 0) enteredAt.current = performance.now();
-    if (performance.now() - enteredAt.current >= 1500) showPeek();
-  };
-
-  const stopPeek = () => {
-    window.clearTimeout(peekTimer.current);
-    setPeek(undefined);
-  };
-
-  // 选中项变化（例如刚点完某个选项）时收起大图，必须重新移入才再出现。
-  useEffect(() => {
-    window.clearTimeout(peekTimer.current);
-    setPeek(undefined);
-  }, [references.length]);
-
+  // 悬停 1.5 秒把缩略图放大：纯 CSS（:hover + transition-delay），
+  // 之前用 JS 计时器 + portal，被重渲染打断后就不再出现。
   return (
     <div className="sidebar__body">
       <div className="sidebar__head">
@@ -165,14 +114,7 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
         </button>
       </div>
 
-      <div
-        ref={fieldRef}
-        className="field ref-field"
-        onMouseEnter={startPeek}
-        onMouseMove={movePeek}
-        onMouseLeave={stopPeek}
-        onMouseDown={stopPeek}
-      >
+      <div className="field ref-field">
         <span className="field__label">
           参考图
           {references.length > 0 && (
@@ -190,10 +132,7 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
           onChange={(next) => {
             if (next !== "") setReferenceFromAsset(next);
           }}
-          onOpenChange={(open) => {
-            setMenuOpen(open);
-            if (open) cancelPeek();
-          }}
+
           leading={
             references[0] === undefined ? undefined : (
               <img className="ref-field__thumb" src={references[0].src} alt="" />
@@ -212,17 +151,7 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
           <span className="field__hint">生成第一张图后，可以从作品库选一张作为参考图继续修改。</span>
         )}
       </div>
-      {peek !== undefined && references[0] !== undefined && (
-        createPortal(
-          <div className="ref-peek" style={{ left: peek.x, top: peek.y }} role="presentation">
-            <img src={references[0].src} alt="参考图预览" />
-            <span>
-              {references[0].width}×{references[0].height} · 共 {references.length} 张
-            </span>
-          </div>,
-          document.body,
-        )
-      )}
+
 
       <details className="advanced">
         <summary>高级设置</summary>

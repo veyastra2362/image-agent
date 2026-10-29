@@ -2518,40 +2518,25 @@ code {
   object-fit: cover;
 }
 
-/* 悬停 1.5 秒后浮出的大图预览 */
-.ref-peek {
-  position: fixed;
-  z-index: 130;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 6px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
-  background: var(--bg-elevated);
-  box-shadow: 0 18px 40px rgb(0 0 0 / 45%);
-  pointer-events: none;
-  animation: ref-peek-in 120ms ease-out;
+/* 悬停 1.5 秒：缩略图原地放大成预览（纯 CSS，不依赖 JS 计时器） */
+.ref-field {
+  position: relative;
 }
 
-.ref-peek img {
-  display: block;
-  width: 180px;
-  height: 180px;
-  object-fit: cover;
-  border-radius: var(--radius-sm);
+.ref-field .ref-field__thumb {
+  position: relative;
+  z-index: 6;
+  transform-origin: left center;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease;
 }
 
-.ref-peek span {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-faint);
-  text-align: center;
-}
-
-@keyframes ref-peek-in {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+.ref-field:hover .ref-field__thumb {
+  transform: scale(3.1);
+  box-shadow: 0 14px 36px rgb(0 0 0 / 55%);
+  transition-delay: 1.5s;
+  transition-duration: 200ms;
 }
 
 /* 参考图还能加几张的提示 */
