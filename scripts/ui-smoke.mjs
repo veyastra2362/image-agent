@@ -166,7 +166,8 @@ async function run() {
   await sleep(200);
   await setPrompt("异步任务取消测试");
   await js("document.querySelector('form.composer button[type=\"submit\"]').click(); true");
-  await waitFor("document.querySelector('.active-job')", "异步任务进行中", 8000).catch(async (error) => {
+  // 主进程若恰好正在建窗口，页面可能被刷新、executeJavaScript 会抛错；waitFor 本身会重试到超时。
+  await waitFor("document.querySelector('.active-job')", "异步任务进行中", 15000).catch(async (error) => {
     page = await js("document.body.innerText.slice(0, 600)");
     throw error;
   });

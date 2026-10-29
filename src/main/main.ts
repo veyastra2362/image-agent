@@ -71,7 +71,12 @@ function start(): void {
     mainWindow = createWindow();
 
     app.on("activate", () => {
-      if (BrowserWindow.getAllWindows().length === 0) mainWindow = createWindow();
+      // 没有存活窗口才新建：避免 macOS 上出两个主窗口、状态各走一份。
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.focus();
+        return;
+      }
+      mainWindow = createWindow();
     });
   });
 
