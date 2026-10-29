@@ -6,7 +6,7 @@
  * 也拿不到任意 invoke。
  */
 import type { ImageAgentApi as ImageAgentIpcApi } from "./image-generation.ts";
-import type { AppEnvironment, WindowControls } from "./app-shell.ts";
+import type { AppEnvironment, EditAction, WindowControls } from "./app-shell.ts";
 import type { ChooseLibraryDirResult, LibrarySettingsView } from "./library.ts";
 import type { ModelFetchResult, ProviderProfile, ProviderSettingsView, ProviderTestResult } from "./provider-settings.ts";
 
@@ -19,7 +19,11 @@ declare global {
     /** 自绘标题栏的窗口控制；不可用时（例如浏览器里）为 undefined。 */
     readonly appWindow?: WindowControls;
     /** 版本与配置状态；不含任何密钥。 */
-    readonly appInfo?: { readonly environment: () => Promise<AppEnvironment> };
+    readonly appInfo?: {
+      readonly environment: () => Promise<AppEnvironment>;
+      /** 编辑命令由 main 转给 webContents，才能作用到当前焦点控件。 */
+      readonly edit: (action: EditAction) => Promise<boolean>;
+    };
     /** 服务商连接设置；返回的视图里永远没有密钥本体。 */
     readonly appSettings?: {
       readonly view: () => Promise<ProviderSettingsView | undefined>;

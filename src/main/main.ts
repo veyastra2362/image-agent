@@ -306,7 +306,9 @@ function createProviders(
         };
 
   // 假 provider 放在最后，真实模型因此成为界面的默认选项。
-  providers.push(new FakeProvider());
+  // 异步模型故意放慢到约 1.2 秒：既让"生成中 / 取消"在界面上真的看得见，
+  // 也让冒烟测试有一个稳定的取消窗口（默认瞬间完成会点不到）。
+  providers.push(new FakeProvider({ pollRounds: 3, pollIntervalMs: 400 }));
   return providers;
 }
 function normalizeForCompare(url: string): string {

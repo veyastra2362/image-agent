@@ -7,7 +7,7 @@
 import { app, ipcMain, type IpcMainInvokeEvent } from "electron";
 import type { BrowserWindow } from "electron";
 import type { AppEnvironment } from "@shared/app-shell";
-import { APP_CHANNEL } from "@shared/app-shell";
+import { APP_CHANNEL, EDIT_CHANNEL, isEditAction } from "@shared/app-shell";
 
 export interface EnvironmentSource {
   readonly providerConfigured: boolean;
@@ -40,5 +40,38 @@ export function registerAppIpc(
     };
   });
 
-  return () => ipcMain.removeHandler(APP_CHANNEL);
+  // 编辑菜单：必须走 webContents，才能作用在渲染进程当前聚焦的输入框上。
+  ipcMain.handle(EDIT_CHANNEL, (event, raw: unknown): boolean => {
+    if (!trusted(event)) return false;
+    if (!isEditAction(raw)) return false;
+    const contents = event.sender;
+    switch (raw) {
+      case "undo":
+        contents.undo();
+        return true;
+      case "redo":
+        contents.redo();
+        return true;
+      case "cut":
+        contents.cut();
+        return true;
+      case "copy":
+        contents.copy();
+        return true;
+      case "paste":
+        contents.paste();
+        return true;
+      case "delete":
+        contents.delete();
+        return true;
+      case "selectAll":
+        contents.selectAll();
+        return true;
+    }
+  });
+
+  return () => {
+    ipcMain.removeHandler(APP_CHANNEL);
+    ipcMain.removeHandler(EDIT_CHANNEL);
+  };
 }

@@ -28,3 +28,14 @@ export interface AppEnvironment {
 }
 
 export const APP_CHANNEL = "app:environment";
+
+/** 自绘菜单里的"编辑"动作：交给 Electron 处理，才能作用到当前焦点控件。 */
+export const EDIT_ACTIONS = ["undo", "redo", "cut", "copy", "paste", "delete", "selectAll"] as const;
+
+export type EditAction = (typeof EDIT_ACTIONS)[number];
+
+export const EDIT_CHANNEL = "app:edit";
+
+export function isEditAction(value: unknown): value is EditAction {
+  return typeof value === "string" && (EDIT_ACTIONS as readonly string[]).includes(value);
+}

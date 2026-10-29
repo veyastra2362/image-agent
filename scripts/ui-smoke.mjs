@@ -97,7 +97,7 @@ async function shot(name) {
 
 async function setPrompt(text) {
   await js(
-    "(() => { const el = document.querySelector('textarea.field__input--prompt'); const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set; setter.call(el, " +
+    "(() => { const el = document.querySelector('textarea.dock__input'); const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set; setter.call(el, " +
       JSON.stringify(text) +
       "); el.dispatchEvent(new Event('input', { bubbles: true })); return true; })()",
   );
@@ -105,7 +105,7 @@ async function setPrompt(text) {
 
 async function selectModel(fragment) {
   return js(
-    "(() => { const s = document.querySelector('.field select'); const o = [...s.options].find((x) => x.textContent.includes(" +
+    "(() => { const s = document.querySelector('.sidebar select'); const o = [...s.options].find((x) => x.textContent.includes(" +
       JSON.stringify(fragment) +
       ")); if (!o) return false; const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set; setter.call(s, o.value); s.dispatchEvent(new Event('change', { bubbles: true })); return true; })()",
   );
@@ -127,7 +127,7 @@ async function run() {
 
   win.focus();
   // 页面由应用自己加载；等它挂载出 React 根节点再看后面的断言。
-  await waitFor("document.querySelector('.titlebar') || document.querySelector('.composer')", "renderer 挂载", 20000).catch(
+  await waitFor("document.querySelector('.titlebar') || document.querySelector('.dock')", "renderer 挂载", 20000).catch(
     () => undefined,
   );
   await sleep(500);
@@ -153,6 +153,36 @@ async function run() {
   // ---- 标题栏：没有原生菜单，导航可点 ----
   const menuProbe = await js("({ menu: typeof window.appWindow, nav: document.querySelectorAll('.titlebar__nav .navitem').length })");
   check("preload 暴露自绘标题栏控制", menuProbe.menu === "object", menuProbe);
+  // 顶部菜单：应用 / 编辑，编辑项要能点开
+  const menuButtons = await js("[...document.querySelectorAll('.menubar__button')].map((n) => n.textContent)");
+  check("顶部有应用与编辑菜单", JSON.stringify(menuButtons) === JSON.stringify(["应用", "编辑"]), menuButtons);
+  await js("(() => { [...document.querySelectorAll('.menubar__button')].find((n) => n.textContent === '编辑').click(); return true; })()");
+  await waitFor("document.querySelector('.menu')", "编辑菜单展开");
+  await shot("00-edit-menu");
+  const editItems = await js("[...document.querySelectorAll('.menu__item')].map((n) => n.textContent.replace(/\\s+/g, ' ').trim())");
+  check(
+    "编辑菜单含撤销/重做/剪切/复制/粘贴/删除/全选",
+    ["撤销", "重做", "剪切", "复制", "粘贴", "删除", "全选"].every((label) => editItems.some((item) => item.startsWith(label))),
+    editItems,
+  );
+  check("编辑动作走 main（返回 true）", (await js("window.appInfo.edit('selectAll')")) === true, "");
+  // 全选只用于证明动作可达，清掉选区免得后面的截图整片高亮。
+  await js("window.getSelection().removeAllRanges(); true");
+  await js("window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); true");
+  await sleep(150);
+  check("Esc 关闭菜单", !(await js("Boolean(document.querySelector('.menu'))")), "");
+
+  // 应用菜单能打开设置
+  await js("(() => { [...document.querySelectorAll('.menubar__button')].find((n) => n.textContent === '应用').click(); return true; })()");
+  await waitFor("document.querySelector('.menu')", "应用菜单展开");
+  const appMenuText = await js("document.querySelector('.menu').innerText");
+  check("应用菜单含设置/打开作品文件夹/退出", /设置/.test(appMenuText) && /作品文件夹/.test(appMenuText) && /退出/.test(appMenuText), appMenuText);
+  await js("(() => { [...document.querySelectorAll('.menu__item')].find((n) => n.textContent.includes('设置')).click(); return true; })()");
+  await waitFor("document.querySelector('.settings')", "从菜单打开设置");
+  check("菜单能打开设置", true, "");
+  await js("window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); true");
+  await sleep(250);
+
   const navItems = await js("[...document.querySelectorAll('.titlebar__nav .navitem')].map((n) => n.textContent)");
   check("标题栏含三个导航项", navItems.length === 3, navItems);
   check(
@@ -161,13 +191,27 @@ async function run() {
     "",
   );
 
-  await waitFor("document.querySelector('.composer')", "创作表单渲染");
-  const modelOptions = await js("[...document.querySelectorAll('.field select option')].map((o) => o.textContent)");
+  await waitFor("document.querySelector('.dock')", "创作表单渲染");
+  const modelOptions = await js("[...document.querySelectorAll('.sidebar select option')].map((o) => o.textContent)");
   check("模型列表来自 main", modelOptions.some((text) => text && text.includes("Fake Sync 1")), modelOptions);
+  // 布局：配置在左侧栏，提示词输入框在右下
+  const layout = await js(
+    "(() => {" +
+      "const box = (sel) => { const el = document.querySelector(sel); if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height), bottom: Math.round(r.bottom) }; };" +
+      "return { sidebar: box('.sidebar'), dock: box('.dock'), canvas: box('.canvas'), win: [window.innerWidth, window.innerHeight] };" +
+      "})()",
+  );
+  check("左侧是配置栏", layout.sidebar !== null && layout.sidebar.x === 0 && layout.sidebar.w > 200, layout.sidebar);
+  check(
+    "提示词输入框在右下（画布下方、靠窗口底部）",
+    layout.dock !== null && layout.dock.y > layout.sidebar.y + 200 && layout.dock.bottom > layout.win[1] - 12,
+    layout.dock,
+  );
+  check("输入框在右半边", layout.dock !== null && layout.dock.x >= (layout.sidebar?.w ?? 0), layout.dock);
   await shot("01-empty-state");
 
   // ---- 同步模型 ----
-  await js("document.querySelector('form.composer button[type=\"submit\"]').click(); true");
+  await js("document.querySelector('form.dock button[type=\"submit\"]').click(); true");
   await waitFor("document.querySelector('.result-grid img')", "结果图片出现");
   const resultCount = await js("document.querySelectorAll('.result-grid img').length");
   check("生成结果进入画布", resultCount === 1, resultCount);
@@ -199,12 +243,13 @@ async function run() {
   check("切换到异步模型", (await selectModel("Fake Async 1")) === true, "");
   await sleep(200);
   await setPrompt("异步任务取消测试");
-  await js("document.querySelector('form.composer button[type=\"submit\"]').click(); true");
+  await js("document.querySelector('form.dock button[type=\"submit\"]').click(); true");
   // 主进程若恰好正在建窗口，页面可能被刷新、executeJavaScript 会抛错；waitFor 本身会重试到超时。
   await waitFor("document.querySelector('.active-job')", "异步任务进行中", 15000).catch(async (error) => {
     page = await js("document.body.innerText.slice(0, 600)");
     throw error;
   });
+  await sleep(300);
   await shot("04-async-running");
   await waitFor("document.querySelector('.active-job .button--ghost')", "出现停止按钮", 8000);
   await js("document.querySelector('.active-job .button--ghost').click(); true");
@@ -215,7 +260,7 @@ async function run() {
 
   // ---- 参考图：已有作品可作为参考图来源 ----
   const referenceOptions = await js(
-    "(() => { const s = [...document.querySelectorAll('.field select')].find((x) => [...x.options].some((o) => o.textContent.includes('不使用参考图'))); return s ? s.options.length : 0; })()",
+    "(() => { const s = [...document.querySelectorAll('.sidebar select')].find((x) => [...x.options].some((o) => o.textContent.includes('不使用参考图'))); return s ? s.options.length : 0; })()",
   );
   check("作品可作为参考图来源", referenceOptions > 1, referenceOptions);
 
@@ -317,7 +362,7 @@ async function run() {
   check("服务商页列出服务", providerCards >= 1, providerCards);
   await shot("12-providers");
   await js("(() => { [...document.querySelectorAll('.navitem')].find((n) => n.textContent.includes('创作')).click(); return true; })()");
-  await waitFor("document.querySelector('.composer')", "回到创作页");
+  await waitFor("document.querySelector('.dock')", "回到创作页");
 
   // ---- 失败态（main 边界拒绝）：篡改提交参数 ----
   const reject = await js(

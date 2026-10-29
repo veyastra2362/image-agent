@@ -48,7 +48,7 @@ export function ResultCanvas({ state, onOpenAsset }: ResultCanvasProps) {
         <div className="empty">
           <p className="empty__title">还没有作品</p>
           <p className="empty__body">
-            左侧输入一句描述，选择模型后点「生成」。当前只有离线假服务，它返回固定的测试图片，不联网。
+            在下方输入一句描述，左侧选好模型后点「生成」。当前只有离线假服务，它返回固定的测试图片，不联网。
           </p>
         </div>
       )}

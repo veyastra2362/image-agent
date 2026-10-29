@@ -1,19 +1,21 @@
 /**
- * 应用外壳：自绘标题栏（拖拽区 + 设置 + 窗口按钮）、左侧导航、三个页面。
+ * 应用外壳：自绘标题栏（菜单 + 导航 + 窗口按钮）、左侧配置栏、右侧画布与提示词输入框。
  *
- * 系统菜单已被去掉（Menu.setApplicationMenu(null)），标题栏与操作栏合成这一行：
- * 左边是应用名和导航，右边是设置与最小化/最大化/关闭。
+ * 系统菜单已被去掉（Menu.setApplicationMenu(null)），"应用 / 编辑"由 MenuBar 自绘。
  */
 import { useCallback, useEffect, useState } from "react";
 import type { AppEnvironment } from "../shared/app-shell.ts";
 import { applyAppearance, loadAppearance, saveAppearance, type Appearance } from "./lib/appearance.ts";
-import { Composer } from "./image/Composer.tsx";
+import { ComposerProvider } from "./image/composer-state.tsx";
+import { ConfigSidebar } from "./image/ConfigSidebar.tsx";
 import { DetailsDrawer } from "./image/DetailsDrawer.tsx";
 import { JobList } from "./image/JobList.tsx";
 import { LibraryView, ProviderView } from "./image/LibraryView.tsx";
+import { PromptDock } from "./image/PromptDock.tsx";
 import { ResultCanvas } from "./image/ResultCanvas.tsx";
 import { useImageAgent } from "./image/use-image-agent.ts";
 import { SettingsDialog, type SettingsTab } from "./settings/SettingsDialog.tsx";
+import { MenuBar } from "./shell/MenuBar.tsx";
 
 type View = "create" | "library" | "providers";
 
@@ -75,7 +77,11 @@ export function App() {
           <span className="titlebar__mark" aria-hidden="true">
             IA
           </span>
-          <span className="titlebar__name">Image Agent</span>
+          <MenuBar
+            onOpenSettings={() => setSettingsTab("api")}
+            onOpenLibraryFolder={() => void window.appLibrary?.openDir()}
+            onQuit={() => void window.appWindow?.close()}
+          />
         </div>
 
         <nav className="titlebar__nav" aria-label="主导航">
@@ -135,22 +141,24 @@ export function App() {
       </header>
 
       {view === "create" && (
-        <div className="shell">
-          <aside className="panel" aria-label="创作参数">
-            <Composer
-              focusPromptToken={focusPrompt}
-              state={state}
-              models={state.models}
-              onSubmitted={() => undefined}
-              onOpenLastResult={() => state.latestAssetId && state.openAsset(state.latestAssetId)}
-            />
-            <JobList state={state} onOpenAsset={state.openAsset} />
-          </aside>
+        <ComposerProvider
+          state={state}
+          models={state.models}
+          onSubmitted={() => undefined}
+          focusPromptToken={focusPrompt}
+        >
+          <div className="shell">
+            <aside className="sidebar" aria-label="创作配置">
+              <ConfigSidebar />
+              <JobList state={state} onOpenAsset={state.openAsset} />
+            </aside>
 
-          <main className="workspace">
-            <ResultCanvas state={state} onOpenAsset={state.openAsset} />
-          </main>
-        </div>
+            <main className="workspace">
+              <ResultCanvas state={state} onOpenAsset={state.openAsset} />
+              <PromptDock />
+            </main>
+          </div>
+        </ComposerProvider>
       )}
 
       {view === "library" && (
@@ -185,12 +193,7 @@ export function App() {
         {state.toasts.map((toast) => (
           <div key={toast.id} className={`toast toast--${toast.level}`} role="status">
             <span>{toast.message}</span>
-            <button
-              type="button"
-              className="toast__close"
-              onClick={() => state.dismissToast(toast.id)}
-              aria-label="关闭提示"
-            >
+            <button type="button" className="toast__close" onClick={() => state.dismissToast(toast.id)} aria-label="关闭提示">
               ×
             </button>
           </div>

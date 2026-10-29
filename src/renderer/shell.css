@@ -526,14 +526,20 @@ code {
 
 /* ---------------------------------------------------------------- 页面 */
 
+/* 作品库 / 服务商是整页视图：自己滚动，并留出页面边距。 */
 .workspace--page {
   background: var(--bg);
+  display: block;
+  overflow-y: auto;
+  padding: var(--space-5) var(--space-6);
 }
 
 .page {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  /* 有 margin:auto 的 flex 子项不会自动撑满，必须显式给宽度。 */
+  width: 100%;
   max-width: 1180px;
   margin: 0 auto;
 }
@@ -1069,4 +1075,219 @@ code {
   padding: 4px 10px;
   font-size: var(--fs-md);
   line-height: 1;
+}
+
+/* ---------------------------------------------------------------- 顶部菜单 */
+
+.menubar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  -webkit-app-region: no-drag;
+}
+
+.menubar__root {
+  position: relative;
+}
+
+.menubar__button {
+  padding: 3px var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.menubar__button:hover,
+.menubar__button.is-open {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 50;
+  min-width: 190px;
+  padding: var(--space-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  box-shadow: 0 14px 32px rgb(0 0 0 / 45%);
+  -webkit-app-region: no-drag;
+}
+
+.menu__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  width: 100%;
+  padding: 5px var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu__item:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.menu__item:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.menu__shortcut {
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+
+.menu__item:hover:not(:disabled) .menu__shortcut {
+  color: inherit;
+}
+
+.menu__separator {
+  height: 1px;
+  margin: var(--space-1) 0;
+  background: var(--border);
+}
+
+/* ---------------------------------------------------------------- 左侧配置栏 */
+
+.sidebar__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.sidebar__head h2 {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+
+/* 任务列表在配置下方，自己滚动，不抢配置栏的空间。 */
+.sidebar > .joblist {
+  flex: 0 0 auto;
+  max-height: 38%;
+  overflow-y: auto;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+/* ---------------------------------------------------------------- 提示词输入框 */
+
+.workspace {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+
+.workspace > .canvas {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-5) var(--space-6) var(--space-3);
+}
+
+.dock {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border-top: 1px solid var(--border);
+  background: var(--bg-elevated);
+}
+
+.dock__input {
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  color: var(--text);
+  font: inherit;
+  resize: none;
+  line-height: 1.5;
+}
+
+.dock__input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.dock__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.dock__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+}
+
+.dock__chip {
+  padding: 1px var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.dock__chip--muted {
+  color: var(--text-faint);
+}
+
+.dock__count {
+  font-family: var(--font-mono);
+}
+
+/* .button--primary 默认 flex:1，这里要固定宽度。 */
+.dock__submit {
+  flex: 0 0 auto;
+  min-width: 132px;
+}
+
+.dock__messages:empty {
+  display: none;
+}
+
+.dock__messages p {
+  margin: 0;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }

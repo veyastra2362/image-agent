@@ -31,6 +31,7 @@ const WINDOW = {
 
 /** 必须与 src/shared/app-shell.ts 的 APP_CHANNEL 完全一致（由测试校验）。 */
 const APP_CHANNEL = "app:environment";
+const EDIT_CHANNEL = "app:edit";
 
 /** 必须与 src/main/library-ipc.ts 的 LIBRARY_CHANNELS 完全一致（由测试校验）。 */
 const LIBRARY = {
@@ -84,7 +85,8 @@ const windowControls: WindowControls = {
 contextBridge.exposeInMainWorld("appWindow", Object.freeze(windowControls));
 
 const environment = (): Promise<AppEnvironment> => ipcRenderer.invoke(APP_CHANNEL) as Promise<AppEnvironment>;
-contextBridge.exposeInMainWorld("appInfo", Object.freeze({ environment }));
+const edit = (action: string): Promise<boolean> => ipcRenderer.invoke(EDIT_CHANNEL, action) as Promise<boolean>;
+contextBridge.exposeInMainWorld("appInfo", Object.freeze({ environment, edit }));
 
 const settings = {
   view: () => ipcRenderer.invoke(SETTINGS.view),
