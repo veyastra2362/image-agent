@@ -85,7 +85,8 @@ export function Select({
 }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [rect, setRect] = useState<MenuRect>();
-  const [activeIndex, setActiveIndex] = useState(0);
+  // -1 = 还没用键盘/鼠标选中任何行：多选时 value 是空的，不应默认高亮第一行。
+  const [activeIndex, setActiveIndex] = useState(-1);
   const [preview, setPreview] = useState<{ src: string; left: number; top: number }>();
   const previewTimer = useRef<number | undefined>(undefined);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -98,7 +99,7 @@ export function Select({
     const trigger = rootRef.current?.querySelector<HTMLButtonElement>(".select__trigger");
     if (!trigger) return;
     setRect(measure(trigger, options.length));
-    setActiveIndex(Math.max(0, options.findIndex((option) => option.value === value)));
+    setActiveIndex(options.findIndex((option) => option.value === value));
     setOpen(true);
     onOpenChange?.(true);
   };
@@ -166,10 +167,10 @@ export function Select({
     if (!open) return;
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      setActiveIndex((current) => Math.min(current + 1, options.length - 1));
+      setActiveIndex((current) => (current < 0 ? 0 : Math.min(current + 1, options.length - 1)));
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
-      setActiveIndex((current) => Math.max(current - 1, 0));
+      setActiveIndex((current) => (current < 0 ? options.length - 1 : Math.max(current - 1, 0)));
     } else if (event.key === "Enter") {
       event.preventDefault();
       const option = options[activeIndex];
