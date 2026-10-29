@@ -180,7 +180,10 @@ export function validateProviderSettings(raw: unknown): { readonly ok: true; rea
     return { ok: false, error: "不支持的 API 接口类型" };
   }
 
-  const baseUrl = typeof raw.baseUrl === "string" ? normalizeBaseUrlInput(raw.baseUrl) : undefined;
+  // 空地址是"还没填"的正常状态（新建配置就是空的），不能因此判整份文件非法；
+  // 只有填了但不是合法 http(s) 地址才拒绝。
+  const rawBaseUrl = typeof raw.baseUrl === "string" ? raw.baseUrl.trim() : "";
+  const baseUrl = rawBaseUrl === "" ? "" : normalizeBaseUrlInput(rawBaseUrl);
   if (baseUrl === undefined) {
     return { ok: false, error: "API 地址必须是合法的 http(s) URL，且不能带账号密码" };
   }

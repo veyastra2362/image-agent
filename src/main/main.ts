@@ -85,7 +85,7 @@ function start(): void {
     mainWindow.focus();
   });
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
     // 离线假 provider 永远在；真实 provider 只在配置了密钥时出现（见 config.ts）。
     const userData = app.getPath("userData");
     defaultLibraryDir = path.join(app.getPath("pictures"), LIBRARY_DIR_NAME);
@@ -125,7 +125,7 @@ function start(): void {
     });
 
     // 连接配置全部由应用自己管理（userData/provider-settings.json），不再读 .env。
-    settingsStore = new ProviderSettingsStore({ dir: userData, cipher: systemCipher() });
+    settingsStore = new ProviderSettingsStore({ dir: userData, cipher: await systemCipher() });
     settingsStore.load();
     const providers = createProviders(settingsStore);
     const imageService = new ImageGenerationService({
@@ -288,9 +288,16 @@ function createProviders(store: ProviderSettingsStore): (FakeProvider | OpenAICo
 function normalizeForCompare(url: string): string {
   return url.trim().replace(/\/+$/, "").toLowerCase();
 }
-function systemCipher(): SecretCipher | undefined {
+async function systemCipher(): Promise<SecretCipher | undefined> {
   try {
-    if (!safeStorage.isEncryptionAvailable()) return undefined;
+    // 新版本 Electron 把可用性判断改成了异步接口；同步那个已标记弃用。
+    // 这里优先用异步接口，老版本回退到同步接口。
+    const maybeAsync = (
+      safeStorage as unknown as { isAsyncEncryptionAvailable?: () => Promise<boolean> }
+    ).isAsyncEncryptionAvailable;
+    const available =
+      maybeAsync === undefined ? safeStorage.isEncryptionAvailable() : await maybeAsync.call(safeStorage);
+    if (!available) return undefined;
     return {
       available: true,
       encrypt: (plain) => safeStorage.encryptString(plain).toString("base64"),

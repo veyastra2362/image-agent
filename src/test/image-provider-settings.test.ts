@@ -44,10 +44,21 @@ test("校验：合法设置原样通过", () => {
   if (result.ok) assert.deepEqual(result.value, valid);
 });
 
+test("新建但还没填地址的配置是合法的（否则整份文件会被丢弃）", () => {
+  const empty = validateProviderSettings({ ...valid, baseUrl: "" });
+  assert.equal(empty.ok, true);
+  if (empty.ok) assert.equal(empty.value.baseUrl, "");
+
+  // 有空白字符也算未填
+  assert.equal(validateProviderSettings({ ...valid, baseUrl: "   " }).ok, true);
+  // 但填了非法地址仍然拒绝
+  assert.equal(validateProviderSettings({ ...valid, baseUrl: "not-a-url" }).ok, false);
+});
+
 test("校验：地址、模型 ID、部分镜像数、超时", () => {
   assert.equal(validateProviderSettings({ ...valid, baseUrl: "ftp://x" }).ok, false);
   assert.equal(validateProviderSettings({ ...valid, baseUrl: "https://user:pw@x.com" }).ok, false);
-  assert.equal(validateProviderSettings({ ...valid, baseUrl: "" }).ok, false);
+  // 空地址是合法的"未配置"状态，见上一个用例。
   assert.equal(validateProviderSettings({ ...valid, kind: "azure" }).ok, false);
   assert.equal(validateProviderSettings({ ...valid, flavor: "chat" }).ok, false);
   assert.equal(validateProviderSettings({ ...valid, models: ["has space"] }).ok, false);
