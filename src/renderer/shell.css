@@ -2593,3 +2593,8 @@ code {
   color: var(--danger);
   border-color: var(--danger);
 }
+
+/* 清空参考图的方块是按钮，不该是看原图的放大镜光标 */
+.dock__ref-button--clear {
+  cursor: pointer;
+}

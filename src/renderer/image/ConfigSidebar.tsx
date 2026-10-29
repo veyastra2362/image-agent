@@ -57,30 +57,30 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
     setPeek(undefined);
   };
 
+  const fieldRef = useRef<HTMLDivElement>(null);
+  const menuOpenRef = useRef(false);
+  menuOpenRef.current = menuOpen;
+
   const startPeek = (event: React.MouseEvent<HTMLElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
     window.clearTimeout(peekTimer.current);
     peekTimer.current = window.setTimeout(() => {
-      // 菜单开着、或这期间点过下拉，就不再自动弹大图。
-      if (menuOpenRef.current || !armedRef.current) return;
+      // 1.5 秒后：菜单还开着、或指针已经移走，就不弹。
+      if (menuOpenRef.current) return;
+      if (fieldRef.current?.matches(":hover") !== true) return;
       setPeek({ x: rect.right + 10, y: rect.top });
     }, 1500);
-    armedRef.current = true;
   };
 
   const stopPeek = () => {
-    armedRef.current = false;
-    cancelPeek();
+    window.clearTimeout(peekTimer.current);
+    setPeek(undefined);
   };
-
-  const menuOpenRef = useRef(false);
-  const armedRef = useRef(false);
-  menuOpenRef.current = menuOpen;
 
   // 选中项变化（例如刚点完某个选项）时收起大图，必须重新移入才再出现。
   useEffect(() => {
-    cancelPeek();
-    armedRef.current = false;
+    window.clearTimeout(peekTimer.current);
+    setPeek(undefined);
   }, [references.length]);
 
   return (
@@ -152,9 +152,11 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
       </div>
 
       <div
+        ref={fieldRef}
         className="field ref-field"
         onMouseEnter={startPeek}
         onMouseLeave={stopPeek}
+        onMouseDown={stopPeek}
       >
         <span className="field__label">
           参考图
