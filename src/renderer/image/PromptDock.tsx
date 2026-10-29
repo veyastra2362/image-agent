@@ -9,7 +9,7 @@ import { LIMITS } from "../../shared/image-generation.ts";
 import { useComposer } from "./composer-state.tsx";
 import { ModelSelect } from "../shell/ModelSelect.tsx";
 import { useT } from "../lib/i18n.ts";
-import { ImagePlusIcon } from "../shell/icons.tsx";
+import { CloseIcon, ImagePlusIcon } from "../shell/icons.tsx";
 
 export function PromptDock() {
   const formId = useId();
@@ -69,7 +69,7 @@ export function PromptDock() {
               <img src={reference.src} alt="参考图" />
             </button>
             <button type="button" className="dock__ref-remove" onClick={clearReference} aria-label="移除参考图">
-              ×
+              <CloseIcon size={9} />
             </button>
             <figcaption>
               {reference.width}×{reference.height}

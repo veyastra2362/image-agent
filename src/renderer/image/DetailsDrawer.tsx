@@ -1,6 +1,9 @@
 /**
  * 详情抽屉：模型、原始提示词、Agent 改写、实际发送的提示词、参数、时间、
  * 尺寸/格式与错误原文。所有内容来自 main 记录的任务快照，不在这里推断。
+ *
+ * 一次请求多张时，顶部显示当前这张，下面是一排可切换的缩略图；
+ * 参考图也显示成缩略图（点击看原图），而不是一串 asset ID。
  */
 import { useEffect, useRef } from "react";
 import { CloseIcon } from "../shell/icons.tsx";
@@ -12,15 +15,21 @@ import type { ImageAgentState } from "./use-image-agent.ts";
 interface DetailsDrawerProps {
   readonly state: ImageAgentState;
   readonly onClose: () => void;
+  readonly onSelect: (assetId: string) => void;
 }
 
-export function DetailsDrawer({ state, onClose }: DetailsDrawerProps) {
+export function openZoom(src: string, alt: string): void {
+  window.dispatchEvent(new CustomEvent("image-agent:zoom", { detail: { src, alt } }));
+}
+
+export function DetailsDrawer({ state, onClose, onSelect }: DetailsDrawerProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const asset = state.jobs.flatMap((entry) => entry.assets).find((candidate) => candidate.id === state.selectedAssetId);
   const job = asset ? state.jobs.find((entry) => entry.job.id === asset.jobId)?.job : undefined;
   const memory = asset
     ? undefined
     : state.remembered.find((candidate) => candidate.id === state.selectedAssetId);
+  const siblings = job ? (state.jobs.find((entry) => entry.job.id === job.id)?.assets ?? []) : [];
 
   useEffect(() => {
     closeRef.current?.focus();
@@ -50,11 +59,38 @@ export function DetailsDrawer({ state, onClose }: DetailsDrawerProps) {
             <CloseIcon size={12} />
           </button>
         </header>
+
         {state.selectedPreview && (
-          <img className="drawer__image" src={state.selectedPreview} alt={asset?.prompt ?? memory?.prompt ?? "作品"} />
+          <button
+            type="button"
+            className="drawer__preview"
+            onClick={() => openZoom(state.selectedPreview ?? "", asset?.prompt ?? memory?.prompt ?? "作品")}
+            aria-label="查看原图"
+          >
+            <img className="drawer__image" src={state.selectedPreview} alt={asset?.prompt ?? memory?.prompt ?? "作品"} />
+          </button>
         )}
+
+        {/* 同批多张：一排缩略图，点哪张换哪张 */}
+        {siblings.length > 1 && (
+          <div className="drawer__thumbs" aria-label="同批图片">
+            {siblings.map((sibling, index) => (
+              <button
+                key={sibling.id}
+                type="button"
+                className={`drawer__thumb ${sibling.id === asset?.id ? "is-active" : ""}`}
+                onClick={() => onSelect(sibling.id)}
+                aria-label={`第 ${index + 1} 张`}
+                aria-current={sibling.id === asset?.id}
+              >
+                <img src={sibling.previewUrl} alt="" loading="lazy" />
+              </button>
+            ))}
+          </div>
+        )}
+
         {asset && job ? (
-          <AssetDetails asset={asset} job={job} siblings={state.jobs.find((e) => e.job.id === job.id)?.assets ?? []} />
+          <AssetDetails asset={asset} job={job} siblings={siblings} />
         ) : memory ? (
           <dl className="facts">
             <Fact label="提示词" value={memory.prompt} multiline />
@@ -90,11 +126,30 @@ function AssetDetails({
       <Fact label="本次请求张数" value={String(job.count)} />
       {job.seed !== undefined && <Fact label="Seed" value={String(job.seed)} />}
       {job.negativePrompt !== undefined && <Fact label="负面提示词" value={job.negativePrompt} />}
-      <Fact
-        label="参考图"
-        value={job.referenceAssetIds.length === 0 ? "无" : job.referenceAssetIds.join("、")}
-        {...(job.uploadsUserAssets ? { warn: "参考图已上传给该服务商" } : {})}
-      />
+      {job.referenceAssetIds.length > 0 ? (
+        <div className="fact fact--multiline">
+          <dt>参考图</dt>
+          <dd>
+            <div className="drawer__refs">
+              {job.referenceAssetIds.map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  className="drawer__ref"
+                  onClick={() => openZoom(`ia-asset://asset/${id}`, "参考图")}
+                  title="查看参考图原图"
+                  aria-label="查看参考图原图"
+                >
+                  <img src={`ia-asset://asset/${id}`} alt="参考图" loading="lazy" />
+                </button>
+              ))}
+            </div>
+            {job.uploadsUserAssets && <span className="fact__warn">参考图已上传给该服务商</span>}
+          </dd>
+        </div>
+      ) : (
+        <Fact label="参考图" value="无" />
+      )}
       <Fact label="耗时" value={formatDuration(job)} />
       <Fact label="创建 / 完成" value={`${formatTime(job.createdAt)} / ${formatTime(job.finishedAt)}`} />
       <Fact label="文件" value={`PNG · ${asset.width}×${asset.height} · ${formatBytes(asset.byteLength)}`} />

@@ -218,7 +218,9 @@ export function App() {
       )}
 
 
-      {state.selectedAssetId && <DetailsDrawer state={state} onClose={state.closeDrawer} />}
+      {state.selectedAssetId && (
+        <DetailsDrawer state={state} onClose={state.closeDrawer} onSelect={state.openAsset} />
+      )}
 
       {settingsTab && (
         <SettingsDialog
