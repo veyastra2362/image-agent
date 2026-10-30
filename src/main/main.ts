@@ -30,6 +30,7 @@ import { FakeProvider } from "./image-generation/providers/fake";
 import { OpenAICompatibleProvider } from "./image-generation/providers/openai-compatible";
 import { ResponsesProvider } from "./image-generation/providers/responses";
 import type { ImageProvider } from "./image-generation/provider";
+import { guessModelKind, modelFitsPurpose } from "@shared/model-kind";
 import { FavoritesStore } from "./favorites-store";
 import { FileJobStore, parseAssetUrl } from "./library-store";
 import { librarySettingsFile, registerLibraryIpc } from "./library-ipc";
@@ -269,19 +270,26 @@ function createProviders(
     const apiKey = store.keyFor(profile.id);
     if (apiKey === undefined || apiKey === "" || profile.baseUrl === "" || profile.models.length === 0) continue;
 
+    // 只保留与用途匹配的模型：显式标记优先，没标记就按名字猜；猜不出来的一律放行。
+    const usableModels = profile.models.filter((id) =>
+      modelFitsPurpose(profile.modelKind?.[id] ?? guessModelKind(id), purpose),
+    );
+    if (usableModels.length === 0) continue;
+    const usableProfile = { ...profile, models: usableModels };
+
     try {
       // Responses API 走流式适配器；其余仍然是 Images API（一次请求一次响应）。
-      if (profile.flavor === "responses") {
+      if (usableProfile.flavor === "responses") {
         providers.push(
           new ResponsesProvider({
             id: profile.id,
             displayName: profile.label,
             baseUrl: profile.baseUrl,
             apiKey,
-            defaultModel: profile.defaultModel ?? profile.models[0],
-            models: profile.models.map((id) => ({ id, displayName: id })),
-            partialImages: profile.partialImages,
-            timeoutMs: profile.timeoutSeconds * 1000,
+            defaultModel: usableProfile.defaultModel ?? usableModels[0],
+            models: usableModels.map((id) => ({ id, displayName: id })),
+            partialImages: usableProfile.partialImages,
+            timeoutMs: usableProfile.timeoutSeconds * 1000,
           }),
         );
         summary.push({ baseUrl: profile.baseUrl, models: [...profile.models] });
@@ -294,12 +302,12 @@ function createProviders(
           displayName: profile.label,
           baseUrl: profile.baseUrl,
           apiKey,
-          defaultModel: profile.defaultModel ?? profile.models[0],
-          models: profile.models.map((id) => ({ id, displayName: id })),
-          timeoutMs: profile.timeoutSeconds * 1000,
+          defaultModel: usableProfile.defaultModel ?? usableModels[0],
+          models: usableModels.map((id) => ({ id, displayName: id })),
+          timeoutMs: usableProfile.timeoutSeconds * 1000,
         }),
       );
-      summary.push({ baseUrl: profile.baseUrl, models: [...profile.models] });
+      summary.push({ baseUrl: profile.baseUrl, models: [...usableModels] });
     } catch (error) {
       console.warn(`[image-agent] 服务商「${profile.label}」配置无效，已跳过：${(error as Error).message}`);
     }

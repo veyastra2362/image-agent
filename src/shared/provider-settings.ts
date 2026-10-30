@@ -4,6 +4,8 @@
  * 这个文件只能有类型、常量和纯函数，不得导入 Node/Electron/DOM。
  */
 
+import type { ModelKind } from "./model-kind";
+
 export const PROVIDER_KINDS = ["openai-compatible", "fal"] as const;
 
 export type ProviderKind = (typeof PROVIDER_KINDS)[number];
@@ -42,6 +44,8 @@ export interface ProviderSettings {
   readonly flavor: ApiFlavor;
   /** 用户勾选要启用的模型 ID，顺序即界面上显示的顺序。 */
   readonly models: readonly string[];
+  /** 模型类型标记（image / text / unknown）；没标记的按名字猜。 */
+  readonly modelKind?: Readonly<Record<string, ModelKind>>;
   /** 默认模型；必须包含在 models 里。 */
   readonly defaultModel?: string;
   /** 开流式传输：Responses API 会走 SSE，并按中间步骤图像保持连接。 */
@@ -135,6 +139,15 @@ export function validateProviderProfile(
   const validated = validateProviderSettings(record);
   if (!validated.ok) return validated;
   const purpose = record.purpose === "text" ? "text" : "image";
+  // 模型类型标记：只收 image / text / unknown 三种值，其余丢弃。
+  const modelKind: Record<string, ModelKind> = {};
+  if (typeof record.modelKind === "object" && record.modelKind !== null) {
+    for (const [id, kind] of Object.entries(record.modelKind as Record<string, unknown>)) {
+      if (kind !== "image" && kind !== "text" && kind !== "unknown") continue;
+      if (id === "" || id.length > MAX_MODEL_ID_LENGTH) continue;
+      modelKind[id] = kind;
+    }
+  }
   return {
     ok: true,
     value: {
@@ -142,6 +155,7 @@ export function validateProviderProfile(
       id: record.id,
       label,
       purpose,
+      ...(Object.keys(modelKind).length === 0 ? {} : { modelKind }),
     },
   };
 }
