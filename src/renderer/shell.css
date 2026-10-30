@@ -3046,3 +3046,50 @@ code {
 .plan-modal .facts {
   margin: 0;
 }
+
+/* 输入框右侧四个按钮同尺寸：与上传参考图一致（32×32） */
+.dock__actions .dock__upload,
+.dock__actions .dock__optimize,
+.dock__actions .dock__optimize-send,
+.dock__actions .dock__submit {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  padding: 0;
+  flex: 0 0 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.dock__submit-count {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--accent);
+  color: var(--accent-contrast, #1b1b1b);
+  font-size: 10px;
+  line-height: 14px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.dock__spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: dock-spin 700ms linear infinite;
+}
+
+@keyframes dock-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

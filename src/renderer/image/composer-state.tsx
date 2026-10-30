@@ -99,6 +99,8 @@ export interface ComposerValue {
   readonly planning: boolean;
   /** 直接优化提示词（不经过计划弹窗）；成功后替换输入框内容。 */
   readonly optimizeNow: () => Promise<void>;
+  /** 优化后直接出图（不弹计划窗）。 */
+  readonly optimizeAndSubmit: () => Promise<void>;
   readonly optimizeBusy: boolean;
   readonly optimizeUndo: string | undefined;
   readonly undoOptimize: () => void;
@@ -310,6 +312,23 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
     }
   }
 
+  /** 优化并直接生成：改写结果同时写回输入框，用户能看到实际用的是什么。 */
+  async function optimizeAndSubmit(): Promise<void> {
+    const text = prompt.trim();
+    if (text === "" || pending) return;
+    setOptimizeBusy(true);
+    const result = await window.imageAgent.optimizePrompt({ prompt: text });
+    setOptimizeBusy(false);
+    if (!result.ok) {
+      setSubmitError(`优化失败：${result.error.message}`);
+      return;
+    }
+    setOptimizeUndo(prompt);
+    setPrompt(result.prompt);
+    setSubmitError(undefined);
+    await submitWith({ prompt: text, agentPrompt: result.prompt });
+  }
+
   const undoOptimize = useCallback(() => {
     setOptimizeUndo((previous) => {
       if (previous !== undefined) setPrompt(previous);
@@ -378,6 +397,7 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
     confirmPlan,
     dismissPlan,
     optimizeNow,
+    optimizeAndSubmit,
     optimizeBusy,
     optimizeUndo,
     undoOptimize,

@@ -151,6 +151,12 @@ export function SizeDialog({ spec, customRatioLabel, capabilities, onCommit, onC
                     </button>
                   ))}
                 </div>
+                {draft.resolution === 4096 && (
+                  <span className="field__hint field__hint--warn">
+                    4K 只有官方 API 支持。第三方网关通常会静默回落到自己的默认尺寸（实测 1254×1254），
+                    生成后若与请求不符会提示你。
+                  </span>
+                )}
               </div>
 
               <div className="field">

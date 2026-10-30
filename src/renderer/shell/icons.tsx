@@ -158,3 +158,29 @@ export function SparkIcon({ size = 14 }: { readonly size?: number }) {
     </svg>
   );
 }
+
+/** 优化并直接发送：星形 + 箭头，表示"改写后立刻出图"。 */
+export function SparkSendIcon({ size = 16 }: { readonly size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path d="M6.4 1.8 7.4 5l3.2 1-3.2 1-1 3.2-1-3.2L2.2 6l3.2-1Z" fill="currentColor" />
+      <path d="M11.6 8.4v4.4M11.6 12.8 9.9 11M11.6 12.8 13.3 11" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** 发送/生成：纸飞机。 */
+export function SendIcon({ size = 16 }: { readonly size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path
+        d="M2 8 14 2.4 9.6 14l-2-4.4Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}

@@ -9,7 +9,7 @@ import { LIMITS } from "../../shared/image-generation.ts";
 import { useComposer } from "./composer-state.tsx";
 import { ModelSelect } from "../shell/ModelSelect.tsx";
 import { useT } from "../lib/i18n.ts";
-import { CloseIcon, ImagePlusIcon, SparkIcon, TrashIcon } from "../shell/icons.tsx";
+import { CloseIcon, ImagePlusIcon, SendIcon, SparkIcon, SparkSendIcon, TrashIcon } from "../shell/icons.tsx";
 
 export function PromptDock() {
   const formId = useId();
@@ -43,6 +43,7 @@ export function PromptDock() {
     confirmPlan,
     dismissPlan,
     optimizeNow,
+    optimizeAndSubmit,
     optimizeBusy,
     optimizeUndo,
     undoOptimize,
@@ -193,14 +194,34 @@ export function PromptDock() {
             type="button"
             className="button button--ghost dock__optimize"
             disabled={optimizeBusy || pending || planning || prompt.trim() === "" || !agentAvailable}
-            title={agentAvailable ? "让语言模型改写提示词" : "先在 设置 → API 设置 → 语言模型 里配置语言模型"}
+            title={agentAvailable ? "优化提示词（结果写回输入框，可撤销）" : "先在 设置 → API 设置 → 语言模型 里配置语言模型"}
+            aria-label="优化提示词"
             onClick={() => void optimizeNow()}
           >
-            <SparkIcon size={14} />
-            {optimizeBusy ? "优化中…" : "优化"}
+            <SparkIcon size={16} />
           </button>
-          <button type="submit" className="button button--primary dock__submit" disabled={!canSubmit}>
-            {planning ? "规划中…" : optimizing ? "优化提示词…" : pending ? t("dock.generating") : `${t("dock.generate")} ${effectiveCount}`}
+          <button
+            type="button"
+            className="button button--ghost dock__optimize-send"
+            disabled={optimizeBusy || pending || planning || prompt.trim() === "" || !agentAvailable}
+            title={agentAvailable ? "优化后直接生成" : "先在 设置 → API 设置 → 语言模型 里配置语言模型"}
+            aria-label="优化后直接生成"
+            onClick={() => void optimizeAndSubmit()}
+          >
+            <SparkSendIcon size={16} />
+          </button>
+          <button
+            type="submit"
+            className="button button--primary dock__submit"
+            disabled={!canSubmit}
+            title={`${t("dock.generate")} ${effectiveCount}`}
+            aria-label={`${t("dock.generate")} ${effectiveCount} 张`}
+            aria-busy={pending || planning || optimizing}
+          >
+            {planning || optimizing ? <span className="dock__spinner" aria-hidden="true" /> : <SendIcon size={16} />}
+            <span className="dock__submit-count" aria-hidden="true">
+              {effectiveCount}
+            </span>
           </button>
         </div>
         {optimizeUndo !== undefined && (
