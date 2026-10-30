@@ -292,14 +292,14 @@ export class ImageGenerationService {
       return { ok: false, error: { code: "invalid-request", message: "请求格式不正确", retryable: false } };
     }
     const record = raw as Record<string, unknown>;
-    const providerId = record.providerId;
     const prompt = record.prompt;
     const model = record.model;
-    if (typeof providerId !== "string" || typeof prompt !== "string" || prompt.trim() === "") {
+    if (typeof prompt !== "string" || prompt.trim() === "") {
       return { ok: false, error: { code: "invalid-request", message: "请先写好提示词", retryable: false } };
     }
-    const agentProvider =
-      this.agentProviders.get(providerId) ?? this.agentProviders.values().next().value;
+    // 语言模型是独立配置：不要求调用方指定 providerId，用当前选中的那条。
+    const requestedId = typeof record.providerId === "string" ? record.providerId : "";
+    const agentProvider = this.agentProviders.get(requestedId) ?? this.agentProviders.values().next().value;
     if (agentProvider === undefined) {
       return {
         ok: false,
