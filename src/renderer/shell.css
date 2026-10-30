@@ -3256,3 +3256,50 @@ code {
   display: flex;
   gap: var(--space-2);
 }
+
+/* 文字链按钮：无边框、无底色，只用来做"全选 / 清空"这类轻量操作 */
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 120ms ease;
+}
+
+.link:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+/* 选择上游模型：底部计数与按钮对齐 */
+.picker-modal .modal__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.picker-actions {
+  align-items: center;
+}
+
+.picker-actions .button {
+  height: 32px;
+}
+
+.picker-count {
+  line-height: 32px;
+}
+
+/* 顶部一行：说明文字与"全选"基线对齐 */
+.picker-head {
+  align-items: baseline;
+}
+
+.picker-head .link {
+  flex: 0 0 auto;
+}

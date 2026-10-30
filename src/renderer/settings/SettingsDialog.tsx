@@ -118,6 +118,16 @@ export function SettingsDialog({
       .finally(() => setSettingsLoading(false));
   }, []);
 
+  // 两个用途分开统计：图片模型走 /images，语言模型走 /chat，混在一起会误导。
+  const textProfiles = (providerView?.profiles ?? []).filter(
+    (profile) => (profile.purpose ?? "image") === "text" && profile.baseUrl !== "" && profile.models.length > 0,
+  );
+  const textServiceCount = textProfiles.length;
+  const textModelCount = textProfiles.reduce((sum, profile) => sum + profile.models.length, 0);
+  const textBaseUrl = textProfiles[0]?.baseUrl;
+  const imageBaseUrl = (providerView?.profiles ?? []).find(
+    (profile) => (profile.purpose ?? "image") === "image" && profile.baseUrl !== "",
+  )?.baseUrl;
   useEffect(() => {
     refreshProviderView();
   }, [refreshProviderView]);
@@ -172,29 +182,27 @@ export function SettingsDialog({
                   <summary>当前生效状态</summary>
                   <dl className="facts">
                     <div className="fact">
-                      <dt>状态</dt>
-                      <dd>
-                        {environment?.providerConfigured ? (
-                          <span className="badge badge--ok">已启用真实服务</span>
-                        ) : (
-                          <span className="badge badge--muted">只有离线假服务</span>
-                        )}
-                      </dd>
-                    </div>
-                    <div className="fact">
-                      <dt>接口地址</dt>
-                      <dd className="fact--mono">{environment?.providerBaseUrl ?? "—"}</dd>
-                    </div>
-                    <div className="fact">
-                      <dt>模型</dt>
-                      <dd className="fact--mono">{environment?.models.length ? environment.models.join("、") : "—"}</dd>
-                    </div>
-                    <div className="fact">
-                      <dt>可用服务</dt>
+                      <dt>图片模型</dt>
                       <dd>
                         {providerCount} 个服务 · {modelCount} 个模型
                         {fakeModelCount > 0 ? `（其中 ${fakeModelCount} 个是离线假服务）` : ""}
+                        {providerCount === 0 ? "（未配置）" : ""}
                       </dd>
+                    </div>
+                    <div className="fact">
+                      <dt>语言模型</dt>
+                      <dd>
+                        {textServiceCount} 个服务 · {textModelCount} 个模型
+                        {textServiceCount === 0 ? "（未配置，Agent 优化不可用）" : ""}
+                      </dd>
+                    </div>
+                    <div className="fact">
+                      <dt>图片接口</dt>
+                      <dd className="fact--mono">{imageBaseUrl ?? "—"}</dd>
+                    </div>
+                    <div className="fact">
+                      <dt>语言接口</dt>
+                      <dd className="fact--mono">{textBaseUrl ?? "—"}</dd>
                     </div>
                   </dl>
                 </details>
