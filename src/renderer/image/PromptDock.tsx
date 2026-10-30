@@ -42,8 +42,8 @@ export function PromptDock() {
     planning,
     confirmPlan,
     dismissPlan,
-    optimizeNow,
-    optimizeAndSubmit,
+    runOptimizeAction,
+    optimizeMode,
     optimizeBusy,
     optimizeUndo,
     undoOptimize,
@@ -190,25 +190,24 @@ export function PromptDock() {
           >
             <ImagePlusIcon size={16} />
           </button>
+          {/* 星形按钮：行为跟随「Agent 优化提示词」里的选择 */}
           <button
             type="button"
             className="button button--ghost dock__optimize"
             disabled={optimizeBusy || pending || planning || prompt.trim() === "" || !agentAvailable}
-            title={agentAvailable ? "优化提示词（结果写回输入框，可撤销）" : "先在 设置 → API 设置 → 语言模型 里配置语言模型"}
+            title={
+              !agentAvailable
+                ? "先在 设置 → API 设置 → 语言模型 里配置语言模型"
+                : optimizeMode === "auto"
+                  ? "自动优化并直接生成"
+                  : optimizeMode === "plan"
+                    ? "先规划，弹窗确认后生成"
+                    : "优化提示词（写回输入框，可撤销）"
+            }
             aria-label="优化提示词"
-            onClick={() => void optimizeNow()}
+            onClick={() => void runOptimizeAction()}
           >
-            <SparkIcon size={16} />
-          </button>
-          <button
-            type="button"
-            className="button button--ghost dock__optimize-send"
-            disabled={optimizeBusy || pending || planning || prompt.trim() === "" || !agentAvailable}
-            title={agentAvailable ? "优化后直接生成" : "先在 设置 → API 设置 → 语言模型 里配置语言模型"}
-            aria-label="优化后直接生成"
-            onClick={() => void optimizeAndSubmit()}
-          >
-            <SparkSendIcon size={16} />
+            {optimizeMode === "writeback" ? <SparkIcon size={16} /> : <SparkSendIcon size={16} />}
           </button>
           <button
             type="submit"

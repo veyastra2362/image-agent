@@ -5,7 +5,7 @@
  */
 import { LIMITS } from "../../shared/image-generation.ts";
 import { FORMAT_LABELS } from "../lib/output-spec.ts";
-import { useComposer } from "./composer-state.tsx";
+import { useComposer, type OptimizeMode } from "./composer-state.tsx";
 import { SizeDialog } from "./SizeDialog.tsx";
 import { PanelLeftIcon } from "../shell/PanelLeftIcon.tsx";
 import { Select } from "../shell/Select.tsx";
@@ -42,8 +42,8 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
     clearReference,
     referenceLimit,
     referenceValid,
-    agentOptimize,
-    setAgentOptimize,
+    optimizeMode,
+    setOptimizeMode,
     agentAvailable,
     prompt,
   } = useComposer();
@@ -194,25 +194,28 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
             </label>
           )}
 
-          <label className="switch-field">
-            <span className="switch-field__text">
-              <span className="field__label">Agent 优化提示词</span>
-              <span className="field__hint">
-                {agentAvailable
-                  ? "生成前先用语言模型改写这句提示词"
-                  : "需要先在 设置 → API 设置 → 语言模型 里配置一个模型"}
-              </span>
-            </span>
-            <input
-              type="checkbox"
-              className="toggle-switch"
-              role="switch"
-              aria-label="Agent 优化提示词"
-              checked={agentOptimize}
-              disabled={!agentAvailable}
-              onChange={(event) => setAgentOptimize(event.target.checked)}
+          <div className="field">
+            <span className="field__label">Agent 优化提示词</span>
+            <Select
+              ariaLabel="Agent 优化方式"
+              value={optimizeMode}
+              onChange={(next) => setOptimizeMode(next as OptimizeMode)}
+              options={[
+                { value: "writeback", label: "优化（写回输入框）" },
+                { value: "auto", label: "自动优化（直接出图）" },
+                { value: "plan", label: "先规划再确认" },
+              ]}
             />
-          </label>
+            <span className="field__hint">
+              {agentAvailable
+                ? optimizeMode === "writeback"
+                  ? "点星形按钮改写后写回输入框；点生成按原文出图"
+                  : optimizeMode === "auto"
+                    ? "点星形按钮或生成，都会先改写再出图"
+                    : "点星形按钮或生成，先弹计划确认窗，确认后才出图"
+                : "需要先在 设置 → API 设置 → 语言模型 里配置一个模型"}
+            </span>
+          </div>
         </div>
       </details>
 

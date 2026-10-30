@@ -3050,7 +3050,6 @@ code {
 /* 输入框右侧四个按钮同尺寸：与上传参考图一致（32×32） */
 .dock__actions .dock__upload,
 .dock__actions .dock__optimize,
-.dock__actions .dock__optimize-send,
 .dock__actions .dock__submit {
   width: 32px;
   height: 32px;

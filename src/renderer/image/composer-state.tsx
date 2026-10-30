@@ -18,6 +18,9 @@ import { describeSpec } from "../lib/output-spec.ts";
 import type { ImageAgentState } from "./use-image-agent.ts";
 
 /** 界面用到的计划结构（与 shared/image-plan 对齐，这里只取需要的字段）。 */
+/** 三个优化方式：写回输入框、自动优化并生成、先规划再确认。 */
+export type OptimizeMode = "writeback" | "auto" | "plan";
+
 export interface AgentPlan {
   readonly prompt: string;
   readonly negativePrompt?: string;
@@ -91,8 +94,11 @@ export interface ComposerValue {
   readonly referenceValid: boolean;
   readonly referenceLimit: number;
   /** 生成前先用 Agent 改写提示词。 */
-  readonly agentOptimize: boolean;
-  readonly setAgentOptimize: (value: boolean) => void;
+  /** 优化方式：写回输入框 / 自动优化后直接生成 / 先规划再确认。 */
+  readonly optimizeMode: OptimizeMode;
+  readonly setOptimizeMode: (mode: OptimizeMode) => void;
+  /** 星形按钮：按当前选择执行写回 / 直接生成 / 先规划。 */
+  readonly runOptimizeAction: () => Promise<void>;
   readonly optimizing: boolean;
   /** Agent 规划结果：有值时界面弹确认框，用户确认后才真正提交。 */
   readonly plan: AgentPlan | undefined;
@@ -145,7 +151,7 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
   const [negativePrompt, setNegativePrompt] = useState("");
   const [references, setReferences] = useState<readonly ReferenceImage[]>([]);
   const [referenceBusy, setReferenceBusy] = useState(false);
-  const [agentOptimize, setAgentOptimize] = useState(false);
+  const [optimizeMode, setOptimizeMode] = useState<OptimizeMode>("writeback");
   const [optimizing, setOptimizing] = useState(false);
   const [plan, setPlan] = useState<AgentPlan>();
   const [planning, setPlanning] = useState(false);
@@ -336,10 +342,14 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
     });
   }, [setPrompt]);
 
+  /** 生成按钮：按当前优化方式决定先做什么。 */
   async function submit(): Promise<void> {
     if (!validation.ok || pending) return;
-    // 开了 Agent：先规划，拿到结构化计划后弹确认框，用户点确认才出图。
-    if (agentOptimize && state.agentAvailable && prompt.trim() !== "") {
+    if (optimizeMode === "auto" && state.agentAvailable) {
+      await optimizeAndSubmit();
+      return;
+    }
+    if (optimizeMode === "plan" && state.agentAvailable) {
       setPlanning(true);
       const result = await window.imageAgent.planPrompt({ prompt });
       setPlanning(false);
@@ -350,6 +360,24 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
       setSubmitError(`规划失败，已按原文生成：${result.error}`);
     }
     await submitWith();
+  }
+
+  /** 星形按钮：写回输入框 / 直接出图 / 先规划，跟当前选择一致。 */
+  async function runOptimizeAction(): Promise<void> {
+    if (optimizeMode === "auto") {
+      await optimizeAndSubmit();
+      return;
+    }
+    if (optimizeMode === "plan") {
+      if (!state.agentAvailable || prompt.trim() === "") return;
+      setPlanning(true);
+      const result = await window.imageAgent.planPrompt({ prompt });
+      setPlanning(false);
+      if (result.ok) setPlan(result.plan as AgentPlan);
+      else setSubmitError(`规划失败：${result.error}`);
+      return;
+    }
+    await optimizeNow();
   }
 
   const value: ComposerValue = {
@@ -388,8 +416,9 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
     referenceBusy,
     referenceValid,
     referenceLimit,
-    agentOptimize,
-    setAgentOptimize,
+    optimizeMode,
+    setOptimizeMode,
+    runOptimizeAction,
     optimizing,
     agentAvailable: state.agentAvailable,
     plan,
