@@ -143,7 +143,8 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
   useEffect(() => () => onFooterChange(undefined), [onFooterChange]);
 
   if (loading && view === undefined) return <p className="field__hint">正在读取配置…</p>;
-  if (view === undefined || draft === undefined) {
+  // 只有读不到配置才显示错误；某一类还没建过配置时应该显示"空状态 + 新建"，不是报错。
+  if (view === undefined) {
     return (
       <div className="settings__section">
         <p className="field__hint">读不到配置文件。</p>
@@ -154,8 +155,8 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
     );
   }
 
-  const partialDisabled = !(draft.stream && supportsPartialImages(draft.flavor));
-  const preview = effectivePartialImages(draft);
+  const partialDisabled = !(draft?.stream === true && supportsPartialImages(draft.flavor));
+  const preview = draft === undefined ? 0 : effectivePartialImages(draft);
 
   async function switchTo(id: string) {
     if (id === view?.activeId) return;
@@ -168,7 +169,10 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
     const created = await window.appSettings?.create({ purpose });
     setBusy("idle");
     if (created?.ok) {
-      flash("ok", "已新建一个服务商配置，填好后点保存。");
+      // 立刻把草稿切到新配置：不依赖 view 刷新的时序，否则编辑区会一片空白。
+      setDraft({ ...created.profile });
+      setApiKey("");
+      flash("ok", `已新建「${created.profile.label}」，填好后点保存。`);
       onRefresh();
       window.dispatchEvent(new Event("image-agent:data-changed"));
     } else {
@@ -320,9 +324,9 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
         {view.profiles.filter((profile) => (profile.purpose ?? "image") === purpose).map((profile) => (
           <div
             key={profile.id}
-            className={`profile-tab ${profile.id === draft.id ? "is-active" : ""}`}
+            className={`profile-tab ${profile.id === draft?.id ? "is-active" : ""}`}
             role="tab"
-            aria-selected={profile.id === draft.id}
+            aria-selected={profile.id === draft?.id}
           >
             <button type="button" className="profile-tab__select" onClick={() => void switchTo(profile.id)}>
               <span className="profile-tab__label">{profile.label}</span>
@@ -366,6 +370,12 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
         </button>
       </div>
 
+      {draft === undefined ? (
+        <p className="field__hint">
+          还没有配置{purpose === "text" ? "语言模型" : "图片服务商"}，点上面的「＋」新建一个。
+        </p>
+      ) : (
+        <>
       <label className="field">
         <span className="field__label">名称</span>
         <input
@@ -640,6 +650,9 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
       )}
 
 
+
+        </>
+      )}
 
       {/* 获取上游模型的结果：二级弹窗勾选 */}
       {pickerModels !== undefined && (
