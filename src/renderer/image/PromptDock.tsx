@@ -10,7 +10,7 @@ import { useComposer, type OptimizeMode } from "./composer-state.tsx";
 import { ModelSelect } from "../shell/ModelSelect.tsx";
 import { useT } from "../lib/i18n.ts";
 import { Select } from "../shell/Select.tsx";
-import { CloseIcon, ImagePlusIcon, SendIcon, SparkIcon, SparkSendIcon, TrashIcon } from "../shell/icons.tsx";
+import { CloseIcon, ImagePlusIcon, SendIcon, SparkIcon, TrashIcon } from "../shell/icons.tsx";
 
 export function PromptDock() {
   const formId = useId();
@@ -204,7 +204,8 @@ export function PromptDock() {
           >
             <ImagePlusIcon size={16} />
           </button>
-          {optimizeEnabled && (
+          {/* 星形按钮只在"写回输入框"模式出现：自动优化模式下点生成就会先改写 */}
+          {optimizeEnabled && optimizeMode === "writeback" && (
           <button
             type="button"
             className="button button--ghost dock__optimize"
@@ -212,14 +213,12 @@ export function PromptDock() {
             title={
               !agentAvailable
                 ? "先在 设置 → API 设置 → 语言模型 里配置语言模型"
-                : optimizeMode === "auto"
-                  ? "自动优化并直接生成"
-                  : "优化提示词（写回输入框）"
+                : "优化提示词（写回输入框）"
             }
             aria-label="优化提示词"
             onClick={() => void runOptimizeAction()}
           >
-            {optimizeMode === "writeback" ? <SparkIcon size={16} /> : <SparkSendIcon size={16} />}
+            <SparkIcon size={16} />
           </button>
           )}
           <button
