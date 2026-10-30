@@ -21,7 +21,7 @@ import path from "node:path";
 
 const TSC_OUTPUT = "out/main/src";
 /** 直接落在 out/main/ 根的主进程模块（其余 src/main/*.ts 以目录为单位整体复制）。 */
-const ROOT_MODULES = ["dev-server-url", "dev-server", "ipc", "window-ipc", "app-ipc", "settings-ipc", "provider-settings-store", "upstream-probe", "library-ipc", "library-store", "data-ipc", "data-manager", "archive-cipher", "image-size"];
+const ROOT_MODULES = ["dev-server-url", "dev-server", "ipc", "window-ipc", "app-ipc", "settings-ipc", "provider-settings-store", "upstream-probe", "library-ipc", "library-store", "data-ipc", "data-manager", "archive-cipher", "image-size", "favorites-store"];
 /** 以目录整体搬到 out/main/ 的模块组。 */
 const STAGED_DIRS = ["image-generation"];
 

@@ -10,6 +10,7 @@ import path from "node:path";
 import { dialog, ipcMain, shell, type BrowserWindow, type IpcMainInvokeEvent } from "electron";
 
 import { isAbsoluteDirectory, normalizeLibraryDir, type ChooseLibraryDirResult, type LibrarySettingsView } from "@shared/library";
+import type { FavoritesStore } from "./favorites-store";
 import type { FileJobStore } from "./library-store";
 import { resolveLibrarySettings } from "./library-store";
 
@@ -19,6 +20,8 @@ export const LIBRARY_CHANNELS = {
   openDir: "library:open-dir",
   rebuildIndex: "library:rebuild-index",
   deleteAsset: "library:delete-asset",
+  favorites: "library:favorites",
+  toggleFavorite: "library:toggle-favorite",
 } as const;
 
 export const LIBRARY_CHANNEL_LIST: readonly string[] = Object.values(LIBRARY_CHANNELS);
@@ -26,6 +29,7 @@ export const LIBRARY_CHANNEL_LIST: readonly string[] = Object.values(LIBRARY_CHA
 export interface LibraryIpcDeps {
   readonly getWindow: () => BrowserWindow | undefined;
   readonly store: FileJobStore;
+  readonly favorites: FavoritesStore;
   /** 设置文件绝对路径。 */
   readonly settingsFile: string;
   /** 系统推荐目录（"图片"下的 Image Agent）。 */
@@ -131,7 +135,19 @@ export function registerLibraryIpc(deps: LibraryIpcDeps): () => void {
     if (!isTrusted(deps, event)) return { ok: false, message: "来源窗口不可信" };
     if (typeof raw !== "string" || raw.trim() === "") return { ok: false, message: "缺少作品 ID" };
     const removed = deps.store.deleteAsset(raw);
+    if (removed.ok) deps.favorites.forget(raw);
     return removed.ok ? { ok: true } : { ok: false, message: "这张作品不在了" };
+  });
+
+  ipcMain.handle(LIBRARY_CHANNELS.favorites, (event): readonly string[] => {
+    if (!isTrusted(deps, event)) return [];
+    return deps.favorites.list();
+  });
+
+  ipcMain.handle(LIBRARY_CHANNELS.toggleFavorite, (event, raw: unknown): { readonly favorite: boolean } => {
+    if (!isTrusted(deps, event)) return { favorite: false };
+    if (typeof raw !== "string" || raw.trim() === "") return { favorite: false };
+    return deps.favorites.toggle(raw);
   });
 
   ipcMain.handle(LIBRARY_CHANNELS.openDir, async (event): Promise<SimpleResult> => {

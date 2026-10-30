@@ -544,9 +544,28 @@ async function run() {
   // ---- 作品库与服务商页面可点击 ----
   await js("(() => { [...document.querySelectorAll('.navitem')].find((n) => n.textContent.includes('作品库')).click(); return true; })()");
   await waitFor("document.querySelector('.page')", "作品库页面");
-  const libraryCards = await js("document.querySelectorAll('.library-card').length");
-  check("作品库显示已有作品", libraryCards >= 1, libraryCards);
+  // 作品库现在是相册视图：先看到"我的收藏 + 各服务商"，点进相册才看到作品卡
+  const albumCount = await js("document.querySelectorAll('.album-card').length");
+  check("作品库按相册分组", albumCount >= 1, albumCount);
+  const favAlbum = await js("document.querySelector('.album-card__title')?.textContent ?? ''");
+  check("第一个相册是我的收藏", favAlbum === "我的收藏", favAlbum);
+  await shot("11-library-albums");
+  // 进第一个服务商相册（跳过收藏）
+  await js("(() => { const cards = [...document.querySelectorAll('.album-card')]; (cards[1] ?? cards[0]).click(); return true; })()");
+  await waitFor("document.querySelector('.library-item')", "相册里的作品");
+  const libraryCards = await js("document.querySelectorAll('.library-item').length");
+  check("相册里显示作品卡", libraryCards >= 1, libraryCards);
+  check("作品卡右上角有收藏按钮", (await js("Boolean(document.querySelector('.library-item__fav'))")) === true, "");
+  await js("document.querySelector('.library-item__fav')?.click(), true");
+  await sleep(400);
+  const favOn = await js("Boolean(document.querySelector('.library-item__fav.is-on'))");
+  check("点爱心可以收藏", favOn === true, favOn);
+  await js("document.querySelector('.library-item__fav')?.click(), true");
+  await sleep(400);
+  check("再点一次取消收藏", (await js("Boolean(document.querySelector('.library-item__fav.is-on'))")) === false, "");
   await shot("11-library");
+  await js("document.querySelector('.page__title-row .button--icon')?.click(), true");
+  await waitFor("document.querySelector('.album-card')", "返回相册列表");
   await js("(() => { [...document.querySelectorAll('.navitem')].find((n) => n.textContent.includes('创作')).click(); return true; })()");
   await waitFor("document.querySelector('.dock')", "回到创作页");
 

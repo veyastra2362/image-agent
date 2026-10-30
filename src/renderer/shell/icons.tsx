@@ -131,3 +131,18 @@ export function RowsCompactIcon({ size = 16 }: { readonly size?: number }) {
     </svg>
   );
 }
+
+/** 收藏：实心/描边两种状态。 */
+export function HeartIcon({ size = 14, filled = false }: { readonly size?: number; readonly filled?: boolean }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path
+        d="M8 13.4 3.4 9a2.9 2.9 0 0 1 4.1-4.1l.5.5.5-.5A2.9 2.9 0 0 1 12.6 9Z"
+        fill={filled ? "currentColor" : "none"}
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}

@@ -28,6 +28,7 @@ import { DataManager } from "./data-manager";
 import { ImageGenerationService } from "./image-generation/service";
 import { FakeProvider } from "./image-generation/providers/fake";
 import { OpenAICompatibleProvider } from "./image-generation/providers/openai-compatible";
+import { FavoritesStore } from "./favorites-store";
 import { FileJobStore, parseAssetUrl } from "./library-store";
 import { librarySettingsFile, registerLibraryIpc } from "./library-ipc";
 import { LIBRARY_DIR_NAME } from "@shared/library";
@@ -48,6 +49,7 @@ let bridge: ReturnType<typeof registerImageIpc> | undefined;
 let settingsStore: ProviderSettingsStore | undefined;
 let dataManager: DataManager | undefined;
 let libraryStore: FileJobStore | undefined;
+let favoritesStore: FavoritesStore | undefined;
 let defaultLibraryDir = "";
 let devServerProcess: ChildProcess | undefined;
 let disposeExtraIpc: readonly (() => void)[] = [];
@@ -92,6 +94,7 @@ function start(): void {
 
     // 作品落盘：索引在 userData，图片在用户选的目录（默认"图片/Image Agent"）。
     libraryStore = new FileJobStore({ indexDir: userData });
+    favoritesStore = new FavoritesStore({ indexDir: userData });
     let initialDir = defaultLibraryDir;
     try {
       const raw = JSON.parse(readFileSync(librarySettingsFile(userData), "utf8")) as { dir?: unknown };
@@ -156,6 +159,7 @@ function start(): void {
         models: providerSummary?.models ?? [],
       })),
       registerLibraryIpc({
+        favorites: favoritesStore as FavoritesStore,
         getWindow: () => mainWindow,
         get store() {
           return libraryStore as FileJobStore;

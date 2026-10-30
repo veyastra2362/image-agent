@@ -68,6 +68,10 @@ declare global {
       >;
       /** 删除单张作品（记录 + 文件）。 */
       readonly deleteAsset: (assetId: string) => Promise<{ readonly ok: true } | { readonly ok: false; readonly message: string }>;
+      /** 收藏的 assetId 列表。 */
+      readonly favorites: () => Promise<readonly string[]>;
+      /** 切换收藏状态。 */
+      readonly toggleFavorite: (assetId: string) => Promise<{ readonly favorite: boolean }>;
     };
   }
 }
