@@ -601,6 +601,18 @@ export class ImageGenerationService {
     // 由存储决定最终的 previewUrl（写盘后指向文件，内存实现用 data URL）。
     const assets = pending.map((entry) => this.store.saveAsset(entry.asset, entry.bytes));
 
+    // 有的网关会悄悄忽略 size（返回自己的默认尺寸），这里如实提示，而不是假装成功。
+    const requested = job.requestedSize;
+    if (requested !== undefined) {
+      const off = assets.find((asset) => asset.width !== requested.width || asset.height !== requested.height);
+      if (off !== undefined) {
+        this.notify({
+          level: "warning",
+          message: `上游返回 ${off.width}×${off.height}，与请求的 ${requested.width}×${requested.height} 不一致`,
+        });
+      }
+    }
+
     this.commit(
       applyTransition(
         { ...job, assetIds: assets.map((asset) => asset.id) },

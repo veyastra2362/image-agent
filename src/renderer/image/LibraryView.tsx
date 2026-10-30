@@ -23,6 +23,7 @@ export function LibraryView({ state, onOpenAsset }: LibraryViewProps) {
   const [album, setAlbum] = useState<string>();
   const [query, setQuery] = useState("");
   const [range, setRange] = useState<"all" | "today" | "7d" | "30d">("all");
+  const [sort, setSort] = useState<"newest" | "oldest" | "largest">("newest");
   const [favorites, setFavorites] = useState<ReadonlySet<string>>(() => new Set());
   const [notice, setNotice] = useState<string>();
 
@@ -81,8 +82,9 @@ export function LibraryView({ state, onOpenAsset }: LibraryViewProps) {
 
     const since = rangeStart(range);
     const inRange = since === undefined ? inAlbum : inAlbum.filter((asset) => asset.createdAt >= since);
-    return keyword === "" ? inRange : inRange.filter((asset) => asset.prompt.toLowerCase().includes(keyword));
-  }, [album, assets, favorites, keyword, range]);
+    const filtered = keyword === "" ? inRange : inRange.filter((asset) => asset.prompt.toLowerCase().includes(keyword));
+    return sortAssets(filtered, sort);
+  }, [album, assets, favorites, keyword, range, sort]);
 
   async function toggleFavorite(asset: ImageAsset): Promise<void> {
     const result = await window.appLibrary?.toggleFavorite(asset.id);
@@ -151,6 +153,16 @@ export function LibraryView({ state, onOpenAsset }: LibraryViewProps) {
         </span>
         {album !== undefined && (
           <div className="library-filters">
+            <Select
+              ariaLabel="排序方式"
+              value={sort}
+              onChange={(next) => setSort(next as "newest" | "oldest" | "largest")}
+              options={[
+                { value: "newest", label: "最新优先" },
+                { value: "oldest", label: "最早优先" },
+                { value: "largest", label: "文件最大" },
+              ]}
+            />
             <Select
               ariaLabel="按加入时间筛选"
               value={range}
@@ -263,6 +275,15 @@ export function LibraryView({ state, onOpenAsset }: LibraryViewProps) {
       )}
     </section>
   );
+}
+
+/** 排序：不改变筛选结果，只决定展示顺序。 */
+function sortAssets(assets: readonly ImageAsset[], sort: "newest" | "oldest" | "largest"): ImageAsset[] {
+  const list = [...assets];
+  if (sort === "newest") list.sort((a, b) => b.createdAt - a.createdAt);
+  else if (sort === "oldest") list.sort((a, b) => a.createdAt - b.createdAt);
+  else list.sort((a, b) => b.byteLength - a.byteLength);
+  return list;
 }
 
 /** 时间筛选的起点；"全部"返回 undefined。按本地自然日算，不是"最近 24 小时"。 */

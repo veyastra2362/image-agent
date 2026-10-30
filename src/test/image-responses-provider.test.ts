@@ -137,6 +137,53 @@ test("Responses：HTTP 401 映射成 provider-unavailable", async () => {
   assert.equal(detail?.code, "provider-unavailable");
 });
 
+test("count > 1 拆成并发单图请求，进度序号不互相覆盖", async () => {
+  let inFlight = 0;
+  let peak = 0;
+  const { provider, calls } = makeProvider(() => {
+    inFlight += 1;
+    peak = Math.max(peak, inFlight);
+    const response = sseResponse([
+      `event: response.image_generation_call.partial_image\ndata: {"partial_image_b64":"${PNG_BASE64}"}\n\n`,
+      `event: response.completed\ndata: {"output":[{"type":"image_generation_call","result":"${PNG_BASE64}"}]}\n\n`,
+      "data: [DONE]\n\n",
+    ]);
+    const body = response.body as ReadableStream<Uint8Array>;
+    const patched = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        const reader = body.getReader();
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          controller.enqueue(value);
+        }
+        inFlight -= 1;
+        controller.close();
+      },
+    });
+    return new Response(patched, { status: 200, headers: { "content-type": "text/event-stream" } });
+  });
+
+  const partials: number[] = [];
+  const result = await provider.submit(
+    {
+      model: "gpt-image-2",
+      prompt: "three cats",
+      referenceAssetIds: [],
+      aspectRatio: "1:1",
+      count: 3,
+      onPartialImage: ({ index }) => partials.push(index),
+    },
+    new AbortController().signal,
+  );
+
+  assert.equal(result.state, "completed");
+  if (result.state !== "completed") return;
+  assert.equal(calls.length, 3, "三张应发三次请求");
+  assert.equal(result.images.length, 3);
+  assert.ok(peak >= 2, "请求应并发（峰值 " + peak + "）");
+  assert.deepEqual([...partials].sort((a, b) => a - b), [1, 2, 3], "进度序号按路排开");
+});
 test("Responses：能力声明没有轮询/取消，支持任意尺寸", () => {
   const { provider } = makeProvider(() => sseResponse([]));
   const caps = provider.getCapabilities("gpt-image-2");

@@ -59,7 +59,8 @@ const CAPABILITIES: ImageCapabilities = {
   masks: false,
   referenceImageLimit: 0,
   aspectRatios: SUPPORTED_RATIOS,
-  outputCountLimit: 1,
+  // 一次请求只能出一张，多张由 adapter 自己拆成并发单图请求。
+  outputCountLimit: 4,
   seed: false,
   negativePrompt: false,
   // 流式是一次请求读完整个流，没有远端任务可轮询/取消。
@@ -117,6 +118,26 @@ export class ResponsesProvider implements ImageProvider {
   async submit(request: ProviderGenerateRequest, signal: AbortSignal): Promise<ProviderSubmitResult> {
     if (!this.getModel(request.model)) throw new Error(`未知模型：${request.model}`);
 
+    // 中间图进度用一个并发安全的计数器：多路同时到也不会互相覆盖。
+    const progress = { count: 0 };
+
+    // 一次流只能出一张：多图就拆成并发单图，各自完整跑一条流。
+    if (request.count > 1) {
+      const single = await Promise.all(
+        Array.from({ length: request.count }, () => this.#submitOne({ ...request, count: 1 }, signal, progress)),
+      );
+      return { state: "completed", images: single.flatMap((result) => result.images) };
+    }
+    const single = await this.#submitOne(request, signal, progress);
+    return { state: "completed", images: single.images };
+  }
+
+  async #submitOne(
+    request: ProviderGenerateRequest,
+    signal: AbortSignal,
+    progress: { count: number },
+  ): Promise<{ readonly images: readonly ProviderImage[] }> {
+
     const controller = new AbortController();
     const forward = () => controller.abort(signal.reason);
     if (signal.aborted) forward();
@@ -142,9 +163,9 @@ export class ResponsesProvider implements ImageProvider {
       }
       if (response.body === null) throw new Error("上游没有返回流式响应体");
 
-      const images = await this.#readStream(response.body, request);
+      const images = await this.#readStream(response.body, request, progress);
       if (images.length === 0) throw new Error("上游没有返回图片数据");
-      return { state: "completed", images };
+      return { images };
     } catch (error) {
       if (signal.aborted) throw error;
       if (isProviderRequestError(error)) throw error;
@@ -174,7 +195,11 @@ export class ResponsesProvider implements ImageProvider {
   }
 
   /** 读完整个 SSE：中间图只报进度，最终图收集起来。 */
-  async #readStream(body: ReadableStream<Uint8Array>, request: ProviderGenerateRequest): Promise<ProviderImage[]> {
+  async #readStream(
+    body: ReadableStream<Uint8Array>,
+    request: ProviderGenerateRequest,
+    progress: { count: number },
+  ): Promise<ProviderImage[]> {
     const reader = body.getReader();
     const decoder = new TextDecoder();
     const parser = new SseParser();
@@ -203,7 +228,8 @@ export class ResponsesProvider implements ImageProvider {
         const isPartial = event.event?.includes("partial") === true;
         if (isPartial) {
           partialIndex += 1;
-          request.onPartialImage?.({ index: partialIndex, bytes: Buffer.from(partial, "base64") });
+          progress.count += 1;
+          request.onPartialImage?.({ index: progress.count, bytes: Buffer.from(partial, "base64") });
           continue;
         }
         finals.push({ bytes: Buffer.from(partial, "base64"), mimeType: "image/png" });
