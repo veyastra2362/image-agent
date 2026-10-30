@@ -96,6 +96,9 @@ export interface ComposerValue {
   /** 生成前先用 Agent 改写提示词。 */
   /** 优化方式：写回输入框 / 自动优化后直接生成 / 先规划再确认。 */
   readonly optimizeMode: OptimizeMode;
+  /** 是否在输入区显示优化按钮。 */
+  readonly optimizeEnabled: boolean;
+  readonly setOptimizeEnabled: (value: boolean) => void;
   readonly setOptimizeMode: (mode: OptimizeMode) => void;
   /** 星形按钮：按当前选择执行写回 / 直接生成 / 先规划。 */
   readonly runOptimizeAction: () => Promise<void>;
@@ -108,8 +111,6 @@ export interface ComposerValue {
   /** 优化后直接出图（不弹计划窗）。 */
   readonly optimizeAndSubmit: () => Promise<void>;
   readonly optimizeBusy: boolean;
-  readonly optimizeUndo: string | undefined;
-  readonly undoOptimize: () => void;
   readonly confirmPlan: (prompt: string) => Promise<void>;
   readonly dismissPlan: () => void;
   /** 是否配置了语言模型（决定开关能不能用）。 */
@@ -152,11 +153,11 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
   const [references, setReferences] = useState<readonly ReferenceImage[]>([]);
   const [referenceBusy, setReferenceBusy] = useState(false);
   const [optimizeMode, setOptimizeMode] = useState<OptimizeMode>("writeback");
+  const [optimizeEnabled, setOptimizeEnabled] = useState(true);
   const [optimizing, setOptimizing] = useState(false);
   const [plan, setPlan] = useState<AgentPlan>();
   const [planning, setPlanning] = useState(false);
   const [optimizeBusy, setOptimizeBusy] = useState(false);
-  const [optimizeUndo, setOptimizeUndo] = useState<string>();
   const [submitError, setSubmitError] = useState<string>();
   const [pending, setPending] = useState(false);
   // 每次提交换一个 requestId：同一个 id 重提会被 main 当成重复请求（幂等保护）。
@@ -310,7 +311,6 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
     const result = await window.imageAgent.optimizePrompt({ prompt: text });
     setOptimizeBusy(false);
     if (result.ok) {
-      setOptimizeUndo(prompt);
       setPrompt(result.prompt);
       setSubmitError(undefined);
     } else {
@@ -329,18 +329,10 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
       setSubmitError(`优化失败：${result.error.message}`);
       return;
     }
-    setOptimizeUndo(prompt);
     setPrompt(result.prompt);
     setSubmitError(undefined);
     await submitWith({ prompt: text, agentPrompt: result.prompt });
   }
-
-  const undoOptimize = useCallback(() => {
-    setOptimizeUndo((previous) => {
-      if (previous !== undefined) setPrompt(previous);
-      return undefined;
-    });
-  }, [setPrompt]);
 
   /** 生成按钮：按当前优化方式决定先做什么。 */
   async function submit(): Promise<void> {
@@ -418,6 +410,8 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
     referenceLimit,
     optimizeMode,
     setOptimizeMode,
+    optimizeEnabled,
+    setOptimizeEnabled,
     runOptimizeAction,
     optimizing,
     agentAvailable: state.agentAvailable,
@@ -428,8 +422,6 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
     optimizeNow,
     optimizeAndSubmit,
     optimizeBusy,
-    optimizeUndo,
-    undoOptimize,
     validation,
     canSubmit,
     pending,

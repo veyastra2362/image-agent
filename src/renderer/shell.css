@@ -3135,3 +3135,37 @@ code {
 .result-group__side {
   flex: 0 0 auto;
 }
+
+/* Agent 优化：紧凑下拉 + 显示开关并排 */
+.optimize-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+/* 下拉不要被 flex 挤扁：按内容撑开，文字不换行 */
+.optimize-row .select {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+}
+
+.optimize-row .select--compact .select__trigger {
+  gap: 6px;
+  max-width: none;
+}
+
+.optimize-row .select__value {
+  white-space: nowrap;
+}
+
+.switch-field--inline {
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.switch-field--inline .field__label {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}

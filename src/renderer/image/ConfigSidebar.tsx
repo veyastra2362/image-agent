@@ -10,6 +10,7 @@ import { SizeDialog } from "./SizeDialog.tsx";
 import { PanelLeftIcon } from "../shell/PanelLeftIcon.tsx";
 import { Select } from "../shell/Select.tsx";
 import { ModelSelect } from "../shell/ModelSelect.tsx";
+import { SparkIcon } from "../shell/icons.tsx";
 
 export interface ConfigSidebarProps {
   readonly onCollapse: () => void;
@@ -44,6 +45,8 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
     referenceValid,
     optimizeMode,
     setOptimizeMode,
+    optimizeEnabled,
+    setOptimizeEnabled,
     agentAvailable,
     prompt,
   } = useComposer();
@@ -196,16 +199,35 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
 
           <div className="field">
             <span className="field__label">Agent 优化提示词</span>
-            <Select
-              ariaLabel="Agent 优化方式"
-              value={optimizeMode}
-              onChange={(next) => setOptimizeMode(next as OptimizeMode)}
-              options={[
-                { value: "writeback", label: "优化（写回输入框）" },
-                { value: "auto", label: "自动优化（直接出图）" },
-                { value: "plan", label: "先规划再确认" },
-              ]}
-            />
+            <div className="optimize-row">
+              <Select
+                compact
+                ariaLabel="Agent 优化方式"
+                value={optimizeMode}
+                disabled={!agentAvailable}
+                leading={<SparkIcon size={13} />}
+                onChange={(next: string) => setOptimizeMode(next as OptimizeMode)}
+                options={[
+                  { value: "writeback", label: "优化（写回输入框）" },
+                  { value: "auto", label: "自动优化（直接出图）" },
+                  { value: "plan", label: "先规划再确认" },
+                ]}
+              />
+              <label className="switch-field switch-field--inline">
+                <span className="switch-field__text">
+                  <span className="field__label">在输入区显示优化按钮</span>
+                </span>
+                <input
+                  type="checkbox"
+                  className="toggle-switch"
+                  role="switch"
+                  aria-label="在输入区显示优化按钮"
+                  checked={optimizeEnabled}
+                  disabled={!agentAvailable}
+                  onChange={(event) => setOptimizeEnabled(event.target.checked)}
+                />
+              </label>
+            </div>
             <span className="field__hint">
               {agentAvailable
                 ? optimizeMode === "writeback"

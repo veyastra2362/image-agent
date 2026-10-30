@@ -44,9 +44,8 @@ export function PromptDock() {
     dismissPlan,
     runOptimizeAction,
     optimizeMode,
+    optimizeEnabled,
     optimizeBusy,
-    optimizeUndo,
-    undoOptimize,
     agentAvailable,
   } = useComposer();
 
@@ -190,7 +189,7 @@ export function PromptDock() {
           >
             <ImagePlusIcon size={16} />
           </button>
-          {/* 星形按钮：行为跟随「Agent 优化提示词」里的选择 */}
+          {optimizeEnabled && (
           <button
             type="button"
             className="button button--ghost dock__optimize"
@@ -209,6 +208,7 @@ export function PromptDock() {
           >
             {optimizeMode === "writeback" ? <SparkIcon size={16} /> : <SparkSendIcon size={16} />}
           </button>
+          )}
           <button
             type="submit"
             className="button button--primary dock__submit"
@@ -223,14 +223,7 @@ export function PromptDock() {
             </span>
           </button>
         </div>
-        {optimizeUndo !== undefined && (
-          <p className="dock__messages">
-            已用语言模型改写提示词。
-            <button type="button" className="link" onClick={undoOptimize}>
-              撤销改写
-            </button>
-          </p>
-        )}
+
       </div>
 
       {/* Agent 计划确认：用户点确认才真正提交 */}
