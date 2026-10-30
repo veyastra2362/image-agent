@@ -2995,7 +2995,18 @@ code {
   padding-right: 10px;
 }
 
+/* 和左边的下拉完全同尺寸：高度、字号、内边距、圆角都对齐 */
 .library-filters .library-search {
-  width: 200px;
+  width: 176px;
   margin-left: 0;
+  flex: 0 0 176px;
+  height: 32px;
+  padding: 0 12px;
+  font-size: var(--fs-sm);
+  line-height: 1;
+}
+
+.library-filters .select__trigger {
+  height: 32px;
+  font-size: var(--fs-sm);
 }
