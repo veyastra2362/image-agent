@@ -97,11 +97,6 @@ out/renderer/             Vite 产物
 - 文本输入框与标题栏的交互控件都标了 `-webkit-app-region: no-drag`，不会被窗口拖拽吃掉点击。
 - CSP 为 `default-src 'none'; script-src 'self'; connect-src 'self'; img-src 'self' data: blob: ia-asset:`；
   页面跳转、重定向与 `window.open` 全部拦截。
-## 提交与推送
-
-- 每完成一块**有意义的改动**就提交，并在提交后**立即 `git push`**（`origin/main`），不必每次再问。
-- 提交前跑一遍 `npm run typecheck`、`npm test`、`npm run smoke`；三项全绿才提交。
-- 提交信息写清"改了什么、为什么"，不写"update"这类无信息量的内容。
 
 ## 已知限制
 
