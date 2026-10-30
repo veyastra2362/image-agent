@@ -17,18 +17,8 @@ import { readFileAsDataUrl } from "../lib/format.ts";
 import { describeSpec } from "../lib/output-spec.ts";
 import type { ImageAgentState } from "./use-image-agent.ts";
 
-/** 界面用到的计划结构（与 shared/image-plan 对齐，这里只取需要的字段）。 */
-/** 三个优化方式：写回输入框、自动优化并生成、先规划再确认。 */
-export type OptimizeMode = "writeback" | "auto" | "plan";
-
-export interface AgentPlan {
-  readonly prompt: string;
-  readonly negativePrompt?: string;
-  readonly aspectRatio?: string;
-  readonly count?: number;
-  readonly reasoning?: string;
-  readonly questions?: readonly string[];
-}
+/** 两个优化模式：写回输入框 / 自动优化并直接生成。 */
+export type OptimizeMode = "writeback" | "auto";
 
 export interface ReferenceImage {
   readonly id: string;
@@ -104,15 +94,11 @@ export interface ComposerValue {
   readonly runOptimizeAction: () => Promise<void>;
   readonly optimizing: boolean;
   /** Agent 规划结果：有值时界面弹确认框，用户确认后才真正提交。 */
-  readonly plan: AgentPlan | undefined;
-  readonly planning: boolean;
   /** 直接优化提示词（不经过计划弹窗）；成功后替换输入框内容。 */
   readonly optimizeNow: () => Promise<void>;
   /** 优化后直接出图（不弹计划窗）。 */
   readonly optimizeAndSubmit: () => Promise<void>;
   readonly optimizeBusy: boolean;
-  readonly confirmPlan: (prompt: string) => Promise<void>;
-  readonly dismissPlan: () => void;
   /** 是否配置了语言模型（决定开关能不能用）。 */
   readonly agentAvailable: boolean;
 
@@ -155,8 +141,6 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
   const [optimizeMode, setOptimizeMode] = useState<OptimizeMode>("writeback");
   const [optimizeEnabled, setOptimizeEnabled] = useState(true);
   const [optimizing, setOptimizing] = useState(false);
-  const [plan, setPlan] = useState<AgentPlan>();
-  const [planning, setPlanning] = useState(false);
   const [optimizeBusy, setOptimizeBusy] = useState(false);
   const [submitError, setSubmitError] = useState<string>();
   const [pending, setPending] = useState(false);
@@ -284,22 +268,6 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
     else setRequestId(newRequestId());
   }
 
-  async function confirmPlan(editedPrompt: string): Promise<void> {
-    if (plan === undefined) return;
-    const next: AgentPlan = { ...plan, prompt: editedPrompt.trim() === "" ? plan.prompt : editedPrompt.trim() };
-    setPlan(undefined);
-    // 计划里的负面词只有模型支持时才带上，否则整单会被能力校验拦下。
-    await submitWith({
-      prompt,
-      agentPrompt: next.prompt,
-      ...(next.negativePrompt === undefined || caps?.negativePrompt !== true
-        ? {}
-        : { negativePrompt: next.negativePrompt }),
-    });
-  }
-
-  const dismissPlan = useCallback(() => setPlan(undefined), []);
-
   /** 生成按钮旁边的一键优化：拿到改写结果直接替换输入框，并留一次撤销。 */
   async function optimizeNow(): Promise<void> {
     const text = prompt.trim();
@@ -341,16 +309,7 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
       await optimizeAndSubmit();
       return;
     }
-    if (optimizeMode === "plan" && state.agentAvailable) {
-      setPlanning(true);
-      const result = await window.imageAgent.planPrompt({ prompt });
-      setPlanning(false);
-      if (result.ok) {
-        setPlan(result.plan as AgentPlan);
-        return;
-      }
-      setSubmitError(`规划失败，已按原文生成：${result.error}`);
-    }
+
     await submitWith();
   }
 
@@ -360,15 +319,7 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
       await optimizeAndSubmit();
       return;
     }
-    if (optimizeMode === "plan") {
-      if (!state.agentAvailable || prompt.trim() === "") return;
-      setPlanning(true);
-      const result = await window.imageAgent.planPrompt({ prompt });
-      setPlanning(false);
-      if (result.ok) setPlan(result.plan as AgentPlan);
-      else setSubmitError(`规划失败：${result.error}`);
-      return;
-    }
+
     await optimizeNow();
   }
 
@@ -415,10 +366,6 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
     runOptimizeAction,
     optimizing,
     agentAvailable: state.agentAvailable,
-    plan,
-    planning,
-    confirmPlan,
-    dismissPlan,
     optimizeNow,
     optimizeAndSubmit,
     optimizeBusy,

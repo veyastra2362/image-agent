@@ -5,12 +5,11 @@
  */
 import { LIMITS } from "../../shared/image-generation.ts";
 import { FORMAT_LABELS } from "../lib/output-spec.ts";
-import { useComposer, type OptimizeMode } from "./composer-state.tsx";
+import { useComposer } from "./composer-state.tsx";
 import { SizeDialog } from "./SizeDialog.tsx";
 import { PanelLeftIcon } from "../shell/PanelLeftIcon.tsx";
 import { Select } from "../shell/Select.tsx";
 import { ModelSelect } from "../shell/ModelSelect.tsx";
-import { SparkIcon } from "../shell/icons.tsx";
 
 export interface ConfigSidebarProps {
   readonly onCollapse: () => void;
@@ -43,8 +42,6 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
     clearReference,
     referenceLimit,
     referenceValid,
-    optimizeMode,
-    setOptimizeMode,
     optimizeEnabled,
     setOptimizeEnabled,
     agentAvailable,
@@ -197,47 +194,25 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
             </label>
           )}
 
-          <div className="field">
-            <span className="field__label">Agent 优化提示词</span>
-            <div className="optimize-row">
-              <Select
-                compact
-                ariaLabel="Agent 优化方式"
-                value={optimizeMode}
-                disabled={!agentAvailable}
-                leading={<SparkIcon size={13} />}
-                onChange={(next: string) => setOptimizeMode(next as OptimizeMode)}
-                options={[
-                  { value: "writeback", label: "优化（写回输入框）" },
-                  { value: "auto", label: "自动优化（直接出图）" },
-                  { value: "plan", label: "先规划再确认" },
-                ]}
-              />
-              <label className="switch-field switch-field--inline">
-                <span className="switch-field__text">
-                  <span className="field__label">在输入区显示优化按钮</span>
-                </span>
-                <input
-                  type="checkbox"
-                  className="toggle-switch"
-                  role="switch"
-                  aria-label="在输入区显示优化按钮"
-                  checked={optimizeEnabled}
-                  disabled={!agentAvailable}
-                  onChange={(event) => setOptimizeEnabled(event.target.checked)}
-                />
-              </label>
-            </div>
-            <span className="field__hint">
-              {agentAvailable
-                ? optimizeMode === "writeback"
-                  ? "点星形按钮改写后写回输入框；点生成按原文出图"
-                  : optimizeMode === "auto"
-                    ? "点星形按钮或生成，都会先改写再出图"
-                    : "点星形按钮或生成，先弹计划确认窗，确认后才出图"
-                : "需要先在 设置 → API 设置 → 语言模型 里配置一个模型"}
+          <label className="switch-field">
+            <span className="switch-field__text">
+              <span className="field__label">显示优化按钮</span>
+              <span className="field__hint">
+                {agentAvailable
+                  ? "输入区星形按钮的显示与隐藏；优化方式在输入框下方选择"
+                  : "需要先在 设置 → API 设置 → 语言模型 里配置一个模型"}
+              </span>
             </span>
-          </div>
+            <input
+              type="checkbox"
+              className="toggle-switch"
+              role="switch"
+              aria-label="显示优化按钮"
+              checked={optimizeEnabled}
+              disabled={!agentAvailable}
+              onChange={(event) => setOptimizeEnabled(event.target.checked)}
+            />
+          </label>
         </div>
       </details>
 
