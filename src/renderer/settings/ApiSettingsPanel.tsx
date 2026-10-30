@@ -88,7 +88,9 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
   useEffect(() => {
     if (view === undefined) return;
     const samePurpose = view.profiles.filter((profile) => (profile.purpose ?? "image") === purpose);
-    const active = samePurpose.find((profile) => profile.id === view.activeId) ?? samePurpose[0];
+    // 两类各有自己的"当前选中"，互不抢占；老数据没有这个字段时退回该类第一条。
+    const preferred = view.activeByPurpose?.[purpose];
+    const active = samePurpose.find((profile) => profile.id === preferred) ?? samePurpose[0];
     setDraft(active === undefined ? undefined : { ...active });
     setApiKey("");
     setAddOpen(false);

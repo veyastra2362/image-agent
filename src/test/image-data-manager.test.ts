@@ -8,6 +8,7 @@ import path from "node:path";
 import test from "node:test";
 
 import { DataManager } from "../main/data-manager";
+import { FavoritesStore } from "../main/favorites-store";
 import { FileJobStore } from "../main/library-store";
 import { ProviderSettingsStore, type SecretCipher } from "../main/provider-settings-store";
 import type { ImageAsset, ImageJob } from "../shared/image-generation";
@@ -80,6 +81,7 @@ function harness() {
   const libraryDir = path.join(root, "library");
   const store = new FileJobStore({ indexDir: userData, dir: libraryDir });
   const settings = new ProviderSettingsStore({ dir: userData, cipher });
+  const favorites = new FavoritesStore({ indexDir: userData });
   const profile: ProviderProfile = {
     id: "default",
     label: "主服务",
@@ -98,10 +100,31 @@ function harness() {
     userDataDir: userData,
     getStore: () => store,
     getSettings: () => settings,
+    getFavorites: () => favorites,
     applyProviders: () => undefined,
   });
-  return { root, userData, libraryDir, store, settings, manager };
+  return { root, userData, libraryDir, store, settings, favorites, manager };
 }
+
+test("收藏夹跟着作品一起备份、清除、恢复", () => {
+  const h = harness();
+  try {
+    h.store.saveJob(job());
+    h.store.saveAsset(asset(), new Uint8Array([1, 2, 3, 4]));
+    h.favorites.toggle("asset-1");
+
+    const file = path.join(h.root, "backup-with-fav.zip");
+    assert.equal(h.manager.exportTo(file, { settings: false, library: true }).ok, true);
+
+    assert.equal(h.manager.clear({ settings: false, library: true }).ok, true);
+    assert.deepEqual(h.favorites.list(), [], "清除作品时收藏也一起清掉");
+
+    assert.equal(h.manager.importFrom(file, { settings: false, library: true }).ok, true);
+    assert.deepEqual([...h.favorites.list()], ["asset-1"], "导入后收藏回来");
+  } finally {
+    rmSync(h.root, { recursive: true, force: true });
+  }
+});
 
 test("口令加密导出：文件不是 ZIP，错误口令拒绝，正确口令能导入", () => {
   const h = harness();

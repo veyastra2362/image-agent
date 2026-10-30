@@ -92,6 +92,8 @@ export interface ProviderKeyStatus {
 export interface ProviderSettingsView {
   readonly profiles: readonly ProviderProfile[];
   readonly activeId: string;
+  /** 每类各自选中的配置（图片 / 语言模型互不影响）。 */
+  readonly activeByPurpose?: Readonly<Record<string, string>>;
   readonly keys: Readonly<Record<string, ProviderKeyStatus>>;
   /** 当前同时生效的服务商数量（有密钥且有模型的）。 */
   readonly enabledCount: number;

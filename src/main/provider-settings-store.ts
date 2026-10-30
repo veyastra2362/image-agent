@@ -37,6 +37,8 @@ interface StoredFile {
   readonly version: number;
   readonly profiles: readonly ProviderProfile[];
   readonly activeId: string;
+  /** 图片 / 语言模型 各自选中的配置。老文件没有这个字段。 */
+  readonly activeByPurpose?: Readonly<Record<string, string>>;
   readonly keys: Readonly<Record<string, StoredKey>>;
 }
 
@@ -66,6 +68,8 @@ export class ProviderSettingsStore {
 
   #profiles: ProviderProfile[] = [defaultProfile()];
   #activeId = DEFAULT_PROFILE_ID;
+  /** 两类各自记住"当前选中"的配置：图片一套、语言模型一套。 */
+  readonly #activeByPurpose = new Map<ProviderPurpose, string>();
   /** id → 密钥明文（只在内存里）。 */
   readonly #keys = new Map<string, string>();
   /** 哪几把密钥是加密落盘的。 */
@@ -157,6 +161,20 @@ export class ProviderSettingsStore {
       ? activeId
       : (this.#profiles[0]?.id ?? DEFAULT_PROFILE_ID);
 
+    // 老文件没有 activeByPurpose：按 activeId 补一次，读不到就各取第一条。
+    this.#activeByPurpose.clear();
+    const byPurpose = candidate.activeByPurpose;
+    if (typeof byPurpose === "object" && byPurpose !== null) {
+      for (const purpose of ["image", "text"] as const) {
+        const recorded = (byPurpose as Record<string, unknown>)[purpose];
+        if (typeof recorded !== "string") continue;
+        const matched = this.#profiles.find(
+          (profile) => profile.id === recorded && (profile.purpose ?? "image") === purpose,
+        );
+        if (matched !== undefined) this.#activeByPurpose.set(purpose, matched.id);
+      }
+    }
+
     const keys = candidate.keys;
     if (typeof keys === "object" && keys !== null) {
       for (const profile of this.#profiles) {
@@ -202,10 +220,22 @@ export class ProviderSettingsStore {
   }
 
   setActive(id: string): boolean {
-    if (!this.#profiles.some((profile) => profile.id === id)) return false;
+    const profile = this.#profiles.find((entry) => entry.id === id);
+    if (profile === undefined) return false;
     this.#activeId = id;
+    this.#activeByPurpose.set(profile.purpose ?? "image", id);
     this.#persist();
     return true;
+  }
+
+  /** 某一类当前选中的配置；找不到就退回该类第一条。 */
+  activeIdFor(purpose: ProviderPurpose): string {
+    const recorded = this.#activeByPurpose.get(purpose);
+    const matched = this.#profiles.find(
+      (profile) => profile.id === recorded && (profile.purpose ?? "image") === purpose,
+    );
+    if (matched !== undefined) return matched.id;
+    return this.#profiles.find((profile) => (profile.purpose ?? "image") === purpose)?.id ?? "";
   }
 
   /** 新建一个空配置并切换过去。 */
@@ -225,6 +255,7 @@ export class ProviderSettingsStore {
     };
     this.#profiles = [...this.#profiles, profile];
     this.#activeId = id;
+    this.#activeByPurpose.set(purpose, id);
     this.#persist();
     return profile;
   }
@@ -248,6 +279,9 @@ export class ProviderSettingsStore {
     this.#keys.delete(id);
     this.#encrypted.delete(id);
     if (this.#activeId === id) this.#activeId = this.#profiles[0]?.id ?? DEFAULT_PROFILE_ID;
+    for (const [purpose, activeId] of this.#activeByPurpose) {
+      if (activeId === id) this.#activeByPurpose.delete(purpose);
+    }
     this.#persist();
     return { ok: true };
   }
@@ -267,6 +301,7 @@ export class ProviderSettingsStore {
   reset(): void {
     this.#profiles = [defaultProfile()];
     this.#activeId = DEFAULT_PROFILE_ID;
+    this.#activeByPurpose.clear();
     this.#keys.clear();
     this.#encrypted.clear();
     this.#persist();
@@ -315,6 +350,10 @@ export class ProviderSettingsStore {
     return {
       profiles: this.#profiles,
       activeId: this.#activeId,
+      activeByPurpose: {
+        image: this.activeIdFor("image"),
+        text: this.activeIdFor("text"),
+      },
       keys,
       enabledCount: this.#profiles.filter(
         (profile) => profile.models.length > 0 && profile.baseUrl !== "" && this.#keys.has(profile.id),
@@ -359,6 +398,7 @@ export class ProviderSettingsStore {
       version: FILE_VERSION,
       profiles: this.#profiles,
       activeId: this.#activeId,
+      activeByPurpose: Object.fromEntries(this.#activeByPurpose),
       keys,
     };
     try {

@@ -110,6 +110,7 @@ function start(): void {
       userDataDir: userData,
       getStore: () => libraryStore as FileJobStore,
       getSettings: () => settingsStore as ProviderSettingsStore,
+    getFavorites: () => favoritesStore as FavoritesStore,
       applyProviders: () => {
         try {
           const store = settingsStore as ProviderSettingsStore;

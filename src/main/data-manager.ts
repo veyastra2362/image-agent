@@ -24,6 +24,7 @@ import type { ImageAsset, ImageJob } from "@shared/image-generation";
 import { validateProviderFile, type ProviderProfile } from "@shared/provider-settings";
 import { decryptArchive, encryptArchive, isEncryptedArchive } from "./archive-cipher";
 import type { FileJobStore } from "./library-store";
+import type { FavoritesStore } from "./favorites-store";
 import type { ProviderSettingsStore } from "./provider-settings-store";
 
 const SETTINGS_ENTRY = "settings/provider-settings.json";
@@ -34,6 +35,8 @@ export interface DataManagerDeps {
   readonly userDataDir: string;
   readonly getStore: () => FileJobStore;
   readonly getSettings: () => ProviderSettingsStore;
+  /** 收藏夹：跟着作品一起导出/导入/清除。 */
+  readonly getFavorites: () => FavoritesStore;
   /** 配置变更后重建 provider 表。 */
   readonly applyProviders: () => void;
 }
@@ -47,6 +50,7 @@ interface StoredSettingsFile {
 interface ParsedLibrary {
   readonly jobs: readonly ImageJob[];
   readonly assets: readonly { readonly asset: ImageAsset; readonly fileName: string }[];
+  readonly favorites: readonly string[];
 }
 
 export class DataManager {
@@ -92,6 +96,7 @@ export class DataManager {
       const index = {
         version: 1,
         jobs,
+        favorites: this.deps.getFavorites().list(),
         assets: assets.map((asset) => {
           const file = store.fileForAsset(asset.id);
           return { ...asset, previewUrl: "", file: file === undefined ? undefined : `${ASSET_PREFIX}${path.basename(file)}` };
@@ -204,6 +209,11 @@ export class DataManager {
         images += 1;
       }
       for (const job of parsed.jobs) store.importJob(job);
+
+      // 收藏跟着作品走：只保留这次真的恢复出来的 assetId。
+      const available = new Set(store.allAssets().map((asset) => asset.id));
+      this.deps.getFavorites().replaceAll(parsed.favorites.filter((id) => available.has(id)));
+
       restored.push(`任务 ${parsed.jobs.length} 条 / 图片 ${images} 张`);
     }
 
@@ -222,6 +232,7 @@ export class DataManager {
     }
     if (selection.library) {
       const removed = this.deps.getStore().clearAll();
+      this.deps.getFavorites().replaceAll([]);
       done.push(`任务与图片（删除 ${removed.removedFiles} 个文件）`);
     }
     return { ok: true, message: `已清除：${done.join("、")}` };
@@ -279,7 +290,12 @@ function parseLibraryIndex(raw: string): ParsedLibrary | { error: string } {
   const jobs = record.jobs.filter(
     (job): job is ImageJob => typeof job === "object" && job !== null && typeof (job as { id?: unknown }).id === "string",
   );
-  return { jobs, assets };
+  const favorites = Array.isArray((record as { favorites?: unknown }).favorites)
+    ? ((record as { favorites: unknown[] }).favorites.filter(
+        (id): id is string => typeof id === "string" && id.length > 0,
+      ) as readonly string[])
+    : [];
+  return { jobs, assets, favorites };
 }
 
 export function defaultExportName(now = new Date(), encrypted = false): string {
