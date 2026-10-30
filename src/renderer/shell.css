@@ -3272,7 +3272,6 @@ code {
 
 .link:hover {
   color: var(--accent);
-  text-decoration: underline;
 }
 
 /* 选择上游模型：底部计数与按钮对齐 */
