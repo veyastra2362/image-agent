@@ -29,6 +29,7 @@ import { ImageGenerationService } from "./image-generation/service";
 import { FakeProvider } from "./image-generation/providers/fake";
 import { OpenAICompatibleProvider } from "./image-generation/providers/openai-compatible";
 import { ResponsesProvider } from "./image-generation/providers/responses";
+import { FalProvider } from "./image-generation/providers/fal";
 import type { ImageProvider } from "./image-generation/provider";
 import { guessModelKind, modelFitsPurpose } from "@shared/model-kind";
 import { FavoritesStore } from "./favorites-store";
@@ -278,6 +279,23 @@ function createProviders(
     const usableProfile = { ...profile, models: usableModels };
 
     try {
+      // fal 是队列式接口：app id 拼在 URL 里，提交后轮询。
+      if (usableProfile.kind === "fal") {
+        providers.push(
+          new FalProvider({
+            id: usableProfile.id,
+            displayName: usableProfile.label,
+            baseUrl: usableProfile.baseUrl || "https://queue.fal.run",
+            apiKey,
+            models: usableModels,
+            defaultModel: usableProfile.defaultModel ?? usableModels[0],
+            timeoutMs: usableProfile.timeoutSeconds * 1000,
+          }),
+        );
+        summary.push({ baseUrl: usableProfile.baseUrl, models: [...usableModels] });
+        continue;
+      }
+
       // Responses API 走流式适配器；其余仍然是 Images API（一次请求一次响应）。
       if (usableProfile.flavor === "responses") {
         providers.push(
