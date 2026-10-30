@@ -3010,3 +3010,23 @@ code {
   height: 32px;
   font-size: var(--fs-sm);
 }
+
+/* ---------------------------------------------------------------- 作品库页面留白 */
+
+/*
+ * `.workspace` 的 padding:0 写在后面，把 `.workspace--page` 的 padding 覆盖掉了，
+ * 结果作品库标题和筛选条紧贴标题栏（看起来重叠）。这里提高一级特异性抢回来。
+ */
+.workspace.workspace--page {
+  padding: var(--space-5) var(--space-6);
+}
+
+/* 标题、计数、筛选条按中线对齐：baseline 遇到输入框会错位 */
+.page__head {
+  align-items: center;
+  row-gap: var(--space-3);
+}
+
+.library-filters {
+  margin-top: 0;
+}
