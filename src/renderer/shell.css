@@ -2745,6 +2745,8 @@ code {
   transform: translateX(calc(var(--i) * (100% + 8px)));
   transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
   pointer-events: none;
+  /* 单独一层：切主题时整页重绘不会拖住滑块动画 */
+  will-change: transform;
 }
 
 .choice-card {

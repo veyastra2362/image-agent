@@ -5,7 +5,7 @@
  * 因此不存在"密钥进 localStorage、截图或 React DevTools"的可能。
  */
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { MonitorIcon, MoonIcon, RowsCompactIcon, RowsIcon, SunIcon } from "../shell/icons.tsx";
+import { MonitorIcon, MoonIcon, SunIcon } from "../shell/icons.tsx";
 import type { AppEnvironment } from "../../shared/app-shell.ts";
 import type { ProviderSettingsView } from "../../shared/provider-settings.ts";
 import { ApiSettingsPanel, type FooterAction } from "./ApiSettingsPanel.tsx";
@@ -210,13 +210,13 @@ export function SettingsDialog({
                   ]}
                 />
                 <h3>{t("general.density")}</h3>
-                <ChoiceCards
-                  label={t("general.density")}
+                <Select
+                  ariaLabel={t("general.density")}
                   value={density}
-                  onChange={onDensityChange}
+                  onChange={(next) => onDensityChange(next as "comfortable" | "compact")}
                   options={[
-                    { value: "comfortable", label: t("general.density.comfortable"), icon: <RowsIcon /> },
-                    { value: "compact", label: t("general.density.compact"), icon: <RowsCompactIcon /> },
+                    { value: "comfortable", label: t("general.density.comfortable") },
+                    { value: "compact", label: t("general.density.compact") },
                   ]}
                 />
                 <div className="settings__row settings__row--field">
