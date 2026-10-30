@@ -97,10 +97,16 @@ out/renderer/             Vite 产物
 - 文本输入框与标题栏的交互控件都标了 `-webkit-app-region: no-drag`，不会被窗口拖拽吃掉点击。
 - CSP 为 `default-src 'none'; script-src 'self'; connect-src 'self'; img-src 'self' data: blob: ia-asset:`；
   页面跳转、重定向与 `window.open` 全部拦截。
+## 提交与推送
+
+- 每完成一块**有意义的改动**就提交，并在提交后**立即 `git push`**（`origin/main`），不必每次再问。
+- 提交前跑一遍 `npm run typecheck`、`npm test`、`npm run smoke`；三项全绿才提交。
+- 提交信息写清"改了什么、为什么"，不写"update"这类无信息量的内容。
 
 ## 已知限制
 
 - 流式（Responses API SSE）与 fal.ai adapter 尚未接入，设置项已保存但请求仍走非流式 images 接口。
-- 参考图（`/images/edits`）未接入；真实模型声明 `imageToImage: false`。
-- 同步假模型（Fake Sync 1）在 main 里一次性完成，因此声明 `cancel: false`；异步假模型可取消。
+- 提示词 Agent 改写已接通（`/chat/completions`，语言模型配置独立），但要求服务商提供 chat 模型。
+- 同步假模型（Fake Sync 1）只在端到端冒烟里注册，正式运行不出现；异步假模型可取消。
+- 备份口令加密是可选项；不设口令时 ZIP 内的 API Key 是明文。
 - 没有安装包（打包在后续切片）。
