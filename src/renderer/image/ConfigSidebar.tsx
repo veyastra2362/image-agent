@@ -10,6 +10,7 @@ import { SizeDialog } from "./SizeDialog.tsx";
 import { PanelLeftIcon } from "../shell/PanelLeftIcon.tsx";
 import { Select } from "../shell/Select.tsx";
 import { ModelSelect } from "../shell/ModelSelect.tsx";
+import { MaskEditor } from "./MaskEditor.tsx";
 
 export interface ConfigSidebarProps {
   readonly onCollapse: () => void;
@@ -42,6 +43,12 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
     clearReference,
     referenceLimit,
     referenceValid,
+    maskDataUrl,
+    maskOpen,
+    setMaskOpen,
+    commitMask,
+    clearMask,
+    maskPreview,
     optimizeMode,
     setOptimizeMode,
     agentAvailable,
@@ -121,7 +128,27 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
       <div className="field ref-field">
         <span className="field__label">
           参考图
-          {references.length > 0 && (
+          {references.length === 1 && caps?.masks === true && (
+          <div className="mask-entry">
+            <button
+              type="button"
+              className="button button--ghost button--small"
+              onClick={() => setMaskOpen(true)}
+              title="在参考图上涂抹要重画的区域"
+            >
+              涂抹遮罩
+            </button>
+            {maskDataUrl !== undefined ? (
+              <>
+                <span className="mask-entry__badge">已设置</span>
+                <button type="button" className="link" onClick={clearMask}>
+                  清除
+                </button>
+              </>
+            ) : null}
+          </div>
+        )}
+        {references.length === 1 && (
             <span className="field__meta">
               {Number.isFinite(referenceLimit) ? `${references.length} / ${referenceLimit}` : `${references.length} 张`}
             </span>
@@ -219,6 +246,10 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
           </div>
         </div>
       </details>
+
+      {maskOpen && maskPreview !== undefined && (
+        <MaskEditor referenceSrc={maskPreview} onCancel={() => setMaskOpen(false)} onCommit={commitMask} />
+      )}
 
       {sizeDialogOpen && (
         <SizeDialog

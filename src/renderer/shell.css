@@ -3330,3 +3330,83 @@ code {
   color: var(--text-muted);
   border-color: var(--border-strong);
 }
+
+/* ---------------------------------------------------------------- 涂抹遮罩 */
+
+.mask-entry {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.mask-entry__badge {
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  color: var(--accent);
+  font-size: var(--fs-xs);
+}
+
+.mask-modal {
+  width: min(680px, 94vw);
+}
+
+.mask-canvas {
+  position: relative;
+  margin: var(--space-3) 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-sunken);
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mask-canvas img,
+.mask-canvas__layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.mask-canvas img {
+  opacity: 0.65;
+}
+
+.mask-canvas__layer {
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.mask-canvas__layer.is-erasing {
+  cursor: cell;
+}
+
+.mask-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.mask-toolbar__brush {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1 1 auto;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.mask-toolbar__brush input[type="range"] {
+  flex: 1 1 auto;
+}
+
+.mask-toolbar .button.is-active {
+  border-color: var(--accent);
+  color: var(--accent);
+}

@@ -29,6 +29,8 @@ export interface ProviderGenerateRequest {
   readonly referenceAssetIds: readonly string[];
   /** 参考图的原始字节；main 从作品库读出来交给 adapter，adapter 不需要认识 asset ID。 */
   readonly referenceImages?: readonly { readonly bytes: Uint8Array; readonly mimeType: string }[];
+  /** 涂抹遮罩（PNG，白色=重画、透明=保留）。 */
+  readonly mask?: { readonly bytes: Uint8Array; readonly mimeType: string };
   readonly aspectRatio: AspectRatio;
   readonly count: number;
   readonly seed?: number;

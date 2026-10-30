@@ -24,6 +24,13 @@ import {
 } from "@shared/image-generation";
 import { validateImagePlan, type PlanResult } from "@shared/image-plan";
 import { readPngSize } from "./fixtures";
+
+/** data:image/png;base64,… → 字节。 */
+function decodeDataUrl(dataUrl: string): Uint8Array {
+  const comma = dataUrl.indexOf(",");
+  const base64 = comma === -1 ? dataUrl : dataUrl.slice(comma + 1);
+  return new Uint8Array(Buffer.from(base64, "base64"));
+}
 import { transcodeImage } from "./transcode";
 import { isProviderRequestError } from "./provider";
 import type { ImageProvider, ProviderImage, ProviderModel } from "./provider";
@@ -200,6 +207,7 @@ export class ImageGenerationService {
       submittedPrompt,
       capabilities: model.capabilities,
       referenceAssetIds: input.referenceAssetIds,
+      ...(input.maskDataUrl === undefined ? {} : { hasMask: true }),
       uploadsUserAssets: provider.descriptor.uploadsUserAssets && input.referenceAssetIds.length > 0,
       aspectRatio,
       sizeMode,
@@ -484,6 +492,9 @@ export class ImageGenerationService {
             prompt: job.submittedPrompt,
             referenceAssetIds: job.referenceAssetIds,
             ...(referenceImages.length === 0 ? {} : { referenceImages }),
+            ...(job.maskDataUrl === undefined
+              ? {}
+              : { mask: { bytes: decodeDataUrl(job.maskDataUrl), mimeType: "image/png" } }),
             aspectRatio: job.aspectRatio,
             sizeMode: job.sizeMode ?? "ratio",
             ...(job.requestedSize === undefined ? {} : { size: job.requestedSize }),

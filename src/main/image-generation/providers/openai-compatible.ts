@@ -110,7 +110,8 @@ const CAPABILITIES: ImageCapabilities = {
   textToImage: true,
   // 实测前先打开，用一张真实参考图验证 /images/edits。
   imageToImage: true,
-  masks: false,
+  // /images/edits 支持 mask 字段（白色=重画、透明=保留）。
+  masks: true,
   // 参考图不限张数（实测两张可用；上限由上游决定，这里不设人为限制）。
   referenceImageLimit: Number.POSITIVE_INFINITY,
   aspectRatios: SUPPORTED_RATIOS,
@@ -297,6 +298,11 @@ export class OpenAICompatibleProvider implements ImageProvider {
       const blob = new Blob([new Uint8Array(image.bytes)], { type: image.mimeType });
       form.append(images.length === 1 ? "image" : "image[]", blob, `reference-${index + 1}.png`);
     });
+
+    if (request.mask !== undefined) {
+      const maskBlob = new Blob([new Uint8Array(request.mask.bytes)], { type: request.mask.mimeType });
+      form.append("mask", maskBlob, "mask.png");
+    }
 
     const response = await this.request(`${this.baseUrl}/images/edits`, {
       method: "POST",

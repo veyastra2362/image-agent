@@ -220,6 +220,8 @@ export interface CreateImageJobInput {
   readonly agentPrompt?: string;
   /** 本地参考图 asset ID；renderer 永远不传磁盘路径。 */
   readonly referenceAssetIds: readonly string[];
+  /** 涂抹遮罩（PNG data URL）；只有一张参考图且模型支持时才有。 */
+  readonly maskDataUrl?: string;
   readonly aspectRatio?: AspectRatio;
   readonly count: number;
   /** 流式生成时已收到的中间步骤图像数量（只用于进度提示）。 */
@@ -256,6 +258,10 @@ export interface ImageJob {
   /** 提交时的能力快照，用于详情展示与复现。 */
   readonly capabilities: ImageCapabilities;
   readonly referenceAssetIds: readonly string[];
+  /** 涂抹遮罩（PNG data URL）；重试时复用。 */
+  readonly maskDataUrl?: string;
+  /** 是否带遮罩（界面提示用）。 */
+  readonly hasMask?: boolean;
   /** 当参考图需要上传给远端 provider 时为 true；本地 fake provider 为 false。 */
   readonly uploadsUserAssets: boolean;
   readonly aspectRatio: AspectRatio;
@@ -376,6 +382,7 @@ const ALLOWED_INPUT_KEYS = new Set([
   "prompt",
   "agentPrompt",
   "referenceAssetIds",
+  "maskDataUrl",
   "aspectRatio",
   "count",
   "seed",
@@ -468,6 +475,20 @@ export function validateCreateJobInput(raw: unknown): ValidationResult<CreateIma
       if (referenceAssetIds.includes(id)) return fail("invalid-request", "参考图不能重复");
       referenceAssetIds.push(id);
     }
+  }
+
+  let maskDataUrl: string | undefined;
+  if (raw.maskDataUrl !== undefined) {
+    if (typeof raw.maskDataUrl !== "string" || !/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(raw.maskDataUrl)) {
+      return { ok: false, error: { code: "invalid-request", message: "遮罩必须是 PNG 图片", retryable: false } };
+    }
+    if (maskDataUrl === undefined && referenceAssetIds.length !== 1) {
+      return { ok: false, error: { code: "invalid-request", message: "涂抹遮罩需要且只能有一张参考图", retryable: false } };
+    }
+    if (raw.maskDataUrl.length > 8 * 1024 * 1024) {
+      return { ok: false, error: { code: "invalid-request", message: "遮罩文件太大", retryable: false } };
+    }
+    maskDataUrl = raw.maskDataUrl;
   }
 
   let aspectRatio: AspectRatio | undefined;
@@ -568,6 +589,7 @@ export function validateCreateJobInput(raw: unknown): ValidationResult<CreateIma
       prompt,
       ...(agentPrompt === undefined ? {} : { agentPrompt }),
       referenceAssetIds,
+      ...(maskDataUrl === undefined ? {} : { maskDataUrl }),
       ...(aspectRatio === undefined ? {} : { aspectRatio }),
       count: raw.count,
       ...(seed === undefined ? {} : { seed }),

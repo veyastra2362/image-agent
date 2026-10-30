@@ -82,6 +82,14 @@ export interface ComposerValue {
   readonly clearAllReferences: () => void;
   readonly referenceBusy: boolean;
   readonly referenceValid: boolean;
+  /** 涂抹遮罩（PNG data URL）；只在单张参考图时可用。 */
+  readonly maskDataUrl: string | undefined;
+  readonly maskOpen: boolean;
+  readonly setMaskOpen: (open: boolean) => void;
+  readonly commitMask: (dataUrl: string) => void;
+  readonly clearMask: () => void;
+  /** 当前遮罩对应的参考图（用来做预览）。 */
+  readonly maskPreview: string | undefined;
   readonly referenceLimit: number;
   /** 生成前先用 Agent 改写提示词。 */
   /** 优化方式：写回输入框 / 自动优化后直接生成 / 先规划再确认。 */
@@ -136,6 +144,8 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
   const [negativePrompt, setNegativePrompt] = useState("");
   const [references, setReferences] = useState<readonly ReferenceImage[]>([]);
   const [referenceBusy, setReferenceBusy] = useState(false);
+  const [maskDataUrl, setMaskDataUrl] = useState<string>();
+  const [maskOpen, setMaskOpen] = useState(false);
   const [optimizeMode, setOptimizeMode] = useState<OptimizeMode>("writeback");
   /** 已经优化过、等着被发送的提示词；用来区分"第一次点=优化"和"第二次点=出图" */
   const [pendingOptimized, setPendingOptimized] = useState<string>();
@@ -241,6 +251,7 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
     ...(model === undefined ? {} : { model: model.model }),
     prompt,
     ...(!referenceValid ? {} : { referenceAssetIds: references.map((item) => item.id) }),
+    ...(maskDataUrl === undefined || references.length !== 1 ? {} : { maskDataUrl }),
     aspectRatio: effectiveSpec.aspectRatio,
     sizeMode: effectiveSpec.mode,
     ...(effectiveSpec.mode === "custom"
@@ -254,6 +265,25 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
   });
 
   const canSubmit = validation.ok && model !== undefined && !pending && state.status === "ready";
+
+  // 参考图一旦变动，之前画的遮罩就对不上了，直接作废。
+  const maskSourceId = references.length === 1 ? references[0]?.id : undefined;
+  const maskOwner = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (maskDataUrl === undefined) {
+      maskOwner.current = undefined;
+      return;
+    }
+    if (maskOwner.current === undefined) {
+      maskOwner.current = maskSourceId;
+      return;
+    }
+    if (maskOwner.current !== maskSourceId) {
+      maskOwner.current = undefined;
+      setMaskDataUrl(undefined);
+    }
+  }, [maskDataUrl, maskSourceId]);
+
   // 写回模式下还差一次改写：用来切换生成按钮上的图标。
   const nextClickOptimizes =
     state.agentAvailable &&
@@ -374,6 +404,19 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
     clearAllReferences,
     referenceBusy,
     referenceValid,
+    maskDataUrl,
+    maskOpen,
+    setMaskOpen,
+    commitMask: (dataUrl: string) => {
+      maskOwner.current = maskSourceId;
+      setMaskDataUrl(dataUrl);
+      setMaskOpen(false);
+    },
+    clearMask: () => {
+      maskOwner.current = undefined;
+      setMaskDataUrl(undefined);
+    },
+    maskPreview: maskSourceId === undefined ? undefined : references[0]?.src,
     referenceLimit,
     optimizeMode,
     setOptimizeMode,
