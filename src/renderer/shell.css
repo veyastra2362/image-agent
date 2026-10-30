@@ -2971,3 +2971,20 @@ code {
   color: var(--danger);
   border-color: var(--danger);
 }
+
+/* 作品库筛选条：时间范围 + 关键词 */
+.library-filters {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.library-filters .select {
+  min-width: 128px;
+}
+
+.library-filters .library-search {
+  width: 200px;
+  margin-left: 0;
+}

@@ -151,7 +151,7 @@ function AssetDetails({
         <Fact label="参考图" value="无" />
       )}
       <Fact label="耗时" value={formatDuration(job)} />
-      <Fact label="创建 / 完成" value={`${formatTime(job.createdAt)} / ${formatTime(job.finishedAt)}`} />
+      <Fact label="创建 / 完成" value={`${formatTime(job.createdAt, { withSeconds: true })} / ${formatTime(job.finishedAt, { withSeconds: true })}`} />
       <Fact label="文件" value={`PNG · ${asset.width}×${asset.height} · ${formatBytes(asset.byteLength)}`} />
       <Fact label="任务 ID" value={job.id} mono />
       {job.remoteTaskId && <Fact label="上游任务 ID" value={job.remoteTaskId} mono />}

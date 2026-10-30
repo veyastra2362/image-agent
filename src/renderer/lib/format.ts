@@ -1,13 +1,18 @@
 import type { ImageJob } from "../../shared/image-generation.ts";
 
-export function formatTime(timestamp: number | undefined): string {
+/**
+ * 绝对时间：带年月日。
+ *
+ * 作品库按天翻的时候，只有"10:52"根本分不清是哪天；默认给到分钟，
+ * 需要精确到秒的地方显式传 withSeconds。
+ */
+export function formatTime(timestamp: number | undefined, options: { readonly withSeconds?: boolean } = {}): string {
   if (timestamp === undefined) return "—";
-  return new Intl.DateTimeFormat("zh-CN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).format(timestamp);
+  const date = new Date(timestamp);
+  const pad = (value: number) => String(value).padStart(2, "0");
+  const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  const clock = `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return options.withSeconds === true ? `${day} ${clock}:${pad(date.getSeconds())}` : `${day} ${clock}`;
 }
 
 export function formatDuration(job: ImageJob): string {

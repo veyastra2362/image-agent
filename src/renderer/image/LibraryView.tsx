@@ -10,6 +10,7 @@ import type { ImageAsset } from "../../shared/image-generation.ts";
 import type { ImageAgentState } from "./use-image-agent.ts";
 import { formatBytes, formatTime } from "../lib/format.ts";
 import { HeartIcon, TrashIcon } from "../shell/icons.tsx";
+import { Select } from "../shell/Select.tsx";
 
 interface LibraryViewProps {
   readonly state: ImageAgentState;
@@ -21,6 +22,7 @@ const FAVORITES_ALBUM = "__favorites__";
 export function LibraryView({ state, onOpenAsset }: LibraryViewProps) {
   const [album, setAlbum] = useState<string>();
   const [query, setQuery] = useState("");
+  const [range, setRange] = useState<"all" | "today" | "7d" | "30d">("all");
   const [favorites, setFavorites] = useState<ReadonlySet<string>>(() => new Set());
   const [notice, setNotice] = useState<string>();
 
@@ -76,8 +78,11 @@ export function LibraryView({ state, onOpenAsset }: LibraryViewProps) {
         : album === FAVORITES_ALBUM
           ? assets.filter((asset) => favorites.has(asset.id))
           : assets.filter((asset) => asset.providerId === album);
-    return keyword === "" ? inAlbum : inAlbum.filter((asset) => asset.prompt.toLowerCase().includes(keyword));
-  }, [album, assets, favorites, keyword]);
+
+    const since = rangeStart(range);
+    const inRange = since === undefined ? inAlbum : inAlbum.filter((asset) => asset.createdAt >= since);
+    return keyword === "" ? inRange : inRange.filter((asset) => asset.prompt.toLowerCase().includes(keyword));
+  }, [album, assets, favorites, keyword, range]);
 
   async function toggleFavorite(asset: ImageAsset): Promise<void> {
     const result = await window.appLibrary?.toggleFavorite(asset.id);
@@ -145,14 +150,27 @@ export function LibraryView({ state, onOpenAsset }: LibraryViewProps) {
           {historyOnly.length > 0 && album === undefined ? ` · ${historyOnly.length} 张历史记忆` : ""}
         </span>
         {album !== undefined && (
-          <input
-            className="field__input library-search"
-            type="search"
-            value={query}
-            placeholder="按提示词筛选…"
-            aria-label="按提示词筛选作品"
-            onChange={(event) => setQuery(event.target.value)}
-          />
+          <div className="library-filters">
+            <Select
+              ariaLabel="按加入时间筛选"
+              value={range}
+              onChange={(next) => setRange(next as "all" | "today" | "7d" | "30d")}
+              options={[
+                { value: "all", label: "全部时间" },
+                { value: "today", label: "今天" },
+                { value: "7d", label: "最近 7 天" },
+                { value: "30d", label: "最近 30 天" },
+              ]}
+            />
+            <input
+              className="field__input library-search"
+              type="search"
+              value={query}
+              placeholder="按提示词筛选…"
+              aria-label="按提示词筛选作品"
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </div>
         )}
       </header>
 
@@ -245,4 +263,15 @@ export function LibraryView({ state, onOpenAsset }: LibraryViewProps) {
       )}
     </section>
   );
+}
+
+/** 时间筛选的起点；"全部"返回 undefined。按本地自然日算，不是"最近 24 小时"。 */
+function rangeStart(range: "all" | "today" | "7d" | "30d"): number | undefined {
+  if (range === "all") return undefined;
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (range === "today") return start.getTime();
+  const days = range === "7d" ? 6 : 29;
+  start.setDate(start.getDate() - days);
+  return start.getTime();
 }

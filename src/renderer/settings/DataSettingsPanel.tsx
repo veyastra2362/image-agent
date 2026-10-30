@@ -6,6 +6,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import type { DataSelection, DataSummary } from "../../shared/data-management.ts";
+import { Select } from "../shell/Select.tsx";
 
 function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
@@ -54,6 +55,7 @@ export function DataSettingsPanel() {
   const [busy, setBusy] = useState<"export" | "import" | "clear">();
   const [notice, setNotice] = useState<{ readonly kind: "ok" | "error" | "info"; readonly text: string }>();
   const [confirmClear, setConfirmClear] = useState(false);
+  const [mode, setMode] = useState<"plain" | "encrypted">("plain");
   const [passphrase, setPassphrase] = useState("");
   const [needPassphrase, setNeedPassphrase] = useState(false);
 
@@ -78,7 +80,16 @@ export function DataSettingsPanel() {
     }
     setBusy(kind);
     setNotice({ kind: "info", text: kind === "export" ? "正在导出…" : "正在导入…" });
-    const payload = { ...selection, ...(passphrase.trim() === "" ? {} : { passphrase: passphrase.trim() }) };
+    if (kind === "export" && mode === "encrypted" && passphrase.trim().length < 6) {
+      setBusy(undefined);
+      setNotice({ kind: "error", text: "口令至少 6 位" });
+      return;
+    }
+    const payload = {
+      ...selection,
+      ...(kind === "export" && mode === "encrypted" ? { passphrase: passphrase.trim() } : {}),
+      ...(kind === "import" && passphrase.trim() !== "" ? { passphrase: passphrase.trim() } : {}),
+    };
     const result = kind === "export" ? await window.appData?.export(payload) : await window.appData?.import(payload);
     setBusy(undefined);
     if (result?.ok) {
@@ -141,23 +152,36 @@ export function DataSettingsPanel() {
       <p className="field__hint">打包成一个 ZIP，包含所选内容。配置里含 API Key，请妥善保管这个文件。</p>
       <SelectionBoxes value={exportSel} onChange={setExportSel} disabled={busy !== undefined} />
       <label className="field">
-        <span className="field__label">
-          口令加密
-          <span className="field__meta">可选</span>
-        </span>
-        <input
-          className="field__input"
-          type="password"
-          value={passphrase}
-          placeholder="留空则不加密"
-          aria-label="备份口令"
-          onChange={(event) => setPassphrase(event.target.value)}
+        <span className="field__label">导出方式</span>
+        <Select
+          ariaLabel="导出方式"
+          value={mode}
+          onChange={(next) => setMode(next as "plain" | "encrypted")}
+          options={[
+            { value: "plain", label: "明文 ZIP" },
+            { value: "encrypted", label: "口令加密（.iaz）" },
+          ]}
         />
         <span className="field__hint">
-          填了口令会把整个备份用 AES-256-GCM 加密（导出的文件是 <code>.iaz</code>），
-          导入时必须输入同一口令；不填就是普通 ZIP，里面的 API Key 是明文。
+          {mode === "plain"
+            ? "普通 ZIP，任何拿到文件的人都能直接打开——配置里含 API Key，请妥善保管。"
+            : "整包 AES-256-GCM 加密，导入时必须输入同一口令；口令不会写进文件，忘了就打不开。"}
         </span>
       </label>
+      {mode === "encrypted" && (
+        <label className="field">
+          <span className="field__label">口令</span>
+          <input
+            className="field__input"
+            type="password"
+            value={passphrase}
+            placeholder="至少 6 位"
+            aria-label="备份口令"
+            onChange={(event) => setPassphrase(event.target.value)}
+          />
+          <span className="field__hint">导入这个备份时需要输入同一口令。</span>
+        </label>
+      )}
       {needPassphrase && (
         <p className="field__hint field__hint--warn">
           这个备份已加密。在上面的「口令加密」里输入口令，再点一次「导入…」即可（不用重新选文件）。
@@ -170,7 +194,7 @@ export function DataSettingsPanel() {
           disabled={busy !== undefined || nothingPicked(exportSel)}
           onClick={() => void run("export")}
         >
-          {busy === "export" ? "导出中…" : "导出为 ZIP…"}
+          {busy === "export" ? "导出中…" : mode === "encrypted" ? "导出加密备份…" : "导出为 ZIP…"}
         </button>
       </div>
 
