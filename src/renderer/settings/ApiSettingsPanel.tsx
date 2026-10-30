@@ -18,6 +18,7 @@ const KIND_LABELS: Record<ModelKind, string> = { image: "图片", text: "文本"
 import {
   API_FLAVOR_LABELS,
   API_TIMEOUT_RANGE,
+  FAL_QUEUE_BASE_URL,
   FAL_QUEUE_NOTE,
   MAX_MODELS,
   MAX_PROFILES,
@@ -239,6 +240,14 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
     }
   }
 
+  /** 切换服务商类型时顺带修正地址：fal 的队列地址是固定的。 */
+  function changeKind(kind: string) {
+    if (draft === undefined) return;
+    if (kind === "fal") patch({ kind: kind as typeof draft.kind, baseUrl: FAL_QUEUE_BASE_URL });
+    else if (draft?.kind === "fal") patch({ kind: kind as typeof draft.kind, baseUrl: "", models: [], defaultModel: undefined });
+    else patch({ kind: kind as typeof draft.kind });
+  }
+
   function applyPicker() {
     const picked = pickerChecked;
     const upstream = pickerModels ?? [];
@@ -417,7 +426,7 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
           ariaLabel="服务商类型"
           value={draft.kind}
           onChange={(next) => patch({ kind: next as ProviderKind })}
-          options={(draft.purpose === "text" ? (["openai-compatible"] as const) : PROVIDER_KINDS).map((kind) => ({
+          options={(draft.purpose === "text" ? (["openai-compatible", "anthropic"] as const) : PROVIDER_KINDS).map((kind) => ({
             value: kind,
             label: PROVIDER_KIND_LABELS[kind],
           }))}
@@ -425,16 +434,25 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
         {draft.kind === "fal" && <span className="field__hint">{FAL_QUEUE_NOTE}</span>}
       </label>
 
+      {draft.kind === "fal" ? (
+        <div className="field">
+          <span className="field__label">接口地址</span>
+          <p className="field__hint">
+            fal 的队列地址固定在 <code>{FAL_QUEUE_BASE_URL}</code>，应用会自动使用，无需填写。
+          </p>
+        </div>
+      ) : (
       <label className="field">
         <span className="field__label">API URL</span>
         <input
           className="field__input"
           aria-label="API URL"
           value={draft.baseUrl}
-          placeholder={draft.kind === "fal" ? "https://queue.fal.run" : "https://api.example.com/v1"}
+          placeholder={draft.kind === "anthropic" ? "https://api.anthropic.com/v1" : "https://api.example.com/v1"}
           onChange={(event) => patch({ baseUrl: event.target.value })}
         />
       </label>
+      )}
 
       <label className="field">
         <span className="field__label">

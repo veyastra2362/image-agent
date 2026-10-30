@@ -6,12 +6,13 @@
 
 import type { ModelKind } from "./model-kind";
 
-export const PROVIDER_KINDS = ["openai-compatible", "fal"] as const;
+export const PROVIDER_KINDS = ["openai-compatible", "anthropic", "fal"] as const;
 
 export type ProviderKind = (typeof PROVIDER_KINDS)[number];
 
 export const PROVIDER_KIND_LABELS: Record<ProviderKind, string> = {
   "openai-compatible": "OpenAI 兼容接口",
+  anthropic: "Anthropic（Messages）",
   fal: "fal.ai",
 };
 
@@ -190,6 +191,8 @@ const MODEL_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$/;
 const MAX_BASE_URL_LENGTH = 512;
 
 /** fal.ai 生成走队列：提交后轮询 status 端点。声明出来供界面说明。 */
+export const FAL_QUEUE_BASE_URL = "https://queue.fal.run";
+
 export const FAL_QUEUE_NOTE = "fal.ai 使用队列接口：提交后轮询 status/result，任务本身是异步的。";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
