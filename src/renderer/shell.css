@@ -3302,3 +3302,31 @@ code {
 .picker-head .link {
   flex: 0 0 auto;
 }
+
+/* 选择上游模型：每行的类型徽章（可点击切换） */
+.picker-row__kind {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+.picker-row__kind:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.picker-row__kind.kind-image {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
+.picker-row__kind.kind-text {
+  color: var(--text-muted);
+  border-color: var(--border-strong);
+}

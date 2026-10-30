@@ -11,6 +11,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Select } from "../shell/Select.tsx";
 import { ChevronIcon, TrashIcon } from "../shell/icons.tsx";
 import type { ImageCapabilities } from "../../shared/image-generation.ts";
+import { guessModelKind, modelFitsPurpose, type ModelKind } from "../../shared/model-kind.ts";
+
+const KIND_LABELS: Record<ModelKind, string> = { image: "图片", text: "文本", unknown: "未知" };
 
 import {
   API_FLAVOR_LABELS,
@@ -219,7 +222,17 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
     setBusy("idle");
     if (result?.ok) {
       setPickerModels(result.models);
-      setPickerChecked(result.models.filter((model) => draft?.models.includes(model.id)).map((model) => model.id));
+      // 已选的保留；没选过的按类型自动勾上匹配用途的那些。
+      const purpose = draft?.purpose ?? "image";
+      setPickerChecked(
+        result.models
+          .filter((model) =>
+            draft?.models.includes(model.id)
+              ? true
+              : modelFitsPurpose(draft?.modelKind?.[model.id] ?? guessModelKind(model.id), purpose),
+          )
+          .map((model) => model.id),
+      );
       setNotice(undefined);
     } else {
       flash("error", result?.error ?? "获取失败");
@@ -235,7 +248,15 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
       // 只动"来自上游列表"的那些：手动加的模型不受影响。
       const kept = current.models.filter((id) => !upstreamIds.has(id) || picked.includes(id));
       const models = [...kept, ...picked.filter((id) => !kept.includes(id))].slice(0, MAX_MODELS);
-      return { ...current, models, defaultModel: normalizeDefaultModel(models, current.defaultModel) };
+      // 勾选时把类型定下来，之后用户在创作页看到的就是这些。
+      const modelKind: Record<string, ModelKind> = { ...(current.modelKind ?? {}) };
+      for (const id of picked) modelKind[id] = modelKind[id] ?? guessModelKind(id);
+      return {
+        ...current,
+        models,
+        modelKind,
+        defaultModel: normalizeDefaultModel(models, current.defaultModel),
+      };
     });
     setPickerModels(undefined);
   }
@@ -679,6 +700,7 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
               <ul className="picker-list">
                 {pickerModels.map((model) => {
                   const checked = pickerChecked.includes(model.id);
+                  const kind: ModelKind = draft?.modelKind?.[model.id] ?? guessModelKind(model.id);
                   return (
                     <li key={model.id}>
                       <button
@@ -708,6 +730,35 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
                           ) : null}
                         </span>
                         <span className="picker-row__id">{model.id}</span>
+                        <span
+                          className={`picker-row__kind kind-${kind}`}
+                          role="button"
+                          tabIndex={0}
+                          title="点击切换类型：图片 → 文本 → 未知"
+                          aria-label={`${model.id} 类型：${KIND_LABELS[kind]}（点击切换）`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            const next: ModelKind = kind === "image" ? "text" : kind === "text" ? "unknown" : "image";
+                            setDraft((current) =>
+                              current === undefined
+                                ? current
+                                : { ...current, modelKind: { ...(current.modelKind ?? {}), [model.id]: next } },
+                            );
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key !== "Enter" && event.key !== " ") return;
+                            event.preventDefault();
+                            event.stopPropagation();
+                            const next: ModelKind = kind === "image" ? "text" : kind === "text" ? "unknown" : "image";
+                            setDraft((current) =>
+                              current === undefined
+                                ? current
+                                : { ...current, modelKind: { ...(current.modelKind ?? {}), [model.id]: next } },
+                            );
+                          }}
+                        >
+                          {KIND_LABELS[kind]}
+                        </span>
                       </button>
                     </li>
                   );
