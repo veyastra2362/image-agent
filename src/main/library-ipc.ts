@@ -106,14 +106,21 @@ export function registerLibraryIpc(deps: LibraryIpcDeps): () => void {
       const chosen = result.filePaths[0];
       if (chosen === undefined || !isAbsoluteDirectory(chosen)) return { ok: false, error: "选择的路径不可用" };
       const dir = normalizeLibraryDir(chosen);
-      deps.store.setDir(dir);
+      // 先把已有作品搬过去，再改设置；迁移失败就不切目录，避免"换了目录作品全丢"。
+      const migrated = deps.store.migrateTo(dir);
+      if (!migrated.ok) return { ok: false, error: `迁移作品失败：${migrated.error}` };
       try {
         mkdir(dir);
         writeFile(deps.settingsFile, JSON.stringify({ dir }, null, 2));
       } catch (error) {
         return { ok: false, error: `无法写入该目录：${(error as Error).message}` };
       }
-      return { ok: true, dir };
+      return {
+        ok: true,
+        dir,
+        ...(migrated.failed === 0 ? {} : { error: `有 ${migrated.failed} 张作品没能迁移（源文件缺失或无权限）` }),
+        migrated: migrated.moved,
+      };
     } catch (error) {
       return { ok: false, error: (error as Error).message };
     }

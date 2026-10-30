@@ -32,7 +32,10 @@ export interface LibrarySettingsView {
 export interface ChooseLibraryDirResult {
   readonly ok: boolean;
   readonly dir?: string;
+  /** 失败原因；ok 为 true 时表示"切换成功但有告警"。 */
   readonly error?: string;
+  /** 这次切换一起搬过去的作品数。 */
+  readonly migrated?: number;
 }
 
 /** 只接受绝对路径；相对路径会让"作品存哪"取决于启动目录，必须拒绝。 */

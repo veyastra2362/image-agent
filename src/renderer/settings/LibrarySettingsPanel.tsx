@@ -35,7 +35,14 @@ export function LibrarySettingsPanel() {
     setNotice(undefined);
     const result = await window.appLibrary?.chooseDir();
     if (result?.ok) {
-      setNotice(`已切换到：${result.dir}`);
+      const moved = result.migrated ?? 0;
+      setNotice(
+        `已切换到：${result.dir}${moved > 0 ? `，已迁移 ${moved} 张作品` : ""}${
+          result.error === undefined ? "" : `（${result.error}）`
+        }`,
+      );
+      // 目录变了，作品库也要刷新，不然界面还显示旧路径
+      window.dispatchEvent(new Event("image-agent:data-changed"));
       refresh();
     } else if (result?.error && result.error !== "已取消") {
       setNotice(`没能切换：${result.error}`);

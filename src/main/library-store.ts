@@ -47,6 +47,7 @@ export interface FileJobStoreOptions {
   readonly mkdir?: (dir: string) => void;
   readonly rename?: (from: string, to: string) => void;
   readonly copy?: (from: string, to: string) => void;
+  readonly rm?: (file: string) => void;
 }
 
 export class FileJobStore implements JobStore {
@@ -55,6 +56,7 @@ export class FileJobStore implements JobStore {
   readonly #writeFile: (file: string, data: Uint8Array | string) => void;
   readonly #exists: (file: string) => boolean;
   readonly #mkdir: (dir: string) => void;
+  readonly #rm: (file: string) => void;
   readonly #rename: (from: string, to: string) => void;
   readonly #copy: (from: string, to: string) => void;
 
@@ -75,6 +77,7 @@ export class FileJobStore implements JobStore {
     this.#writeFile = options.writeFile ?? ((file, data) => writeFileSync(file, data));
     this.#exists = options.exists ?? existsSync;
     this.#mkdir = options.mkdir ?? ((dir) => void mkdirSync(dir, { recursive: true }));
+    this.#rm = options.rm ?? ((file) => unlinkSync(file));
     this.#rename = options.rename ?? ((from, to) => renameSync(from, to));
     this.#copy = options.copy ?? ((from, to) => copyFileSync(from, to));
   }
@@ -95,6 +98,67 @@ export class FileJobStore implements JobStore {
   setDir(dir: string): void {
     if (!isAbsoluteDirectory(dir)) throw new Error("作品目录必须是绝对路径");
     this.#dir = normalizeLibraryDir(dir);
+  }
+
+  /**
+   * 换目录时把已有图片一起搬过去，避免"换了目录，作品全丢了"。
+   *
+   * 逐个文件尝试 rename（同盘很快），失败就 copy + 删源；都失败的保留原路径并计入 failed。
+   */
+  migrateTo(
+    dir: string,
+  ): { readonly ok: true; readonly moved: number; readonly failed: number } | { readonly ok: false; readonly error: string } {
+    if (!isAbsoluteDirectory(dir)) return { ok: false, error: "作品目录必须是绝对路径" };
+    const target = normalizeLibraryDir(dir);
+    if (target === this.#dir) return { ok: true, moved: 0, failed: 0 };
+
+    try {
+      this.#mkdir(path.join(target, LIBRARY_ASSET_SUBDIR));
+    } catch (error) {
+      return { ok: false, error: `无法创建目录：${(error as Error).message}` };
+    }
+
+    let moved = 0;
+    let failed = 0;
+    for (const [assetId, from] of this.#files) {
+      const fileName = path.basename(from);
+      let to = path.join(target, LIBRARY_ASSET_SUBDIR, fileName);
+      if (from === to) continue;
+      if (this.#exists(to)) {
+        // 目标已有同名文件：退让成 name-2.ext，不覆盖任何东西
+        const ext = path.extname(fileName);
+        const base = path.basename(fileName, ext);
+        let index = 2;
+        while (this.#exists(to)) {
+          to = path.join(target, LIBRARY_ASSET_SUBDIR, `${base}-${index}${ext}`);
+          index += 1;
+        }
+      }
+      if (!this.#exists(from)) {
+        // 源文件已经不在了（用户手动删过）：直接改指向新目录下的期望位置，等重建索引再判定。
+        this.#files.set(assetId, to);
+        failed += 1;
+        continue;
+      }
+      try {
+        this.#rename(from, to);
+        moved += 1;
+      } catch {
+        try {
+          this.#copy(from, to);
+          this.#rm(from);
+          moved += 1;
+        } catch {
+          failed += 1;
+          continue;
+        }
+      }
+      this.#files.set(assetId, to);
+    }
+
+    this.#dir = target;
+    this.#persist();
+    return { ok: true, moved, failed };
   }
 
   /** 从索引恢复。文件缺失的作品会被丢弃并记一条警告。 */
