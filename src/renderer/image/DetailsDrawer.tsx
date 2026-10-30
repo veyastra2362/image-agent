@@ -9,6 +9,7 @@ import { useEffect, useRef } from "react";
 import { CloseIcon } from "../shell/icons.tsx";
 import type { ImageAsset, ImageJob } from "../../shared/image-generation.ts";
 import { formatBytes, formatDuration, formatTime } from "../lib/format.ts";
+import { FolderIcon } from "../shell/icons.tsx";
 import { describeStatus } from "../lib/job-status.ts";
 import type { ImageAgentState } from "./use-image-agent.ts";
 
@@ -153,6 +154,18 @@ function AssetDetails({
       <Fact label="耗时" value={formatDuration(job)} />
       <Fact label="创建 / 完成" value={`${formatTime(job.createdAt, { withSeconds: true })} / ${formatTime(job.finishedAt, { withSeconds: true })}`} />
       <Fact label="文件" value={`PNG · ${asset.width}×${asset.height} · ${formatBytes(asset.byteLength)}`} />
+      <div className="fact">
+        <dt>位置</dt>
+        <dd>
+          <button
+            type="button"
+            className="button button--ghost button--small"
+            onClick={() => void window.appLibrary?.revealAsset(asset.id)}
+          >
+            <FolderIcon size={12} /> 在资源管理器中显示
+          </button>
+        </dd>
+      </div>
       <Fact label="任务 ID" value={job.id} mono />
       {job.remoteTaskId && <Fact label="上游任务 ID" value={job.remoteTaskId} mono />}
       {siblings.length > 1 && <Fact label="同批图片" value={`共 ${siblings.length} 张`} />}

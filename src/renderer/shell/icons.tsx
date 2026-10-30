@@ -200,3 +200,18 @@ export function RetryIcon({ size = 14 }: { readonly size?: number }) {
     </svg>
   );
 }
+
+/** 文件夹：在资源管理器里定位文件。 */
+export function FolderIcon({ size = 13 }: { readonly size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path
+        d="M1.8 4.6c0-.7.6-1.2 1.2-1.2h3l1.2 1.4h5c.7 0 1.2.5 1.2 1.2v5.4c0 .7-.5 1.2-1.2 1.2H3c-.7 0-1.2-.5-1.2-1.2Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}

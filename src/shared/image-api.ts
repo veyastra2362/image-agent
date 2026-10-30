@@ -72,6 +72,8 @@ declare global {
       readonly favorites: () => Promise<readonly string[]>;
       /** 切换收藏状态。 */
       readonly toggleFavorite: (assetId: string) => Promise<{ readonly favorite: boolean }>;
+      /** 在系统文件管理器里定位这张图。 */
+      readonly revealAsset: (assetId: string) => Promise<{ readonly ok: true } | { readonly ok: false; readonly message: string }>;
     };
   }
 }

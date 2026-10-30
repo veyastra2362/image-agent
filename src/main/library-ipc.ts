@@ -22,6 +22,7 @@ export const LIBRARY_CHANNELS = {
   deleteAsset: "library:delete-asset",
   favorites: "library:favorites",
   toggleFavorite: "library:toggle-favorite",
+  revealAsset: "library:reveal-asset",
 } as const;
 
 export const LIBRARY_CHANNEL_LIST: readonly string[] = Object.values(LIBRARY_CHANNELS);
@@ -137,6 +138,20 @@ export function registerLibraryIpc(deps: LibraryIpcDeps): () => void {
     const removed = deps.store.deleteAsset(raw);
     if (removed.ok) deps.favorites.forget(raw);
     return removed.ok ? { ok: true } : { ok: false, message: "这张作品不在了" };
+  });
+
+  // 在资源管理器里打开这张图所在的文件夹（并选中它）
+  ipcMain.handle(LIBRARY_CHANNELS.revealAsset, (event, raw: unknown): SimpleResult => {
+    if (!isTrusted(deps, event)) return { ok: false, message: "来源窗口不可信" };
+    if (typeof raw !== "string" || raw.trim() === "") return { ok: false, message: "缺少作品 ID" };
+    const file = deps.store.fileForAsset(raw);
+    if (file === undefined) return { ok: false, message: "这张作品的本地文件不在了" };
+    try {
+      shell.showItemInFolder(file);
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, message: `打开文件夹失败：${(error as Error).message}` };
+    }
   });
 
   ipcMain.handle(LIBRARY_CHANNELS.favorites, (event): readonly string[] => {

@@ -9,7 +9,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ImageAsset } from "../../shared/image-generation.ts";
 import type { ImageAgentState } from "./use-image-agent.ts";
 import { formatBytes, formatTime } from "../lib/format.ts";
-import { HeartIcon, TrashIcon } from "../shell/icons.tsx";
+import { FolderIcon, HeartIcon, TrashIcon } from "../shell/icons.tsx";
 import { Select } from "../shell/Select.tsx";
 
 interface LibraryViewProps {
@@ -257,6 +257,15 @@ export function LibraryView({ state, onOpenAsset }: LibraryViewProps) {
                   </span>
                   <span className="library-item__row">
                     <span className="library-card__facts">{formatTime(asset.createdAt)}</span>
+                    <button
+                      type="button"
+                      className="library-item__reveal"
+                      aria-label={`在资源管理器中显示：${asset.prompt}`}
+                      title="在资源管理器中显示"
+                      onClick={() => void window.appLibrary?.revealAsset(asset.id)}
+                    >
+                      <FolderIcon size={12} />
+                    </button>
                     <button
                       type="button"
                       className="library-item__delete"

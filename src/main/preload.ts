@@ -54,6 +54,7 @@ const LIBRARY = {
   deleteAsset: "library:delete-asset",
   favorites: "library:favorites",
   toggleFavorite: "library:toggle-favorite",
+  revealAsset: "library:reveal-asset",
 } as const;
 
 /** 必须与 src/main/settings-ipc.ts 的 SETTINGS_CHANNELS 完全一致（由测试校验）。 */
@@ -128,6 +129,7 @@ const library = {
   deleteAsset: (assetId: string) => ipcRenderer.invoke(LIBRARY.deleteAsset, assetId),
   favorites: () => ipcRenderer.invoke(LIBRARY.favorites),
   toggleFavorite: (assetId: string) => ipcRenderer.invoke(LIBRARY.toggleFavorite, assetId),
+  revealAsset: (assetId: string) => ipcRenderer.invoke(LIBRARY.revealAsset, assetId),
 };
 
 contextBridge.exposeInMainWorld("appLibrary", Object.freeze(library));

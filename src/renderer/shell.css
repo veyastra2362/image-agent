@@ -3410,3 +3410,24 @@ code {
   border-color: var(--accent);
   color: var(--accent);
 }
+
+/* 作品库卡片：与删除同一行的"在资源管理器中显示" */
+.library-item__reveal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+.library-item__reveal:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
