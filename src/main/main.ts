@@ -318,7 +318,8 @@ function createProviders(
 
   // 离线假模型只在端到端冒烟里注册（driver 会带 IMAGE_AGENT_SMOKE_DRIVER=1）。
   // 正式运行时不注册：没配置服务商就是没有模型，界面上留空，不拿假模型充数。
-  if (process.env.IMAGE_AGENT_SMOKE_DRIVER === "1") {
+  // 离线假服务只给图片用途：它不能聊天，塞进语言模型列表会让"Agent 可用"变成假阳性。
+  if (purpose === "image" && process.env.IMAGE_AGENT_SMOKE_DRIVER === "1") {
     // 异步模型故意放慢到约 1.2 秒，让"生成中 / 取消"在冒烟里有稳定的取消窗口。
     providers.push(new FakeProvider({ pollRounds: 3, pollIntervalMs: 400 }));
   }

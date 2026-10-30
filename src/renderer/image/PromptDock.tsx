@@ -38,10 +38,8 @@ export function PromptDock() {
     referenceBusy,
     referenceLimit,
     optimizing,
-    runOptimizeAction,
     optimizeMode,
     setOptimizeMode,
-    optimizeEnabled,
     optimizeBusy,
     agentAvailable,
   } = useComposer();
@@ -165,10 +163,11 @@ export function PromptDock() {
             compact
             ariaLabel="Agent 优化方式"
             value={optimizeMode}
-            disabled={!agentAvailable || !optimizeEnabled}
+            disabled={!agentAvailable}
             leading={<SparkIcon size={13} />}
             onChange={(next: string) => setOptimizeMode(next as OptimizeMode)}
             options={[
+              { value: "off", label: "不优化" },
               { value: "writeback", label: "优化（写回输入框）" },
               { value: "auto", label: "自动优化（直接出图）" },
             ]}
@@ -204,23 +203,6 @@ export function PromptDock() {
           >
             <ImagePlusIcon size={16} />
           </button>
-          {/* 星形按钮只在"写回输入框"模式出现：自动优化模式下点生成就会先改写 */}
-          {optimizeEnabled && optimizeMode === "writeback" && (
-          <button
-            type="button"
-            className="button button--ghost dock__optimize"
-            disabled={optimizeBusy || pending || prompt.trim() === "" || !agentAvailable}
-            title={
-              !agentAvailable
-                ? "先在 设置 → API 设置 → 语言模型 里配置语言模型"
-                : "优化提示词（写回输入框）"
-            }
-            aria-label="优化提示词"
-            onClick={() => void runOptimizeAction()}
-          >
-            <SparkIcon size={16} />
-          </button>
-          )}
           <button
             type="submit"
             className="button button--primary dock__submit"

@@ -17,8 +17,8 @@ import { readFileAsDataUrl } from "../lib/format.ts";
 import { describeSpec } from "../lib/output-spec.ts";
 import type { ImageAgentState } from "./use-image-agent.ts";
 
-/** 两个优化模式：写回输入框 / 自动优化并直接生成。 */
-export type OptimizeMode = "writeback" | "auto";
+/** 三种优化策略：不优化 / 写回输入框（两段式）/ 自动优化后直接出图。 */
+export type OptimizeMode = "off" | "writeback" | "auto";
 
 export interface ReferenceImage {
   readonly id: string;
@@ -86,16 +86,12 @@ export interface ComposerValue {
   /** 生成前先用 Agent 改写提示词。 */
   /** 优化方式：写回输入框 / 自动优化后直接生成 / 先规划再确认。 */
   readonly optimizeMode: OptimizeMode;
-  /** 是否在输入区显示优化按钮。 */
-  readonly optimizeEnabled: boolean;
-  readonly setOptimizeEnabled: (value: boolean) => void;
   readonly setOptimizeMode: (mode: OptimizeMode) => void;
   /** 星形按钮：按当前选择执行写回 / 直接生成 / 先规划。 */
-  readonly runOptimizeAction: () => Promise<void>;
   readonly optimizing: boolean;
   /** Agent 规划结果：有值时界面弹确认框，用户确认后才真正提交。 */
   /** 直接优化提示词（不经过计划弹窗）；成功后替换输入框内容。 */
-  readonly optimizeNow: () => Promise<void>;
+  readonly optimizeNow: () => Promise<boolean>;
   /** 优化后直接出图（不弹计划窗）。 */
   readonly optimizeAndSubmit: () => Promise<void>;
   readonly optimizeBusy: boolean;
@@ -139,7 +135,8 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
   const [references, setReferences] = useState<readonly ReferenceImage[]>([]);
   const [referenceBusy, setReferenceBusy] = useState(false);
   const [optimizeMode, setOptimizeMode] = useState<OptimizeMode>("writeback");
-  const [optimizeEnabled, setOptimizeEnabled] = useState(true);
+  /** 已经优化过、等着被发送的提示词；用来区分"第一次点=优化"和"第二次点=出图" */
+  const [pendingOptimized, setPendingOptimized] = useState<string>();
   const [optimizing, setOptimizing] = useState(false);
   const [optimizeBusy, setOptimizeBusy] = useState(false);
   const [submitError, setSubmitError] = useState<string>();
@@ -269,21 +266,23 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
   }
 
   /** 生成按钮旁边的一键优化：拿到改写结果直接替换输入框，并留一次撤销。 */
-  async function optimizeNow(): Promise<void> {
+  async function optimizeNow(): Promise<boolean> {
     const text = prompt.trim();
     if (text === "") {
       setSubmitError("请先写好提示词");
-      return;
+      return false;
     }
     setOptimizeBusy(true);
     const result = await window.imageAgent.optimizePrompt({ prompt: text });
     setOptimizeBusy(false);
     if (result.ok) {
       setPrompt(result.prompt);
+      setPendingOptimized(result.prompt.trim());
       setSubmitError(undefined);
-    } else {
-      setSubmitError(`优化失败：${result.error.message}`);
+      return true;
     }
+    setSubmitError(`优化失败：${result.error.message}`);
+    return false;
   }
 
   /** 优化并直接生成：改写结果同时写回输入框，用户能看到实际用的是什么。 */
@@ -302,14 +301,23 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
     await submitWith({ prompt: text, agentPrompt: result.prompt });
   }
 
-  /** 生成按钮：按当前优化方式决定先做什么。 */
+  /** 生成按钮：策略决定它是"优化"还是"出图"。 */
   async function submit(): Promise<void> {
     if (!validation.ok || pending) return;
-    if (optimizeMode === "auto" && state.agentAvailable) {
+    const text = prompt.trim();
+    if (state.agentAvailable && optimizeMode === "auto") {
       await optimizeAndSubmit();
       return;
     }
-
+    if (state.agentAvailable && optimizeMode === "writeback") {
+      // 第一次点：改写并写回输入框；第二次点（提示词没再改过）：直接出图。
+      if (pendingOptimized !== text) {
+        const optimized = await optimizeNow();
+        // 改写失败（语言模型没配好之类）不要卡住用户：继续按原文出图。
+        if (optimized) return;
+      }
+      setPendingOptimized(undefined);
+    }
     await submitWith();
   }
 
@@ -361,9 +369,6 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
     referenceLimit,
     optimizeMode,
     setOptimizeMode,
-    optimizeEnabled,
-    setOptimizeEnabled,
-    runOptimizeAction,
     optimizing,
     agentAvailable: state.agentAvailable,
     optimizeNow,
