@@ -3092,3 +3092,24 @@ code {
     transform: rotate(360deg);
   }
 }
+
+/* 失败卡片：标题行右侧放重试图标 */
+.notice__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.failures__more {
+  align-self: flex-start;
+  font-size: var(--fs-sm);
+}
+
+/* 成功分组头：元信息 + 重试图标 */
+.result-group__side {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}

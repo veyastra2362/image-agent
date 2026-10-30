@@ -184,3 +184,19 @@ export function SendIcon({ size = 16 }: { readonly size?: number }) {
     </svg>
   );
 }
+
+/** 重试：环形箭头。 */
+export function RetryIcon({ size = 14 }: { readonly size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path
+        d="M13 8a5 5 0 1 1-1.6-3.7"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+      />
+      <path d="M13.4 2.6v3.2h-3.2" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}

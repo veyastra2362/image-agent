@@ -347,6 +347,8 @@ export interface ImageAgentApi {
   readonly optimizePrompt: (input: unknown) => Promise<OptimizePromptResult>;
   /** Agent Planner：把一句话规划成结构化 ImagePlan。 */
   readonly planPrompt: (input: unknown) => Promise<PlanPromptResult>;
+  /** 按原参数重试一次（成功/失败的任务都可以）。 */
+  readonly retryJob: (jobId: string) => Promise<ImageRequestResult>;
   readonly cancelJob: (jobId: string) => Promise<ImageRequestResult>;
   readonly onTaskEvent: (listener: (event: ImageTaskEvent) => void) => Unsubscribe;
   readonly onNotification: (listener: (notification: Notification) => void) => Unsubscribe;

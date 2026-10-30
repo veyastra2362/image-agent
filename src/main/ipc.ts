@@ -49,6 +49,7 @@ export function registerImageIpc(options: {
   handle(IMAGE_CHANNELS.uploadReference, (input) => service.uploadReference(input));
   handle(IMAGE_CHANNELS.optimizePrompt, (input) => service.optimizePrompt(input));
   handle(IMAGE_CHANNELS.planPrompt, (input) => service.planPrompt(input));
+  handle(IMAGE_CHANNELS.retryJob, (jobId) => service.retryJob(jobId));
 
   return {
     sendEvent: (event) => send(IMAGE_CHANNELS.taskEvent, event),
@@ -61,6 +62,7 @@ export function registerImageIpc(options: {
         IMAGE_CHANNELS.uploadReference,
         IMAGE_CHANNELS.optimizePrompt,
         IMAGE_CHANNELS.planPrompt,
+        IMAGE_CHANNELS.retryJob,
       ]) {
         ipcMain.removeHandler(channel);
       }

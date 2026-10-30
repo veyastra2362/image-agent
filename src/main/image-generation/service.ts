@@ -360,6 +360,36 @@ export class ImageGenerationService {
     }
   }
 
+  /** 重试：按历史任务的原参数再提交一次（含改写提示词与参考图）。 */
+  async retryJob(raw: unknown): Promise<ServiceResult> {
+    if (typeof raw !== "string" || raw.trim() === "") {
+      return { ok: false, error: { code: "invalid-request", message: "缺少任务 ID", retryable: false } };
+    }
+    const job = this.store.getJob(raw);
+    if (job === undefined) {
+      return { ok: false, error: { code: "invalid-request", message: "这个任务不在了", retryable: false } };
+    }
+    return this.createJob({
+      requestId: `retry-${randomUUID()}`,
+      providerId: job.providerId,
+      model: job.model,
+      prompt: job.prompt,
+      ...(job.agentPrompt === undefined ? {} : { agentPrompt: job.agentPrompt }),
+      referenceAssetIds: job.referenceAssetIds,
+      aspectRatio: job.aspectRatio,
+      count: job.count,
+      ...(job.seed === undefined ? {} : { seed: job.seed }),
+      ...(job.negativePrompt === undefined ? {} : { negativePrompt: job.negativePrompt }),
+      sizeMode: job.sizeMode ?? "ratio",
+      // 只有自定义模式才带宽高；比例模式的宽高是推导出来的，传了会被校验拒绝。
+      ...(job.sizeMode !== "custom" || job.requestedSize === undefined
+        ? {}
+        : { width: job.requestedSize.width, height: job.requestedSize.height }),
+      format: job.format,
+      compression: job.compression,
+    });
+  }
+
   async cancelJob(raw: unknown): Promise<ServiceResult> {
     const parsed = validateJobId(raw);
     if (!parsed.ok) return { ok: false, error: parsed.error };

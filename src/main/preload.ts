@@ -20,6 +20,7 @@ const CHANNELS = {
   uploadReference: "image:upload-reference",
   optimizePrompt: "image:optimize-prompt",
   planPrompt: "image:plan-prompt",
+  retryJob: "image:retry-job",
   taskEvent: "image:task-event",
   notification: "image:notification",
 } as const;
@@ -86,6 +87,7 @@ const api: ImageAgentApi = {
   uploadReference: (input: unknown) => ipcRenderer.invoke(CHANNELS.uploadReference, input),
   optimizePrompt: (input: unknown) => ipcRenderer.invoke(CHANNELS.optimizePrompt, input),
   planPrompt: (input: unknown) => ipcRenderer.invoke(CHANNELS.planPrompt, input),
+  retryJob: (jobId: string) => ipcRenderer.invoke(CHANNELS.retryJob, jobId),
   onTaskEvent: (listener: (event: ImageTaskEvent) => void) => subscribe<ImageTaskEvent>(CHANNELS.taskEvent, listener),
   onNotification: (listener: (notification: Notification) => void) =>
     subscribe<Notification>(CHANNELS.notification, listener),

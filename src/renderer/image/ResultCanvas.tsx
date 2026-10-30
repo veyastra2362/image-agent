@@ -3,12 +3,13 @@
  *
  * 空态不是控制台：一张图都没有时说明下一步；有任务时优先展示进行中的进度和取消入口。
  */
-import type { CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 import type { ImageTaskEvent } from "../../shared/image-generation.ts";
 import { formatDuration } from "../lib/format.ts";
 import { describeStatus } from "../lib/job-status.ts";
 import { cancellable, latestSucceededJob, type ImageAgentState } from "./use-image-agent.ts";
 import { formatElapsed, useTick } from "../lib/use-tick.ts";
+import { RetryIcon } from "../shell/icons.tsx";
 
 interface ResultCanvasProps {
   readonly state: ImageAgentState;
@@ -20,6 +21,8 @@ function openZoom(src: string, alt: string): void {
 }
 
 export function ResultCanvas({ state, onOpenAsset }: ResultCanvasProps) {
+  const [showAllFailures, setShowAllFailures] = useState(false);
+  const onRetry = (jobId: string) => void state.retry(jobId);
 
   const active = state.jobs.filter((entry) => describeStatus(entry.job.status).active);
   const completed = state.jobs.filter((entry) => entry.job.status === "succeeded" && entry.assets.length > 0);
@@ -78,9 +81,21 @@ export function ResultCanvas({ state, onOpenAsset }: ResultCanvasProps) {
 
       {problems.length > 0 && (
         <section className="failures" aria-label="失败的任务">
-          {problems.map((entry) => (
+          {/* 只把最近一次失败摊开，旧的收起来，避免错误长期占着顶部 */}
+          {problems.slice(0, showAllFailures ? problems.length : 1).map((entry) => (
             <div key={entry.job.id} className="notice notice--error" role="status">
-              <strong>生成失败</strong>
+              <div className="notice__head">
+                <strong>生成失败</strong>
+                <button
+                  type="button"
+                  className="button button--icon"
+                  title="重试这次请求"
+                  aria-label="重试这次请求"
+                  onClick={() => void state.retry(entry.job.id)}
+                >
+                  <RetryIcon size={13} />
+                </button>
+              </div>
               <p>{entry.job.error?.message ?? "上游返回了未知错误"}</p>
               <p className="notice__meta">
                 原始提示词已保留，可修改后重新提交。
@@ -88,6 +103,15 @@ export function ResultCanvas({ state, onOpenAsset }: ResultCanvasProps) {
               </p>
             </div>
           ))}
+          {problems.length > 1 && (
+            <button
+              type="button"
+              className="link failures__more"
+              onClick={() => setShowAllFailures((current) => !current)}
+            >
+              {showAllFailures ? "只看最近一次" : `还有 ${problems.length - 1} 条失败记录`}
+            </button>
+          )}
         </section>
       )}
 
@@ -99,6 +123,7 @@ export function ResultCanvas({ state, onOpenAsset }: ResultCanvasProps) {
               event={entry}
               isLatest={entry === latest}
               onOpenAsset={onOpenAsset}
+              onRetry={onRetry}
             />
           ))}
         </section>
@@ -172,20 +197,33 @@ function ResultGroup({
   event,
   isLatest,
   onOpenAsset,
+  onRetry,
 }: {
   readonly event: ImageTaskEvent;
   readonly isLatest: boolean;
   readonly onOpenAsset: (assetId: string) => void;
+  readonly onRetry: (jobId: string) => void;
 }) {
   return (
     <article className="result-group" aria-label="一次生成的结果">
       <header className="result-group__head">
         <p className="result-group__prompt">{event.job.submittedPrompt}</p>
-        <p className="result-group__meta">
-          {isLatest ? <span className="tag">最新</span> : null}
-          {event.job.modelDisplayName} · {event.job.aspectRatio} · {formatDuration(event.job)}
-          {event.job.referenceAssetIds.length > 0 ? " · 基于参考图" : ""}
-        </p>
+        <div className="result-group__side">
+          <p className="result-group__meta">
+            {isLatest ? <span className="tag">最新</span> : null}
+            {event.job.modelDisplayName} · {event.job.aspectRatio} · {formatDuration(event.job)}
+            {event.job.referenceAssetIds.length > 0 ? " · 基于参考图" : ""}
+          </p>
+          <button
+            type="button"
+            className="button button--icon"
+            title="按同样参数再生成一次"
+            aria-label="重试这次请求"
+            onClick={() => void onRetry(event.job.id)}
+          >
+            <RetryIcon size={13} />
+          </button>
+        </div>
       </header>
       <div className="result-grid" style={{ "--cols": Math.min(event.assets.length, 4) } as CSSProperties}>
         {event.assets.map((asset) => (

@@ -34,6 +34,8 @@ export interface ImageAgentState {
   readonly remembered: readonly RememberedAsset[];
   readonly submit: (input: unknown) => Promise<{ ok: boolean; message?: string }>;
   readonly cancel: (jobId: string) => Promise<void>;
+  /** 按原参数重试（成功/失败的任务都可以）。 */
+  readonly retry: (jobId: string) => Promise<void>;
   readonly dismissToast: (id: number) => void;
   readonly openAsset: (assetId: string) => void;
   readonly closeDrawer: () => void;
@@ -162,6 +164,16 @@ export function useImageAgent(): ImageAgentState {
     [pushToast],
   );
 
+  const retry = useCallback(
+    async (jobId: string) => {
+      const parsed: unknown = await window.imageAgent.retryJob(jobId).catch(() => undefined);
+      const result = parsed as ImageRequestResult | undefined;
+      if (!result) pushToast({ level: "error", message: "重试失败：主进程没有响应" });
+      else if (!result.ok) pushToast({ level: "error", message: `无法重试：${result.error.message}` });
+    },
+    [pushToast],
+  );
+
   const dismissToast = useCallback((id: number) => {
     setToasts((current) => current.filter((item) => item.id !== id));
   }, []);
@@ -194,6 +206,7 @@ export function useImageAgent(): ImageAgentState {
     remembered,
     submit,
     cancel,
+    retry,
     dismissToast,
     openAsset,
     closeDrawer,

@@ -126,8 +126,13 @@ export function Select({
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
     };
-    // 滚动/缩放时直接收起，避免菜单跟触发器错位。
-    const onScroll = () => setOpen(false);
+    // 页面滚动/缩放时收起，避免菜单跟触发器错位。
+    // 注意：菜单自己内部的滚动也会冒到这里（capture），必须放过，否则滚动条一拖菜单就关。
+    const onScroll = (event?: Event) => {
+      const target = event?.target;
+      if (target instanceof Node && menuRef.current?.contains(target) === true) return;
+      setOpen(false);
+    };
     window.addEventListener("mousedown", onDown);
     window.addEventListener("keydown", onKey);
     window.addEventListener("resize", onScroll);
