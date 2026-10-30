@@ -606,9 +606,10 @@ kbd {
 .result-group__prompt {
   margin: 0;
   font-size: var(--fs-md);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* 提示词要能看完整：允许折行，不要省略号 */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
 }
 
 .result-group__meta {

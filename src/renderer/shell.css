@@ -3019,6 +3019,9 @@ code {
  */
 .workspace.workspace--page {
   padding: var(--space-5) var(--space-6);
+  /* `.workspace` 的 overflow:hidden 同样会盖掉这里，页面就滚不动了 */
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 /* 标题、计数、筛选条按中线对齐：baseline 遇到输入框会错位 */
@@ -3112,4 +3115,23 @@ code {
   align-items: center;
   gap: var(--space-2);
   margin-left: auto;
+}
+
+/* 失败卡片里的提示词同样要完整显示 */
+.notice__prompt {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  max-height: 4.5em;
+  overflow: hidden;
+}
+
+.result-group__head {
+  align-items: flex-start;
+}
+
+.result-group__side {
+  flex: 0 0 auto;
 }

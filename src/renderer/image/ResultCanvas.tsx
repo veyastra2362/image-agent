@@ -21,10 +21,14 @@ function openZoom(src: string, alt: string): void {
 }
 
 export function ResultCanvas({ state, onOpenAsset }: ResultCanvasProps) {
-  const [showAllFailures, setShowAllFailures] = useState(false);
   const onRetry = (jobId: string) => void state.retry(jobId);
 
   const active = state.jobs.filter((entry) => describeStatus(entry.job.status).active);
+  // 成功与失败放在同一条时间线上按时间排，失败不再单独堆在顶部。
+  const timeline = state.jobs
+    .filter((entry) => entry.job.status === "succeeded" || entry.job.status === "failed")
+    .slice()
+    .sort((a, b) => (b.job.createdAt ?? 0) - (a.job.createdAt ?? 0));
   const completed = state.jobs.filter((entry) => entry.job.status === "succeeded" && entry.assets.length > 0);
   const problems = state.jobs.filter((entry) => entry.job.status === "failed");
 
@@ -79,53 +83,21 @@ export function ResultCanvas({ state, onOpenAsset }: ResultCanvasProps) {
         </ol>
       )}
 
-      {problems.length > 0 && (
-        <section className="failures" aria-label="失败的任务">
-          {/* 只把最近一次失败摊开，旧的收起来，避免错误长期占着顶部 */}
-          {problems.slice(0, showAllFailures ? problems.length : 1).map((entry) => (
-            <div key={entry.job.id} className="notice notice--error" role="status">
-              <div className="notice__head">
-                <strong>生成失败</strong>
-                <button
-                  type="button"
-                  className="button button--icon"
-                  title="重试这次请求"
-                  aria-label="重试这次请求"
-                  onClick={() => void state.retry(entry.job.id)}
-                >
-                  <RetryIcon size={13} />
-                </button>
-              </div>
-              <p>{entry.job.error?.message ?? "上游返回了未知错误"}</p>
-              <p className="notice__meta">
-                原始提示词已保留，可修改后重新提交。
-                {entry.job.error?.retryable ? " 该错误标记为可重试。" : ""}
-              </p>
-            </div>
-          ))}
-          {problems.length > 1 && (
-            <button
-              type="button"
-              className="link failures__more"
-              onClick={() => setShowAllFailures((current) => !current)}
-            >
-              {showAllFailures ? "只看最近一次" : `还有 ${problems.length - 1} 条失败记录`}
-            </button>
+      {timeline.length > 0 && (
+        <section className="results" aria-label="生成结果">
+          {timeline.map((entry) =>
+            entry.job.status === "failed" ? (
+              <FailureCard key={entry.job.id} event={entry} onRetry={onRetry} />
+            ) : (
+              <ResultGroup
+                key={entry.job.id}
+                event={entry}
+                isLatest={entry === latest}
+                onOpenAsset={onOpenAsset}
+                onRetry={onRetry}
+              />
+            ),
           )}
-        </section>
-      )}
-
-      {completed.length > 0 && (
-        <section className="results" aria-label="已完成作品">
-          {completed.map((entry) => (
-            <ResultGroup
-              key={entry.job.id}
-              event={entry}
-              isLatest={entry === latest}
-              onOpenAsset={onOpenAsset}
-              onRetry={onRetry}
-            />
-          ))}
         </section>
       )}
 
@@ -193,6 +165,38 @@ function ActiveJob({ event, onCancel }: { readonly event: ImageTaskEvent; readon
   );
 }
 
+/** 失败卡片：和其它结果同处一条时间线，不再单独堆在顶部。 */
+function FailureCard({
+  event,
+  onRetry,
+}: {
+  readonly event: ImageTaskEvent;
+  readonly onRetry: (jobId: string) => void;
+}) {
+  return (
+    <article className="notice notice--error" role="status" aria-label="生成失败的任务">
+      <div className="notice__head">
+        <strong>生成失败</strong>
+        <button
+          type="button"
+          className="button button--icon"
+          title="重试这次请求"
+          aria-label="重试这次请求"
+          onClick={() => onRetry(event.job.id)}
+        >
+          <RetryIcon size={13} />
+        </button>
+      </div>
+      <p className="notice__prompt">{event.job.submittedPrompt}</p>
+      <p>{event.job.error?.message ?? "上游返回了未知错误"}</p>
+      <p className="notice__meta">
+        原始提示词已保留，可修改后重新提交。
+        {event.job.error?.retryable ? " 该错误标记为可重试。" : ""}
+      </p>
+    </article>
+  );
+}
+
 function ResultGroup({
   event,
   isLatest,
@@ -250,5 +254,4 @@ function ResultGroup({
     </article>
   );
 }
-
 
