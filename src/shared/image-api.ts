@@ -61,6 +61,13 @@ declare global {
       readonly view: () => Promise<LibrarySettingsView | undefined>;
       readonly chooseDir: () => Promise<ChooseLibraryDirResult>;
       readonly openDir: () => Promise<{ readonly ok: true } | { readonly ok: false; readonly message: string }>;
+      /** 扫描作品文件夹，把索引里缺失的图片补回来。 */
+      readonly rebuildIndex: () => Promise<
+        | { readonly ok: true; readonly recovered: number; readonly skipped: number }
+        | { readonly ok: false; readonly message: string }
+      >;
+      /** 删除单张作品（记录 + 文件）。 */
+      readonly deleteAsset: (assetId: string) => Promise<{ readonly ok: true } | { readonly ok: false; readonly message: string }>;
     };
   }
 }

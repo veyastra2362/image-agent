@@ -103,6 +103,43 @@ function harness() {
   return { root, userData, libraryDir, store, settings, manager };
 }
 
+test("口令加密导出：文件不是 ZIP，错误口令拒绝，正确口令能导入", () => {
+  const h = harness();
+  try {
+    h.store.saveJob(job());
+    h.store.saveAsset(asset(), new Uint8Array([1, 2, 3, 4]));
+
+    const sealed = path.join(h.root, "backup.iaz");
+    const exported = h.manager.exportTo(sealed, { settings: true, library: true }, "我的口令-8位");
+    assert.equal(exported.ok, true, JSON.stringify(exported));
+    assert.equal(exported.ok && exported.message.includes("加密"), true);
+
+    // 文件头不是 ZIP
+    const head = readFileSync(sealed).subarray(0, 2).toString("latin1");
+    assert.notEqual(head, "PK");
+
+    assert.equal(h.manager.clear({ settings: true, library: true }).ok, true);
+
+    // 没给口令：要求补口令，且不修改任何数据
+    const needs = h.manager.importFrom(sealed, { settings: true, library: true });
+    assert.equal(needs.ok, false);
+    assert.equal(needs.ok === false && needs.needsPassphrase, true);
+    assert.equal(h.store.allAssets().length, 0);
+
+    // 错口令
+    const wrong = h.manager.importFrom(sealed, { settings: true, library: true }, "另一个口令");
+    assert.equal(wrong.ok, false);
+
+    // 正口令
+    const ok = h.manager.importFrom(sealed, { settings: true, library: true }, "我的口令-8位");
+    assert.equal(ok.ok, true, JSON.stringify(ok));
+    assert.equal(h.store.allAssets().length, 1);
+    assert.equal(h.store.listJobs().length, 1);
+  } finally {
+    rmSync(h.root, { recursive: true, force: true });
+  }
+});
+
 test("导出 → 清除 → 导入：任务、图片、配置都回来", () => {
   const h = harness();
   try {

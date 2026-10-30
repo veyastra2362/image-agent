@@ -352,6 +352,9 @@ async function run() {
   });
   await sleep(300);
   await shot("04-async-running");
+  // 进度骨架：多张任务等待时给"已等待 N 秒"，不假装有单张进度
+  const waitText = await js("document.querySelector('.active-job__wait')?.textContent ?? ''");
+  check("生成中显示已等待时长", String(waitText).includes("已等待"), waitText);
   await waitFor("document.querySelector('.active-job .button--ghost')", "出现停止按钮", 8000);
   await js("document.querySelector('.active-job .button--ghost').click(); true");
   await waitFor("!document.querySelector('.active-job')", "任务离开进行中列表", 8000);

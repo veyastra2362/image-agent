@@ -8,6 +8,7 @@ import type { ImageTaskEvent } from "../../shared/image-generation.ts";
 import { formatDuration } from "../lib/format.ts";
 import { describeStatus } from "../lib/job-status.ts";
 import { cancellable, latestSucceededJob, type ImageAgentState } from "./use-image-agent.ts";
+import { formatElapsed, useTick } from "../lib/use-tick.ts";
 
 interface ResultCanvasProps {
   readonly state: ImageAgentState;
@@ -129,6 +130,10 @@ export function ResultCanvas({ state, onOpenAsset }: ResultCanvasProps) {
 
 function ActiveJob({ event, onCancel }: { readonly event: ImageTaskEvent; readonly onCancel: () => void }) {
   const presentation = describeStatus(event.job.status);
+  // 多张时上游是一次性返回的，只能给"已等待多久"，不能假装有单张进度。
+  const now = useTick(true);
+  const startedAt = event.job.startedAt ?? event.job.createdAt;
+  const waiting = formatElapsed(now - startedAt);
   return (
     <article className="active-job" aria-busy="true">
       <div className="active-job__body">
@@ -139,8 +144,11 @@ function ActiveJob({ event, onCancel }: { readonly event: ImageTaskEvent; readon
           <span className="active-job__prompt">{event.job.submittedPrompt}</span>
         </p>
         <p className="active-job__meta">
-          {event.job.providerDisplayName} · {event.job.modelDisplayName} · {event.job.count} 张 ·{" "}
-          {event.job.aspectRatio}
+          {event.job.providerDisplayName} · {event.job.modelDisplayName} · {event.job.aspectRatio}
+        </p>
+        <p className="active-job__wait" aria-live="off">
+          已等待 {waiting}
+          {event.job.count > 1 ? ` · 预计 ${event.job.count} 张（上游一次性返回，出齐才显示）` : ""}
         </p>
       </div>
       <div className="active-job__progress" role="progressbar" aria-label="生成进度" aria-valuetext={presentation.label}>

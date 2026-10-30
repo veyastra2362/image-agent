@@ -54,6 +54,8 @@ export function DataSettingsPanel() {
   const [busy, setBusy] = useState<"export" | "import" | "clear">();
   const [notice, setNotice] = useState<{ readonly kind: "ok" | "error" | "info"; readonly text: string }>();
   const [confirmClear, setConfirmClear] = useState(false);
+  const [passphrase, setPassphrase] = useState("");
+  const [needPassphrase, setNeedPassphrase] = useState(false);
 
   const refresh = useCallback(() => {
     void window.appData
@@ -76,12 +78,17 @@ export function DataSettingsPanel() {
     }
     setBusy(kind);
     setNotice({ kind: "info", text: kind === "export" ? "正在导出…" : "正在导入…" });
-    const result = kind === "export" ? await window.appData?.export(selection) : await window.appData?.import(selection);
+    const payload = { ...selection, ...(passphrase.trim() === "" ? {} : { passphrase: passphrase.trim() }) };
+    const result = kind === "export" ? await window.appData?.export(payload) : await window.appData?.import(payload);
     setBusy(undefined);
     if (result?.ok) {
+      setNeedPassphrase(false);
       setNotice({ kind: "ok", text: result.message });
       refresh();
       if (kind === "import") window.dispatchEvent(new Event("image-agent:data-changed"));
+    } else if (result?.needsPassphrase === true) {
+      setNeedPassphrase(true);
+      setNotice({ kind: "error", text: result.error });
     } else {
       setNotice({ kind: "error", text: result?.error ?? "操作失败" });
     }
@@ -133,6 +140,29 @@ export function DataSettingsPanel() {
       <h3>导出数据</h3>
       <p className="field__hint">打包成一个 ZIP，包含所选内容。配置里含 API Key，请妥善保管这个文件。</p>
       <SelectionBoxes value={exportSel} onChange={setExportSel} disabled={busy !== undefined} />
+      <label className="field">
+        <span className="field__label">
+          口令加密
+          <span className="field__meta">可选</span>
+        </span>
+        <input
+          className="field__input"
+          type="password"
+          value={passphrase}
+          placeholder="留空则不加密"
+          aria-label="备份口令"
+          onChange={(event) => setPassphrase(event.target.value)}
+        />
+        <span className="field__hint">
+          填了口令会把整个备份用 AES-256-GCM 加密（导出的文件是 <code>.iaz</code>），
+          导入时必须输入同一口令；不填就是普通 ZIP，里面的 API Key 是明文。
+        </span>
+      </label>
+      {needPassphrase && (
+        <p className="field__hint field__hint--warn">
+          这个备份已加密。在上面的「口令加密」里输入口令，再点一次「导入…」即可（不用重新选文件）。
+        </p>
+      )}
       <div className="settings__footer">
         <button
           type="button"

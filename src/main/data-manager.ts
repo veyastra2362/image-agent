@@ -7,7 +7,7 @@
  *    所以换机器、换保存目录导入都能用。
  *  - 清除不可撤销：调用方必须先让用户确认，这里只负责删干净并报告删了多少。
  */
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import AdmZip from "adm-zip";
@@ -22,6 +22,7 @@ import {
 } from "@shared/data-management";
 import type { ImageAsset, ImageJob } from "@shared/image-generation";
 import { validateProviderFile, type ProviderProfile } from "@shared/provider-settings";
+import { decryptArchive, encryptArchive, isEncryptedArchive } from "./archive-cipher";
 import type { FileJobStore } from "./library-store";
 import type { ProviderSettingsStore } from "./provider-settings-store";
 
@@ -72,7 +73,7 @@ export class DataManager {
     };
   }
 
-  exportTo(target: string, selection: DataSelection): DataResult {
+  exportTo(target: string, selection: DataSelection, passphrase?: string): DataResult {
     if (!selection.settings && !selection.library) return { ok: false, error: "至少勾选一项要导出的数据" };
     const zip = new AdmZip();
     const entries: { label: string; bytes: number }[] = [];
@@ -123,22 +124,42 @@ export class DataManager {
 
     try {
       mkdirSync(path.dirname(target), { recursive: true });
-      zip.writeZip(target);
-      return { ok: true, path: target, message: `已导出到 ${target}`, entries };
+      const secret = passphrase?.trim() ?? "";
+      if (secret === "") {
+        zip.writeZip(target);
+        return { ok: true, path: target, message: `已导出到 ${target}`, entries };
+      }
+      // 带口令：整个 ZIP 加一层 AES-GCM，备份文件里不再有明文 Key。
+      writeFileSync(target, encryptArchive(zip.toBuffer(), secret));
+      return {
+        ok: true,
+        path: target,
+        message: `已导出到 ${target}（已用口令加密，导入时需要同一口令）`,
+        entries,
+      };
     } catch (error) {
-      return { ok: false, error: `写入压缩包失败：${(error as Error).message}` };
+      return { ok: false, error: `写入备份失败：${(error as Error).message}` };
     }
   }
 
-  importFrom(source: string, selection: DataSelection): DataResult {
+  importFrom(source: string, selection: DataSelection, passphrase?: string): DataResult {
     if (!selection.settings && !selection.library) return { ok: false, error: "至少勾选一项要导入的数据" };
     if (!existsSync(source)) return { ok: false, error: "文件不存在" };
 
     let zip: AdmZip;
     try {
-      zip = new AdmZip(source);
+      const raw = readFileSync(source);
+      if (isEncryptedArchive(raw)) {
+        const secret = passphrase?.trim() ?? "";
+        if (secret === "") {
+          return { ok: false, error: "这个备份已加密，请输入导出时设置的口令", needsPassphrase: true };
+        }
+        zip = new AdmZip(decryptArchive(raw, secret));
+      } else {
+        zip = new AdmZip(raw);
+      }
     } catch (error) {
-      return { ok: false, error: `不是有效的 ZIP：${(error as Error).message}` };
+      return { ok: false, error: `无法读取备份：${(error as Error).message}` };
     }
 
     const manifestEntry = zip.getEntry(DATA_MANIFEST_NAME);
@@ -261,7 +282,8 @@ function parseLibraryIndex(raw: string): ParsedLibrary | { error: string } {
   return { jobs, assets };
 }
 
-export function defaultExportName(now = new Date()): string {
+export function defaultExportName(now = new Date(), encrypted = false): string {
   const pad = (value: number) => String(value).padStart(2, "0");
-  return `image-agent-backup-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}.zip`;
+  const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
+  return `image-agent-backup-${stamp}.${encrypted ? "iaz" : "zip"}`;
 }

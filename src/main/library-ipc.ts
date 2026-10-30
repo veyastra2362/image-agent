@@ -17,6 +17,8 @@ export const LIBRARY_CHANNELS = {
   view: "library:view",
   chooseDir: "library:choose-dir",
   openDir: "library:open-dir",
+  rebuildIndex: "library:rebuild-index",
+  deleteAsset: "library:delete-asset",
 } as const;
 
 export const LIBRARY_CHANNEL_LIST: readonly string[] = Object.values(LIBRARY_CHANNELS);
@@ -110,6 +112,26 @@ export function registerLibraryIpc(deps: LibraryIpcDeps): () => void {
     } catch (error) {
       return { ok: false, error: (error as Error).message };
     }
+  });
+
+  ipcMain.handle(
+    LIBRARY_CHANNELS.rebuildIndex,
+    (event): { readonly ok: true; readonly recovered: number; readonly skipped: number } | { readonly ok: false; readonly message: string } => {
+      if (!isTrusted(deps, event)) return { ok: false, message: "来源窗口不可信" };
+      try {
+        const result = deps.store.rebuildIndex();
+        return { ok: true, recovered: result.recovered, skipped: result.skipped };
+      } catch (error) {
+        return { ok: false, message: (error as Error).message };
+      }
+    },
+  );
+
+  ipcMain.handle(LIBRARY_CHANNELS.deleteAsset, (event, raw: unknown): SimpleResult => {
+    if (!isTrusted(deps, event)) return { ok: false, message: "来源窗口不可信" };
+    if (typeof raw !== "string" || raw.trim() === "") return { ok: false, message: "缺少作品 ID" };
+    const removed = deps.store.deleteAsset(raw);
+    return removed.ok ? { ok: true } : { ok: false, message: "这张作品不在了" };
   });
 
   ipcMain.handle(LIBRARY_CHANNELS.openDir, async (event): Promise<SimpleResult> => {

@@ -41,7 +41,15 @@ export type DataResult =
       readonly path?: string;
       readonly entries?: readonly DataArchiveEntry[];
     }
-  | { readonly ok: false; readonly error: string };
+  | {
+      readonly ok: false;
+      readonly error: string;
+      /** 备份被口令加密了：上层要提示用户输入口令后重试。 */
+      readonly needsPassphrase?: boolean;
+    };
+
+/** 加密备份用的扩展名；导入时按内容判断，不看扩展名。 */
+export const DATA_ENCRYPTED_EXTENSION = "iaz";
 
 export const DATA_ARCHIVE_VERSION = 1;
 export const DATA_MANIFEST_NAME = "manifest.json";

@@ -2793,3 +2793,43 @@ code {
   font-size: var(--fs-sm);
   white-space: nowrap;
 }
+
+/* ---------------------------------------------------------------- 作品库：筛选与删除 */
+
+.library-search {
+  max-width: 280px;
+  margin-left: auto;
+}
+
+.library-item {
+  position: relative;
+}
+
+.library-item__delete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--bg-elevated) 88%, transparent);
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.library-item:hover .library-item__delete,
+.library-item__delete:focus-visible {
+  opacity: 1;
+}
+
+.library-item__delete:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}

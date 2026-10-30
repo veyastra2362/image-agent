@@ -48,6 +48,8 @@ const LIBRARY = {
   view: "library:view",
   chooseDir: "library:choose-dir",
   openDir: "library:open-dir",
+  rebuildIndex: "library:rebuild-index",
+  deleteAsset: "library:delete-asset",
 } as const;
 
 /** 必须与 src/main/settings-ipc.ts 的 SETTINGS_CHANNELS 完全一致（由测试校验）。 */
@@ -116,6 +118,8 @@ const library = {
   view: () => ipcRenderer.invoke(LIBRARY.view),
   chooseDir: () => ipcRenderer.invoke(LIBRARY.chooseDir),
   openDir: () => ipcRenderer.invoke(LIBRARY.openDir),
+  rebuildIndex: () => ipcRenderer.invoke(LIBRARY.rebuildIndex),
+  deleteAsset: (assetId: string) => ipcRenderer.invoke(LIBRARY.deleteAsset, assetId),
 };
 
 contextBridge.exposeInMainWorld("appLibrary", Object.freeze(library));

@@ -47,6 +47,22 @@ export function LibrarySettingsPanel() {
     if (result && !result.ok) setNotice(`打开文件夹失败：${result.message}`);
   }
 
+  async function rebuildIndex() {
+    setNotice("正在扫描作品文件夹…");
+    const result = await window.appLibrary?.rebuildIndex();
+    if (result?.ok) {
+      setNotice(
+        result.recovered === 0
+          ? `扫描完成：没有发现索引里缺失的图片（跳过 ${result.skipped} 个文件）。`
+          : `已恢复 ${result.recovered} 张作品（跳过 ${result.skipped} 个文件）。`,
+      );
+      refresh();
+      window.dispatchEvent(new Event("image-agent:data-changed"));
+    } else {
+      setNotice(`重建失败：${result?.message ?? "未知错误"}`);
+    }
+  }
+
   if (loading && view === undefined) return <p className="field__hint">正在读取存储位置…</p>;
   if (view === undefined) return <p className="field__hint">主进程没有提供作品库信息。</p>;
 
@@ -89,6 +105,15 @@ export function LibrarySettingsPanel() {
 
       {view.lastLoadWarning && <p className="settings__notice settings__notice--error">{view.lastLoadWarning}</p>}
       {notice && <p className="settings__notice settings__notice--info">{notice}</p>}
+
+      <h3>重建索引</h3>
+      <p className="field__hint">
+        索引文件（<code>library.json</code>）丢失后，作品库里会看不到作品，但图片文件通常还在。
+        扫描作品文件夹即可把图片重新登记回来：尺寸从文件头读取，提示词已经无从得知，会标注为「从文件恢复」。
+      </p>
+      <button type="button" className="button button--ghost" onClick={() => void rebuildIndex()}>
+        扫描文件夹并重建索引
+      </button>
 
       <p className="field__hint">
         图片文件在 <code>assets</code> 子目录里，文件名带时间戳；直接删除文件后，下次启动会自动把它们从作品库移除。

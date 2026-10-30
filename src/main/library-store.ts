@@ -7,7 +7,7 @@
  *  3. 启动时任何"没结束"的任务都被标成失败并写清原因，而不是假装还在跑。
  *  4. 索引损坏时退回空库并备份原文件，不让应用打不开。
  */
-import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import type { ImageAsset, ImageJob } from "@shared/image-generation";
@@ -19,6 +19,7 @@ import {
   type LibrarySettings,
   type LibraryStats,
 } from "@shared/library";
+import { readImageSize } from "./image-size";
 import type { JobStore } from "./image-generation/store";
 
 const INDEX_VERSION = 1;
@@ -253,6 +254,108 @@ export class FileJobStore implements JobStore {
     return this.saveAsset(asset, bytes);
   }
 
+  /**
+   * 扫描作品文件夹，把索引里没有的图片补回来。
+   *
+   * 索引（library.json）丢了/被清掉时，图片文件通常还在——这里按文件名里的
+   * assetId 重建记录，尺寸从文件头读，提示词已经无从得知，明确写成"从文件恢复"。
+   */
+  rebuildIndex(): { readonly recovered: number; readonly skipped: number } {
+    if (this.#dir === "") return { recovered: 0, skipped: 0 };
+    const assetDir = path.join(this.#dir, LIBRARY_ASSET_SUBDIR);
+    let names: readonly string[];
+    try {
+      names = readdirSync(assetDir);
+    } catch {
+      return { recovered: 0, skipped: 0 };
+    }
+
+    const knownFiles = new Set([...this.#files.values()].map((file) => path.basename(file)));
+    let recovered = 0;
+    let skipped = 0;
+
+    for (const name of names) {
+      if (knownFiles.has(name)) {
+        skipped += 1;
+        continue;
+      }
+      const match = /^(.+)_([^_]+)\.(png|jpe?g|webp)$/i.exec(name);
+      if (!match) {
+        skipped += 1;
+        continue;
+      }
+      const assetId = match[2] ?? "";
+      if (assetId === "" || this.#assets.has(assetId)) {
+        skipped += 1;
+        continue;
+      }
+
+      const file = path.join(assetDir, name);
+      let bytes: Buffer;
+      let mtimeMs: number;
+      try {
+        bytes = readFileSync(file);
+        mtimeMs = statSync(file).mtimeMs;
+      } catch {
+        skipped += 1;
+        continue;
+      }
+
+      const size = readImageSize(bytes);
+      const mimeType = size?.mimeType ?? mimeTypeForName(name);
+      const jobId = `recovered-${assetId}`;
+      const prompt = "(从文件恢复，原提示词已丢失)";
+      const createdAt = Math.round(mtimeMs);
+
+      const asset: ImageAsset = {
+        id: assetId,
+        jobId,
+        providerId: "recovered",
+        model: "(未知)",
+        mimeType,
+        byteLength: bytes.length,
+        width: size?.width ?? 0,
+        height: size?.height ?? 0,
+        prompt,
+        previewUrl: assetUrl(assetId),
+        createdAt,
+      };
+      const job: ImageJob = {
+        id: jobId,
+        requestId: jobId,
+        providerId: "recovered",
+        providerDisplayName: "本地文件",
+        model: "(未知)",
+        modelDisplayName: "从文件恢复",
+        prompt,
+        submittedPrompt: prompt,
+        capabilities: RECOVERED_CAPABILITIES,
+        referenceAssetIds: [],
+        uploadsUserAssets: false,
+        aspectRatio: "1:1",
+        sizeMode: "ratio",
+        format: "png",
+        compression: 0,
+        count: 1,
+        attempts: 1,
+        status: "succeeded",
+        createdAt,
+        updatedAt: createdAt,
+        finishedAt: createdAt,
+        assetIds: [assetId],
+      };
+
+      this.#assets.set(assetId, asset);
+      this.#files.set(assetId, file);
+      this.#jobs.set(jobId, job);
+      this.#requestIds.set(jobId, jobId);
+      recovered += 1;
+    }
+
+    if (recovered > 0) this.#persist();
+    return { recovered, skipped };
+  }
+
   allJobs(): readonly ImageJob[] {
     return [...this.#jobs.values()];
   }
@@ -278,6 +381,33 @@ export class FileJobStore implements JobStore {
     this.#requestIds.clear();
     this.#persist();
     return { removedFiles };
+  }
+
+  /** 删除单张作品：内存记录 + 磁盘文件；任务没有作品了就一起清掉。 */
+  deleteAsset(assetId: string): { readonly ok: boolean; readonly removedFile: boolean } {
+    const asset = this.#assets.get(assetId);
+    if (asset === undefined) return { ok: false, removedFile: false };
+    const file = this.#files.get(assetId);
+    let removedFile = false;
+    if (file !== undefined) {
+      try {
+        unlinkSync(file);
+        removedFile = true;
+      } catch {
+        // 文件已经不在了，记录照删。
+      }
+    }
+    this.#files.delete(assetId);
+    this.#assets.delete(assetId);
+
+    const remaining = [...this.#assets.values()].some((candidate) => candidate.jobId === asset.jobId);
+    if (!remaining) {
+      const job = this.#jobs.get(asset.jobId);
+      this.#jobs.delete(asset.jobId);
+      if (job !== undefined) this.#requestIds.delete(job.requestId);
+    }
+    this.#persist();
+    return { ok: true, removedFile };
   }
 
   getAsset(id: string): ImageAsset | undefined {
@@ -339,6 +469,31 @@ export class FileJobStore implements JobStore {
       this.#saveErrorNotified = true;
     }
   }
+}
+
+/** 从文件恢复出来的任务没有真实能力信息，这里给一个最小声明。 */
+const RECOVERED_CAPABILITIES = {
+  textToImage: true,
+  imageToImage: false,
+  masks: false,
+  referenceImageLimit: 0,
+  aspectRatios: ["1:1"],
+  outputCountLimit: 1,
+  seed: false,
+  negativePrompt: false,
+  async: false,
+  cancel: false,
+  autoSize: false,
+  customSize: false,
+  sizes: [],
+  transcode: false,
+} as const;
+
+function mimeTypeForName(name: string): string {
+  const lower = name.toLowerCase();
+  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+  if (lower.endsWith(".webp")) return "image/webp";
+  return "image/png";
 }
 
 /** renderer 通过这个 scheme 读图片；协议处理器只接受已登记的 assetId。 */
