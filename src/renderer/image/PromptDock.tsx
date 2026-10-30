@@ -41,6 +41,7 @@ export function PromptDock() {
     optimizeMode,
     setOptimizeMode,
     optimizeBusy,
+    nextClickOptimizes,
     agentAvailable,
   } = useComposer();
 
@@ -207,11 +208,21 @@ export function PromptDock() {
             type="submit"
             className="button button--primary dock__submit"
             disabled={!canSubmit}
-            title={`${t("dock.generate")} ${effectiveCount}`}
-            aria-label={`${t("dock.generate")} ${effectiveCount} 张`}
+            title={
+              nextClickOptimizes
+                ? "点一下先改写提示词（写回输入框），再点一次出图"
+                : `${t("dock.generate")} ${effectiveCount}`
+            }
+            aria-label={nextClickOptimizes ? "优化提示词" : `${t("dock.generate")} ${effectiveCount} 张`}
             aria-busy={pending || optimizing}
           >
-            {optimizing ? <span className="dock__spinner" aria-hidden="true" /> : <SendIcon size={16} />}
+            {optimizing ? (
+              <span className="dock__spinner" aria-hidden="true" />
+            ) : nextClickOptimizes ? (
+              <SparkIcon size={16} />
+            ) : (
+              <SendIcon size={16} />
+            )}
             <span className="dock__submit-count" aria-hidden="true">
               {effectiveCount}
             </span>

@@ -103,6 +103,8 @@ export interface ComposerValue {
   readonly canSubmit: boolean;
   readonly pending: boolean;
   readonly submitError: string | undefined;
+  /** 写回模式下"下一次点击是改写还是出图"：改写过就是出图。 */
+  readonly nextClickOptimizes: boolean;
   readonly submit: () => Promise<void>;
 }
 
@@ -252,6 +254,12 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
   });
 
   const canSubmit = validation.ok && model !== undefined && !pending && state.status === "ready";
+  // 写回模式下还差一次改写：用来切换生成按钮上的图标。
+  const nextClickOptimizes =
+    state.agentAvailable &&
+    optimizeMode === "writeback" &&
+    prompt.trim() !== "" &&
+    pendingOptimized !== prompt.trim();
 
   /** 真正提交：确认计划之后也走这里，避免两套参数拼装逻辑。 */
   async function submitWith(payloadOverride: Record<string, unknown> = {}): Promise<void> {
@@ -376,6 +384,7 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
     optimizeBusy,
     validation,
     canSubmit,
+    nextClickOptimizes,
     pending,
     submitError,
     submit,
