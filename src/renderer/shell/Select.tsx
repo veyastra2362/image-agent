@@ -66,7 +66,8 @@ function measure(trigger: HTMLElement, itemCount: number): MenuRect {
   const height = Math.min(estimate, maxHeight);
   return {
     left: rect.left,
-    width: Math.max(rect.width, 200),
+    // 菜单和触发器一样宽：以前强制 200px 起步，窄触发器上会显得"突然变宽"。
+    width: rect.width,
     top: openUp ? Math.max(8, rect.top - height - 4) : rect.bottom + 4,
     maxHeight,
   };

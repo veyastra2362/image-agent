@@ -2980,8 +2980,19 @@ code {
   margin-left: auto;
 }
 
+/* 下拉本身默认 width:100%，在筛选条里要固定宽度，不然会吃掉整行 */
 .library-filters .select {
-  min-width: 128px;
+  width: 176px;
+  flex: 0 0 176px;
+}
+
+/* 菜单项在窄下拉里也留足文字空间：收一点左右内边距 */
+.library-filters .select__option {
+  padding: 0 10px;
+}
+
+.library-filters .select__trigger {
+  padding-right: 10px;
 }
 
 .library-filters .library-search {
