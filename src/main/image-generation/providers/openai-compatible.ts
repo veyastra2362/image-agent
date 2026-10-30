@@ -46,7 +46,6 @@ export interface OpenAICompatibleOptions {
   /** 下载返回 URL 图片的超时，默认 60s。 */
   readonly downloadTimeoutMs?: number;
   /** 用于改写提示词的 chat 模型（同一服务商）；不填就不能做 Agent 优化。 */
-  readonly agentModel?: string;
 }
 
 /**
@@ -162,7 +161,6 @@ export class OpenAICompatibleProvider implements ImageProvider {
         capabilities: CAPABILITIES,
       })),
       uploadsUserAssets: false,
-      ...(options.agentModel === undefined ? {} : { agentModel: options.agentModel }),
     };
   }
 

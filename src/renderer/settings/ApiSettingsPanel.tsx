@@ -638,19 +638,6 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
         </span>
       </label>
 
-      <label className="field">
-        <span className="field__label">Agent 模型（可选）</span>
-        <input
-          className="field__input"
-          value={draft.agentModel ?? ""}
-          placeholder="例如 gpt-4o-mini"
-          onChange={(event) => patch({ agentModel: event.target.value })}
-        />
-        <span className="field__hint">
-          用于「Agent 优化提示词」的 chat 模型，必须和图片接口在同一个服务商下。
-          留空则该功能在创作页禁用；模型名不对时会提示上游不支持。
-        </span>
-      </label>
 
       {validation !== undefined && !validation.ok && (
         <p className="field__hint field__hint--warn">还差一步：{validation.error}</p>

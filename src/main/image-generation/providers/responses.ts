@@ -34,7 +34,6 @@ export interface ResponsesProviderOptions {
   readonly partialImages?: number;
   readonly timeoutMs?: number;
   readonly fetchImpl?: typeof fetch;
-  readonly agentModel?: string;
 }
 
 const SUPPORTED_RATIOS: readonly AspectRatio[] = [
@@ -103,7 +102,6 @@ export class ResponsesProvider implements ImageProvider {
         capabilities: CAPABILITIES,
       })),
       uploadsUserAssets: false,
-      ...(options.agentModel === undefined ? {} : { agentModel: options.agentModel }),
     };
   }
 

@@ -437,7 +437,6 @@ export class ImageGenerationService {
         default: provider.descriptor.defaultModel === model.id,
         capabilities: model.capabilities,
         uploadsUserAssets: provider.descriptor.uploadsUserAssets,
-        ...(provider.descriptor.agentModel === undefined ? {} : { agentModel: provider.descriptor.agentModel }),
       })),
     );
   }

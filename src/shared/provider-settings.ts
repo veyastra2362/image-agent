@@ -51,7 +51,6 @@ export interface ProviderSettings {
   /** 单次请求超时（秒）。 */
   readonly timeoutSeconds: number;
   /** 用于 Agent 改写提示词的 chat 模型（同一服务商）；留空表示不启用该功能。 */
-  readonly agentModel?: string;
 }
 
 export const PROVIDER_PURPOSES = ["image", "text"] as const;
@@ -133,10 +132,6 @@ export function validateProviderProfile(
   if (label === "" || label.length > MAX_LABEL_LENGTH) {
     return { ok: false, error: `名称不能为空，且不超过 ${MAX_LABEL_LENGTH} 个字符` };
   }
-  const agentModelRaw = typeof record.agentModel === "string" ? record.agentModel.trim() : "";
-  if (agentModelRaw.length > MAX_MODEL_ID_LENGTH) {
-    return { ok: false, error: `Agent 模型名不能超过 ${MAX_MODEL_ID_LENGTH} 个字符` };
-  }
   const validated = validateProviderSettings(record);
   if (!validated.ok) return validated;
   const purpose = record.purpose === "text" ? "text" : "image";
@@ -147,7 +142,6 @@ export function validateProviderProfile(
       id: record.id,
       label,
       purpose,
-      ...(agentModelRaw === "" ? {} : { agentModel: agentModelRaw }),
     },
   };
 }

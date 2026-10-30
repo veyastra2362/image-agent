@@ -206,7 +206,6 @@ export interface ProviderRef {
   /** 参考图是否会上传离开本机；UI 在提交前提示用户。 */
   readonly uploadsUserAssets: boolean;
   /** 该服务商用于改写提示词的 chat 模型；有值才允许开 Agent 优化。 */
-  readonly agentModel?: string;
 }
 
 export interface CreateImageJobInput {
