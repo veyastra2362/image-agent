@@ -13,6 +13,7 @@ import {
   validateProviderSettings,
   type ProviderSettings,
 } from "../shared/provider-settings";
+import { validateImagePlan } from "../shared/image-plan";
 import { ProviderSettingsStore } from "../main/provider-settings-store";
 import { describeHttpFailure, describeNetworkFailure, fetchUpstreamModels, parseModelsPayload } from "../main/upstream-probe";
 

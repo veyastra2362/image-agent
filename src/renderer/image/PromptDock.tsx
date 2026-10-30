@@ -15,6 +15,7 @@ export function PromptDock() {
   const formId = useId();
   const t = useT();
   const fileRef = useRef<HTMLInputElement>(null);
+  const planDraft = useRef<string>('');
   const {
     prompt,
     setPrompt,
@@ -37,6 +38,10 @@ export function PromptDock() {
     referenceBusy,
     referenceLimit,
     optimizing,
+    plan,
+    planning,
+    confirmPlan,
+    dismissPlan,
   } = useComposer();
 
   const invalid = !validation.ok && prompt.trim() !== "";
@@ -180,10 +185,79 @@ export function PromptDock() {
             <ImagePlusIcon size={16} />
           </button>
           <button type="submit" className="button button--primary dock__submit" disabled={!canSubmit}>
-            {optimizing ? "优化提示词…" : pending ? t("dock.generating") : `${t("dock.generate")} ${effectiveCount}`}
+            {planning ? "规划中…" : optimizing ? "优化提示词…" : pending ? t("dock.generating") : `${t("dock.generate")} ${effectiveCount}`}
           </button>
         </div>
       </div>
+
+      {/* Agent 计划确认：用户点确认才真正提交 */}
+      {plan !== undefined && (
+        <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && dismissPlan()}>
+          <div className="modal plan-modal" role="dialog" aria-modal="true" aria-label="Agent 生成计划">
+            <header className="modal__head">
+              <h2>Agent 计划</h2>
+              <button type="button" className="modal__close" onClick={dismissPlan} aria-label="关闭">
+                ×
+              </button>
+            </header>
+            <div className="modal__body">
+              <label className="field">
+                <span className="field__label">原始提示词</span>
+                <p className="field__hint">{prompt}</p>
+              </label>
+              <label className="field">
+                <span className="field__label">改写后的提示词（可编辑）</span>
+                <textarea
+                  className="field__input plan-modal__prompt"
+                  defaultValue={plan.prompt}
+                  rows={4}
+                  onChange={(event) => {
+                    planDraft.current = event.target.value;
+                  }}
+                  aria-label="改写后的提示词"
+                />
+              </label>
+              <dl className="facts">
+                {plan.aspectRatio !== undefined && (
+                  <div className="fact">
+                    <dt>建议比例</dt>
+                    <dd>{plan.aspectRatio}</dd>
+                  </div>
+                )}
+                {plan.count !== undefined && (
+                  <div className="fact">
+                    <dt>建议张数</dt>
+                    <dd>{plan.count}</dd>
+                  </div>
+                )}
+                {plan.negativePrompt !== undefined && (
+                  <div className="fact">
+                    <dt>负面提示词</dt>
+                    <dd>{plan.negativePrompt}</dd>
+                  </div>
+                )}
+                {plan.reasoning !== undefined && (
+                  <div className="fact fact--multiline">
+                    <dt>理由</dt>
+                    <dd>{plan.reasoning}</dd>
+                  </div>
+                )}
+              </dl>
+              {(plan.questions ?? []).length > 0 && (
+                <p className="field__hint field__hint--warn">先确认一下：{(plan.questions ?? []).join("；")}</p>
+              )}
+            </div>
+            <footer className="modal__foot">
+              <button type="button" className="button button--ghost" onClick={dismissPlan}>
+                取消
+              </button>
+              <button type="button" className="button button--primary" onClick={() => void confirmPlan(planDraft.current ?? plan.prompt)}>
+                用这个计划生成
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
 
       <div id={`${formId}-hint`} className="dock__messages" aria-live="polite">
         {submitError !== undefined && (

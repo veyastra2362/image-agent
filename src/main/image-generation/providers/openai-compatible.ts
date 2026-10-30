@@ -244,6 +244,44 @@ export class OpenAICompatibleProvider implements ImageProvider {
     return content.trim();
   }
 
+  /**
+   * Agent Planner：让语言模型把一句话变成结构化 ImagePlan（JSON）。
+   * 只返回模型原文，校验交给 main。
+   */
+  async planImage(prompt: string, model: string, signal: AbortSignal): Promise<string> {
+    const response = await this.request(`${this.baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${this.apiKey}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        model,
+        temperature: 0.4,
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content:
+              "你是图像生成规划助手。把用户的一句话规划成一张图，只输出 JSON，格式：" +
+              '{"prompt":"改写后的完整提示词","negativePrompt":"可选，不想出现的内容",' +
+              '"aspectRatio":"可选，必须是 1:1/4:3/3:4/16:9/9:16/3:2/2:3/5:4/4:5/21:9/9:21/2:1/1:2 之一",' +
+              '"count":可选整数1-10,"reasoning":"一句话说明为什么这样规划",' +
+              '"questions":["可选，确实需要用户澄清时才给"]}。不要输出 JSON 以外的任何内容。',
+          },
+          { role: "user", content: prompt },
+        ],
+      }),
+      signal,
+      timeoutMs: Math.min(this.timeoutMs, 60_000),
+    });
+
+    if (!response.ok) throw new ProviderRequestError(toProviderError(response.status, response.json, response.text));
+    const payload = response.json;
+    const choices = isRecord(payload) ? payload.choices : undefined;
+    const first = Array.isArray(choices) ? choices[0] : undefined;
+    const content = isRecord(first) && isRecord(first.message) ? first.message.content : undefined;
+    if (typeof content !== "string" || content.trim() === "") throw new Error("服务商没有返回计划内容");
+    return content.trim();
+  }
+
   /** 参考图编辑：multipart/form-data，图片字段名是 image。 */
   private async submitEdit(
     request: ProviderGenerateRequest,

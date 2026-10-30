@@ -5,6 +5,7 @@ export const IMAGE_CHANNELS = {
   cancelJob: "image:cancel-job",
   uploadReference: "image:upload-reference",
   optimizePrompt: "image:optimize-prompt",
+  planPrompt: "image:plan-prompt",
   taskEvent: "image:task-event",
   notification: "image:notification",
 } as const;

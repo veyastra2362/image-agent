@@ -48,6 +48,7 @@ export function registerImageIpc(options: {
   handle(IMAGE_CHANNELS.cancelJob, (jobId) => service.cancelJob(jobId));
   handle(IMAGE_CHANNELS.uploadReference, (input) => service.uploadReference(input));
   handle(IMAGE_CHANNELS.optimizePrompt, (input) => service.optimizePrompt(input));
+  handle(IMAGE_CHANNELS.planPrompt, (input) => service.planPrompt(input));
 
   return {
     sendEvent: (event) => send(IMAGE_CHANNELS.taskEvent, event),
@@ -59,6 +60,7 @@ export function registerImageIpc(options: {
         IMAGE_CHANNELS.cancelJob,
         IMAGE_CHANNELS.uploadReference,
         IMAGE_CHANNELS.optimizePrompt,
+        IMAGE_CHANNELS.planPrompt,
       ]) {
         ipcMain.removeHandler(channel);
       }

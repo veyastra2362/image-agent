@@ -162,7 +162,7 @@ async function run() {
   check("renderer 无法访问 Node/Electron", surface.node === "undefined" && surface.process === "undefined", surface);
   check(
     "API 只有明确的方法",
-    JSON.stringify(surface.keys) === JSON.stringify(["cancelJob", "createJob", "getBootstrap", "onNotification", "onTaskEvent", "optimizePrompt", "uploadReference"]),
+    JSON.stringify(surface.keys) === JSON.stringify(["cancelJob", "createJob", "getBootstrap", "onNotification", "onTaskEvent", "optimizePrompt", "planPrompt", "uploadReference"]),
     surface.keys,
   );
 

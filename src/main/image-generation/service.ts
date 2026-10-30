@@ -22,6 +22,7 @@ import {
   type UploadReferenceResult,
   type ProviderRef,
 } from "@shared/image-generation";
+import { validateImagePlan, type PlanResult } from "@shared/image-plan";
 import { readPngSize } from "./fixtures";
 import { transcodeImage } from "./transcode";
 import { isProviderRequestError } from "./provider";
@@ -331,6 +332,31 @@ export class ImageGenerationService {
         ok: false,
         error: { code: "provider-failed", message: safeMessage(error), retryable: true },
       };
+    }
+  }
+
+  /** Agent Planner：把提示词规划成结构化 ImagePlan（校验后才交给界面）。 */
+  async planPrompt(raw: unknown): Promise<PlanResult> {
+    if (typeof raw !== "object" || raw === null) return { ok: false, error: "请求格式不正确" };
+    const record = raw as Record<string, unknown>;
+    const prompt = typeof record.prompt === "string" ? record.prompt.trim() : "";
+    if (prompt === "") return { ok: false, error: "请先写好提示词" };
+
+    const agentProvider = this.agentProviders.values().next().value as ImageProvider | undefined;
+    if (agentProvider === undefined) {
+      return { ok: false, error: "还没有配置语言模型：请在 设置 → API 设置 → 语言模型 里添加" };
+    }
+    const plan = (agentProvider as { planImage?: (p: string, m: string, s: AbortSignal) => Promise<string> })
+      .planImage;
+    if (typeof plan !== "function") {
+      return { ok: false, error: "该服务商不支持 Agent 规划" };
+    }
+
+    try {
+      const raw = await plan.call(agentProvider, prompt, agentProvider.descriptor.defaultModel, new AbortController().signal);
+      return validateImagePlan(raw);
+    } catch (error) {
+      return { ok: false, error: `规划失败：${safeMessage(error)}` };
     }
   }
 

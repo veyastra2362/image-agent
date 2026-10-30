@@ -17,6 +17,16 @@ import { readFileAsDataUrl } from "../lib/format.ts";
 import { describeSpec } from "../lib/output-spec.ts";
 import type { ImageAgentState } from "./use-image-agent.ts";
 
+/** 界面用到的计划结构（与 shared/image-plan 对齐，这里只取需要的字段）。 */
+export interface AgentPlan {
+  readonly prompt: string;
+  readonly negativePrompt?: string;
+  readonly aspectRatio?: string;
+  readonly count?: number;
+  readonly reasoning?: string;
+  readonly questions?: readonly string[];
+}
+
 export interface ReferenceImage {
   readonly id: string;
   readonly src: string;
@@ -84,6 +94,11 @@ export interface ComposerValue {
   readonly agentOptimize: boolean;
   readonly setAgentOptimize: (value: boolean) => void;
   readonly optimizing: boolean;
+  /** Agent 规划结果：有值时界面弹确认框，用户确认后才真正提交。 */
+  readonly plan: AgentPlan | undefined;
+  readonly planning: boolean;
+  readonly confirmPlan: (prompt: string) => Promise<void>;
+  readonly dismissPlan: () => void;
   /** 是否配置了语言模型（决定开关能不能用）。 */
   readonly agentAvailable: boolean;
 
@@ -125,6 +140,8 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
   const [referenceBusy, setReferenceBusy] = useState(false);
   const [agentOptimize, setAgentOptimize] = useState(false);
   const [optimizing, setOptimizing] = useState(false);
+  const [plan, setPlan] = useState<AgentPlan>();
+  const [planning, setPlanning] = useState(false);
   const [submitError, setSubmitError] = useState<string>();
   const [pending, setPending] = useState(false);
   // 每次提交换一个 requestId：同一个 id 重提会被 main 当成重复请求（幂等保护）。
@@ -239,28 +256,45 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
 
   const canSubmit = validation.ok && model !== undefined && !pending && state.status === "ready";
 
-  async function submit(): Promise<void> {
+  /** 真正提交：确认计划之后也走这里，避免两套参数拼装逻辑。 */
+  async function submitWith(payloadOverride: Record<string, unknown> = {}): Promise<void> {
     if (!validation.ok || pending) return;
+    const payload = { ...validation.value, ...payloadOverride };
     setPending(true);
     setSubmitError(undefined);
-
-    // 开了 Agent 优化就先让服务商改写提示词；失败则退回原提示词，不阻断生成。
-    let payload = validation.value;
-    if (agentOptimize && state.agentAvailable && prompt.trim() !== "") {
-      setOptimizing(true);
-      const optimized = await window.imageAgent.optimizePrompt({ prompt });
-      setOptimizing(false);
-      if (optimized.ok) payload = { ...payload, agentPrompt: optimized.prompt, prompt };
-      else setSubmitError(`提示词优化失败，已按原文生成：${optimized.error.message}`);
-    }
-
     const result = await state.submit(payload);
     setPending(false);
     if (!result.ok) setSubmitError(result.message ?? "提交失败");
-    else {
-      setRequestId(newRequestId());
-      onSubmitted();
+    else setRequestId(newRequestId());
+  }
+
+  async function confirmPlan(editedPrompt: string): Promise<void> {
+    if (plan === undefined) return;
+    const next: AgentPlan = { ...plan, prompt: editedPrompt.trim() === "" ? plan.prompt : editedPrompt.trim() };
+    setPlan(undefined);
+    await submitWith({
+      prompt,
+      agentPrompt: next.prompt,
+      ...(next.negativePrompt === undefined ? {} : { negativePrompt: next.negativePrompt }),
+    });
+  }
+
+  const dismissPlan = useCallback(() => setPlan(undefined), []);
+
+  async function submit(): Promise<void> {
+    if (!validation.ok || pending) return;
+    // 开了 Agent：先规划，拿到结构化计划后弹确认框，用户点确认才出图。
+    if (agentOptimize && state.agentAvailable && prompt.trim() !== "") {
+      setPlanning(true);
+      const result = await window.imageAgent.planPrompt({ prompt });
+      setPlanning(false);
+      if (result.ok) {
+        setPlan(result.plan as AgentPlan);
+        return;
+      }
+      setSubmitError(`规划失败，已按原文生成：${result.error}`);
     }
+    await submitWith();
   }
 
   const value: ComposerValue = {
@@ -303,6 +337,10 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
     setAgentOptimize,
     optimizing,
     agentAvailable: state.agentAvailable,
+    plan,
+    planning,
+    confirmPlan,
+    dismissPlan,
     validation,
     canSubmit,
     pending,

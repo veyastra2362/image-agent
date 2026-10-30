@@ -330,6 +330,8 @@ export type UploadReferenceResult =
   | { readonly ok: false; readonly error: ImageError };
 
 /** Agent 改写提示词的结果。 */
+export type PlanPromptResult = { readonly ok: true; readonly plan: unknown } | { readonly ok: false; readonly error: string };
+
 export type OptimizePromptResult =
   | { readonly ok: true; readonly prompt: string }
   | { readonly ok: false; readonly error: ImageError };
@@ -343,6 +345,8 @@ export interface ImageAgentApi {
   readonly createJob: (input: unknown) => Promise<ImageRequestResult>;
   readonly uploadReference: (input: unknown) => Promise<UploadReferenceResult>;
   readonly optimizePrompt: (input: unknown) => Promise<OptimizePromptResult>;
+  /** Agent Planner：把一句话规划成结构化 ImagePlan。 */
+  readonly planPrompt: (input: unknown) => Promise<PlanPromptResult>;
   readonly cancelJob: (jobId: string) => Promise<ImageRequestResult>;
   readonly onTaskEvent: (listener: (event: ImageTaskEvent) => void) => Unsubscribe;
   readonly onNotification: (listener: (notification: Notification) => void) => Unsubscribe;
