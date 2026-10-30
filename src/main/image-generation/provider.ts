@@ -38,6 +38,8 @@ export interface ProviderGenerateRequest {
   readonly sizeMode?: SizeMode;
   /** 由 main 推导好的最终宽高；auto 时省略。 */
   readonly size?: { readonly width: number; readonly height: number };
+  /** 流式 provider 收到中间步骤图像时回调（只用于进度展示，不入库）。 */
+  readonly onPartialImage?: (hit: { readonly index: number; readonly bytes: Uint8Array }) => void;
 }
 
 export interface ProviderImage {

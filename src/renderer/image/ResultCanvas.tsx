@@ -149,6 +149,7 @@ function ActiveJob({ event, onCancel }: { readonly event: ImageTaskEvent; readon
         <p className="active-job__wait" aria-live="off">
           已等待 {waiting}
           {event.job.count > 1 ? ` · 预计 ${event.job.count} 张（上游一次性返回，出齐才显示）` : ""}
+          {(event.job.partialImages ?? 0) > 0 ? ` · 已收到 ${event.job.partialImages} 张中间图像` : ""}
         </p>
       </div>
       <div className="active-job__progress" role="progressbar" aria-label="生成进度" aria-valuetext={presentation.label}>

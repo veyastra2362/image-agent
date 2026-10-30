@@ -435,6 +435,12 @@ export class ImageGenerationService {
             count: job.count,
             ...(job.seed === undefined ? {} : { seed: job.seed }),
             ...(job.negativePrompt === undefined ? {} : { negativePrompt: job.negativePrompt }),
+            // 流式 provider：收到中间图就更新一次任务，界面能看到"已收到 N 张"。
+            onPartialImage: ({ index }: { readonly index: number }) => {
+              const current = this.store.getJob(job.id);
+              if (current === undefined || current.partialImages === index) return;
+              job = this.commit({ ...current, partialImages: index, updatedAt: this.now() });
+            },
           },
           controller.signal,
         )

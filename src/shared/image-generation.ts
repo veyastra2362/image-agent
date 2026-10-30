@@ -223,6 +223,8 @@ export interface CreateImageJobInput {
   readonly referenceAssetIds: readonly string[];
   readonly aspectRatio?: AspectRatio;
   readonly count: number;
+  /** 流式生成时已收到的中间步骤图像数量（只用于进度提示）。 */
+  readonly partialImages?: number;
   readonly seed?: number;
   readonly negativePrompt?: string;
   /** 画面尺寸来源：auto / 比例 / 自定义。省略时按比例处理。 */
@@ -265,6 +267,8 @@ export interface ImageJob {
   readonly format?: OutputFormat;
   readonly compression?: number;
   readonly count: number;
+  /** 流式生成时已收到的中间步骤图像数量（只用于进度提示）。 */
+  readonly partialImages?: number;
   readonly seed?: number;
   readonly negativePrompt?: string;
   readonly agentRun?: AgentRunRecord;

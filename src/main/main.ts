@@ -28,6 +28,8 @@ import { DataManager } from "./data-manager";
 import { ImageGenerationService } from "./image-generation/service";
 import { FakeProvider } from "./image-generation/providers/fake";
 import { OpenAICompatibleProvider } from "./image-generation/providers/openai-compatible";
+import { ResponsesProvider } from "./image-generation/providers/responses";
+import type { ImageProvider } from "./image-generation/provider";
 import { FavoritesStore } from "./favorites-store";
 import { FileJobStore, parseAssetUrl } from "./library-store";
 import { librarySettingsFile, registerLibraryIpc } from "./library-ipc";
@@ -258,8 +260,8 @@ let providerSummary: { baseUrl: string; models: string[]; count: number } | unde
 function createProviders(
   store: ProviderSettingsStore,
   purpose: "image" | "text" = "image",
-): (FakeProvider | OpenAICompatibleProvider)[] {
-  const providers: (FakeProvider | OpenAICompatibleProvider)[] = [];
+): ImageProvider[] {
+  const providers: ImageProvider[] = [];
   const summary: { baseUrl: string; models: string[] }[] = [];
 
   for (const profile of store.profiles) {
@@ -268,6 +270,25 @@ function createProviders(
     if (apiKey === undefined || apiKey === "" || profile.baseUrl === "" || profile.models.length === 0) continue;
 
     try {
+      // Responses API 走流式适配器；其余仍然是 Images API（一次请求一次响应）。
+      if (profile.flavor === "responses") {
+        providers.push(
+          new ResponsesProvider({
+            id: profile.id,
+            displayName: profile.label,
+            baseUrl: profile.baseUrl,
+            apiKey,
+            defaultModel: profile.defaultModel ?? profile.models[0],
+            models: profile.models.map((id) => ({ id, displayName: id })),
+            partialImages: profile.partialImages,
+            timeoutMs: profile.timeoutSeconds * 1000,
+            ...(profile.agentModel === undefined ? {} : { agentModel: profile.agentModel }),
+          }),
+        );
+        summary.push({ baseUrl: profile.baseUrl, models: [...profile.models] });
+        continue;
+      }
+
       providers.push(
         new OpenAICompatibleProvider({
           id: profile.id,

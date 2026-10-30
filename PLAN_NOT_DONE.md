@@ -59,7 +59,19 @@
 | `POST /v1/responses`（不存在的模型名） | 404 模型不存在 → 说明**端点存在**，502 是上游处理失败 |
 
 结论：不是我们请求体写错，而是网关的 `/responses` 后端没有可用的出图账号。
-在拿到支持 Responses API 的服务商之前，流式无法实现也无法验证。
+
+**已实现（离线验证）**：`responses` 适配器 + SSE 解析器。
+
+- `src/main/image-generation/sse.ts`：标准 SSE 解析（多行 data、`event:`、CRLF、心跳注释、`[DONE]`）；
+- `src/main/image-generation/providers/responses.ts`：`POST /responses`，`stream:true`，`modalities:["image"]`，
+  `tools:[{type:"image_generation", partial_images, size}]`；对事件名**不写死**——任何事件里的 base64 PNG
+  都会被收集，`…partial_image` 结尾的只当进度；
+- 中间图进度会写到任务上（`job.partialImages`），界面显示"已收到 N 张中间图像"，中间图不入库；
+- 设置里 API 接口选 `Responses API` 的配置会自动用这个适配器，其余仍走 Images API；
+- **17 条**离线测试（SSE 解析 6 + 适配器 7 + 进度链路 1 + 其他），用 fixture SSE 覆盖 partial/completed/error/401/空响应。
+
+**验证缺口**：真实网关仍返回 502，所以"真实 SSE 事件名是否与假设一致"依然未验证。
+拿到支持 Responses API 的服务商后，先跑一次真实调用核对事件名，再决定是否需要调整映射。
 
 **验证缺口**：所有流式行为目前 **0 次成功真实调用**。
 
