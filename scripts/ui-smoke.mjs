@@ -329,7 +329,8 @@ async function run() {
   await js("window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); true");
   await sleep(200);
   check("Esc 关闭原图", !(await js("Boolean(document.querySelector('.lightbox'))")), "");
-  await js("(() => { const b = [...document.querySelectorAll('.result-card figcaption button')][0]; if (!b) return false; b.click(); return true; })()");
+  // figcaption 里现在第一个按钮是「在资源管理器中显示」，详情按钮按文字找
+  await js("(() => { const b = [...document.querySelectorAll('.result-card figcaption button')].find((n) => n.textContent.includes('详情')); if (!b) return false; b.click(); return true; })()");
   await waitFor("document.querySelector('.drawer')", "详情抽屉");
   const drawerText = await js("document.querySelector('.drawer').innerText");
   check("详情显示模型", drawerText.includes("Fake Sync 1"), drawerText.slice(0, 160));

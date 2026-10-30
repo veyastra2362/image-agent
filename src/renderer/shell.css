@@ -3431,3 +3431,10 @@ code {
   color: var(--accent);
   border-color: var(--accent);
 }
+
+/* 结果卡片：文件夹图标与「详情」并排 */
+.result-card__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}

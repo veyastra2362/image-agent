@@ -9,7 +9,7 @@ import { formatDuration } from "../lib/format.ts";
 import { describeStatus } from "../lib/job-status.ts";
 import { cancellable, latestSucceededJob, type ImageAgentState } from "./use-image-agent.ts";
 import { formatElapsed, useTick } from "../lib/use-tick.ts";
-import { RetryIcon } from "../shell/icons.tsx";
+import { FolderIcon, RetryIcon } from "../shell/icons.tsx";
 
 interface ResultCanvasProps {
   readonly state: ImageAgentState;
@@ -244,9 +244,20 @@ function ResultGroup({
               <span className="result-card__size">
                 {asset.width}×{asset.height}
               </span>
-              <button type="button" className="button button--tiny" onClick={() => onOpenAsset(asset.id)}>
-                详情
-              </button>
+              <span className="result-card__actions">
+                <button
+                  type="button"
+                  className="button button--icon button--tiny"
+                  title="在资源管理器中显示"
+                  aria-label={`在资源管理器中显示：${asset.prompt}`}
+                  onClick={() => void window.appLibrary?.revealAsset(asset.id)}
+                >
+                  <FolderIcon size={12} />
+                </button>
+                <button type="button" className="button button--tiny" onClick={() => onOpenAsset(asset.id)}>
+                  详情
+                </button>
+              </span>
             </figcaption>
           </figure>
         ))}
