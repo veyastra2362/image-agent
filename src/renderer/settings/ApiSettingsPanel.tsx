@@ -662,31 +662,73 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
               </button>
             </header>
             <div className="modal__body">
-              <p className="field__hint">共 {pickerModels.length} 个，勾选要启用到创作页的模型。</p>
-              <div className="model-picker__list">
-                {pickerModels.map((model) => (
-                  <label key={model.id} className="model-picker__item">
-                    <input
-                      type="checkbox"
-                      checked={pickerChecked.includes(model.id)}
-                      onChange={(event) =>
-                        setPickerChecked((current) =>
-                          event.target.checked ? [...current, model.id] : current.filter((id) => id !== model.id),
-                        )
-                      }
-                    />
-                    <span className="model-picker__id">{model.id}</span>
-                  </label>
-                ))}
+              <div className="picker-head">
+                <p className="field__hint">共 {pickerModels.length} 个可用模型，勾选后会出现在创作页的模型列表里。</p>
+                <button
+                  type="button"
+                  className="link"
+                  onClick={() =>
+                    setPickerChecked(
+                      pickerChecked.length === pickerModels.length ? [] : pickerModels.map((model) => model.id),
+                    )
+                  }
+                >
+                  {pickerChecked.length === pickerModels.length ? "清空" : "全选"}
+                </button>
               </div>
+              <ul className="picker-list">
+                {pickerModels.map((model) => {
+                  const checked = pickerChecked.includes(model.id);
+                  return (
+                    <li key={model.id}>
+                      <button
+                        type="button"
+                        role="checkbox"
+                        aria-checked={checked}
+                        aria-label={model.id}
+                        className={`picker-row ${checked ? "is-checked" : ""}`}
+                        onClick={() =>
+                          setPickerChecked((current) =>
+                            checked ? current.filter((id) => id !== model.id) : [...current, model.id],
+                          )
+                        }
+                      >
+                        <span className="picker-row__mark" aria-hidden="true">
+                          {checked ? (
+                            <svg width="12" height="12" viewBox="0 0 16 16" focusable="false">
+                              <path
+                                d="m3.5 8.4 3 3 6-6.4"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.8"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          ) : null}
+                        </span>
+                        <span className="picker-row__id">{model.id}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
-            <footer className="modal__foot">
-              <button type="button" className="button button--ghost" onClick={() => setPickerModels(undefined)}>
-                取消
-              </button>
-              <button type="button" className="button button--primary" onClick={applyPicker}>
-                加入所选（{pickerChecked.length}）
-              </button>
+            <footer className="modal__foot modal__foot--split">
+              <span className="picker-count">已选 {pickerChecked.length} / {pickerModels.length}</span>
+              <div className="picker-actions">
+                <button type="button" className="button button--ghost" onClick={() => setPickerModels(undefined)}>
+                  取消
+                </button>
+                <button
+                  type="button"
+                  className="button button--primary"
+                  onClick={applyPicker}
+                  disabled={pickerChecked.length === 0}
+                >
+                  加入所选（{pickerChecked.length}）
+                </button>
+              </div>
             </footer>
           </div>
         </div>

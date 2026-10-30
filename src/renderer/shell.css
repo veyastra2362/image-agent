@@ -3169,3 +3169,90 @@ code {
   font-size: var(--fs-sm);
   color: var(--text-muted);
 }
+
+/* ---------------------------------------------------------------- 选择上游模型 */
+
+.picker-modal {
+  width: min(520px, 92vw);
+}
+
+.picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 46vh;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.picker-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: 8px var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.picker-row:hover {
+  background: var(--surface-hover);
+}
+
+.picker-row.is-checked {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.picker-row__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  color: var(--accent-contrast, #1b1b1b);
+}
+
+.picker-row.is-checked .picker-row__mark {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.picker-row__id {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.picker-count {
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+}
+
+.picker-actions {
+  display: flex;
+  gap: var(--space-2);
+}

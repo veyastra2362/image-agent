@@ -22,6 +22,8 @@ export interface SettingsDialogProps {
   readonly environment: AppEnvironment | undefined;
   readonly providerCount: number;
   readonly modelCount: number;
+  /** 离线假服务的模型数（正式运行通常是 0）。 */
+  readonly fakeModelCount: number;
   readonly theme: "auto" | "light" | "dark";
   readonly onThemeChange: (theme: "auto" | "light" | "dark") => void;
   readonly density: "comfortable" | "compact";
@@ -86,6 +88,7 @@ export function SettingsDialog({
   environment,
   providerCount,
   modelCount,
+  fakeModelCount,
   theme,
   onThemeChange,
   density,
@@ -189,7 +192,8 @@ export function SettingsDialog({
                     <div className="fact">
                       <dt>可用服务</dt>
                       <dd>
-                        {providerCount} 个服务 · {modelCount} 个模型（含离线假服务）
+                        {providerCount} 个服务 · {modelCount} 个模型
+                        {fakeModelCount > 0 ? `（其中 ${fakeModelCount} 个是离线假服务）` : ""}
                       </dd>
                     </div>
                   </dl>

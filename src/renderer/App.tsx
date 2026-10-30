@@ -224,6 +224,7 @@ export function App() {
           environment={environment}
           providerCount={new Set(state.models.map((model) => model.id)).size}
           modelCount={state.models.length}
+          fakeModelCount={state.models.filter((model) => model.id.includes("fake")).length}
           theme={appearance.theme}
           density={appearance.density}
           onThemeChange={(theme) => setAppearance((current) => ({ ...current, theme }))}

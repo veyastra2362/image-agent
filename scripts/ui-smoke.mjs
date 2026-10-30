@@ -468,7 +468,7 @@ async function run() {
     const toastText = await js("document.querySelector('.settings__toast')?.textContent ?? ''");
     check("获取上游模型请求有结果", pickerOpen || toastText !== "", JSON.stringify({ toastText }));
     if (!pickerOpen) throw new Error("上游模型选择弹窗未出现，提示为：" + toastText);
-    const pickerIds = await js("[...document.querySelectorAll('.picker-modal .model-picker__id')].map((n) => n.textContent)");
+    const pickerIds = await js("[...document.querySelectorAll('.picker-modal .picker-row__id')].map((n) => n.textContent)");
     check(
       "获取上游模型后弹出二级选择框",
       pickerIds.includes("stub-model-a") && pickerIds.includes("stub-model-b"),
