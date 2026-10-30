@@ -6,13 +6,12 @@
 
 import type { ModelKind } from "./model-kind";
 
-export const PROVIDER_KINDS = ["openai-compatible", "anthropic", "fal"] as const;
+export const PROVIDER_KINDS = ["openai-compatible", "fal"] as const;
 
 export type ProviderKind = (typeof PROVIDER_KINDS)[number];
 
 export const PROVIDER_KIND_LABELS: Record<ProviderKind, string> = {
   "openai-compatible": "OpenAI 兼容接口",
-  anthropic: "Anthropic（Messages）",
   fal: "fal.ai",
 };
 

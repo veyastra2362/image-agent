@@ -426,7 +426,7 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
           ariaLabel="服务商类型"
           value={draft.kind}
           onChange={(next) => patch({ kind: next as ProviderKind })}
-          options={(draft.purpose === "text" ? (["openai-compatible", "anthropic"] as const) : PROVIDER_KINDS).map((kind) => ({
+          options={(draft.purpose === "text" ? (["openai-compatible"] as const) : PROVIDER_KINDS).map((kind) => ({
             value: kind,
             label: PROVIDER_KIND_LABELS[kind],
           }))}
@@ -448,7 +448,7 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
           className="field__input"
           aria-label="API URL"
           value={draft.baseUrl}
-          placeholder={draft.kind === "anthropic" ? "https://api.anthropic.com/v1" : "https://api.example.com/v1"}
+          placeholder="https://api.example.com/v1"
           onChange={(event) => patch({ baseUrl: event.target.value })}
         />
       </label>

@@ -30,7 +30,6 @@ import { FakeProvider } from "./image-generation/providers/fake";
 import { OpenAICompatibleProvider } from "./image-generation/providers/openai-compatible";
 import { ResponsesProvider } from "./image-generation/providers/responses";
 import { FalProvider } from "./image-generation/providers/fal";
-import { AnthropicProvider } from "./image-generation/providers/anthropic";
 import type { ImageProvider } from "./image-generation/provider";
 import { guessModelKind, modelFitsPurpose } from "@shared/model-kind";
 import { FavoritesStore } from "./favorites-store";
@@ -280,27 +279,6 @@ function createProviders(
     const usableProfile = { ...profile, models: usableModels };
 
     try {
-      // Anthropic 只用作出图以外的语言模型（改写 / 规划）。
-      if (usableProfile.kind === "anthropic") {
-        if (purpose !== "text") {
-          console.warn(`[image-agent] 服务商「${usableProfile.label}」是 Anthropic，不能出图，已跳过`);
-          continue;
-        }
-        providers.push(
-          new AnthropicProvider({
-            id: usableProfile.id,
-            displayName: usableProfile.label,
-            baseUrl: usableProfile.baseUrl || "https://api.anthropic.com/v1",
-            apiKey,
-            models: usableModels,
-            defaultModel: usableProfile.defaultModel ?? usableModels[0],
-            timeoutMs: usableProfile.timeoutSeconds * 1000,
-          }),
-        );
-        summary.push({ baseUrl: usableProfile.baseUrl, models: [...usableModels] });
-        continue;
-      }
-
       // fal 是队列式接口：app id 拼在 URL 里，提交后轮询。
       if (usableProfile.kind === "fal") {
         providers.push(
