@@ -274,6 +274,8 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
     flash("ok", `已加入「${id}」，别忘了保存。`);
   }
 
+  const isImagePurpose = (draft?.purpose ?? "image") === "image";
+
   return (
     <section className="settings__section" aria-label="API 设置">
       {notice && (
@@ -435,6 +437,7 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
         </span>
       </label>
 
+      {isImagePurpose && (
       <div className="field">
         <span className="field__label">API 接口</span>
         <div className="chips" role="radiogroup" aria-label="API 接口">
@@ -452,6 +455,7 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
           ))}
         </div>
       </div>
+      )}
 
       <div className="settings__row">
         <h3>模型</h3>
@@ -574,7 +578,7 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
         </div>
       )}
 
-      <h3>流式传输</h3>
+      {isImagePurpose && (<><h3>流式传输</h3>
       <label className="switch">
         <input type="checkbox" checked={draft.stream} onChange={(event) => patch({ stream: event.target.checked })} />
         <span>开启流式传输</span>
@@ -616,6 +620,7 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
           {preview !== draft.partialImages && ` 当前实际发送：${preview}。`}
         </span>
       </div>
+      </>)}
 
       <label className="field">
         <span className="field__label">请求超时（秒）</span>

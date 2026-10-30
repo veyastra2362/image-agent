@@ -9,7 +9,7 @@ import { LIMITS } from "../../shared/image-generation.ts";
 import { useComposer } from "./composer-state.tsx";
 import { ModelSelect } from "../shell/ModelSelect.tsx";
 import { useT } from "../lib/i18n.ts";
-import { CloseIcon, ImagePlusIcon, TrashIcon } from "../shell/icons.tsx";
+import { CloseIcon, ImagePlusIcon, SparkIcon, TrashIcon } from "../shell/icons.tsx";
 
 export function PromptDock() {
   const formId = useId();
@@ -42,6 +42,11 @@ export function PromptDock() {
     planning,
     confirmPlan,
     dismissPlan,
+    optimizeNow,
+    optimizeBusy,
+    optimizeUndo,
+    undoOptimize,
+    agentAvailable,
   } = useComposer();
 
   const invalid = !validation.ok && prompt.trim() !== "";
@@ -184,10 +189,28 @@ export function PromptDock() {
           >
             <ImagePlusIcon size={16} />
           </button>
+          <button
+            type="button"
+            className="button button--ghost dock__optimize"
+            disabled={optimizeBusy || pending || planning || prompt.trim() === "" || !agentAvailable}
+            title={agentAvailable ? "让语言模型改写提示词" : "先在 设置 → API 设置 → 语言模型 里配置语言模型"}
+            onClick={() => void optimizeNow()}
+          >
+            <SparkIcon size={14} />
+            {optimizeBusy ? "优化中…" : "优化"}
+          </button>
           <button type="submit" className="button button--primary dock__submit" disabled={!canSubmit}>
             {planning ? "规划中…" : optimizing ? "优化提示词…" : pending ? t("dock.generating") : `${t("dock.generate")} ${effectiveCount}`}
           </button>
         </div>
+        {optimizeUndo !== undefined && (
+          <p className="dock__messages">
+            已用语言模型改写提示词。
+            <button type="button" className="link" onClick={undoOptimize}>
+              撤销改写
+            </button>
+          </p>
+        )}
       </div>
 
       {/* Agent 计划确认：用户点确认才真正提交 */}
@@ -231,8 +254,8 @@ export function PromptDock() {
                   </div>
                 )}
                 {plan.negativePrompt !== undefined && (
-                  <div className="fact">
-                    <dt>负面提示词</dt>
+                  <div className="fact fact--multiline">
+                    <dt>负面提示词{caps?.negativePrompt === true ? "" : "（当前模型不支持，将忽略）"}</dt>
                     <dd>{plan.negativePrompt}</dd>
                   </div>
                 )}

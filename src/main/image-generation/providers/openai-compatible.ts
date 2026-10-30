@@ -468,7 +468,9 @@ export class ProviderRequestError extends Error {
 
 /** 上游错误映射到 ImageError 的 code；消息里绝不回显 Authorization。 */
 export function toProviderError(status: number, body: unknown, text: string): ImageError {
-  const detail = errorDetail(body) ?? text.slice(0, 200);
+  // 网关挂了会返回整页 HTML（Cloudflare 502/503），把它塞进提示里只会糊满界面。
+  const looksLikeHtml = /^\s*<(!doctype|html)/i.test(text);
+  const detail = errorDetail(body) ?? (looksLikeHtml ? "网关返回了 HTML 错误页（通常是上游不可用）" : text.slice(0, 200));
   const suffix = detail === "" ? "" : `：${detail}`;
   if (status === 401 || status === 403) {
     return { code: "provider-unavailable", message: `服务商拒绝了密钥（HTTP ${status}）${suffix}`, retryable: false };

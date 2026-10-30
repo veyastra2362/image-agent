@@ -97,6 +97,11 @@ export interface ComposerValue {
   /** Agent 规划结果：有值时界面弹确认框，用户确认后才真正提交。 */
   readonly plan: AgentPlan | undefined;
   readonly planning: boolean;
+  /** 直接优化提示词（不经过计划弹窗）；成功后替换输入框内容。 */
+  readonly optimizeNow: () => Promise<void>;
+  readonly optimizeBusy: boolean;
+  readonly optimizeUndo: string | undefined;
+  readonly undoOptimize: () => void;
   readonly confirmPlan: (prompt: string) => Promise<void>;
   readonly dismissPlan: () => void;
   /** 是否配置了语言模型（决定开关能不能用）。 */
@@ -142,6 +147,8 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
   const [optimizing, setOptimizing] = useState(false);
   const [plan, setPlan] = useState<AgentPlan>();
   const [planning, setPlanning] = useState(false);
+  const [optimizeBusy, setOptimizeBusy] = useState(false);
+  const [optimizeUndo, setOptimizeUndo] = useState<string>();
   const [submitError, setSubmitError] = useState<string>();
   const [pending, setPending] = useState(false);
   // 每次提交换一个 requestId：同一个 id 重提会被 main 当成重复请求（幂等保护）。
@@ -272,14 +279,43 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
     if (plan === undefined) return;
     const next: AgentPlan = { ...plan, prompt: editedPrompt.trim() === "" ? plan.prompt : editedPrompt.trim() };
     setPlan(undefined);
+    // 计划里的负面词只有模型支持时才带上，否则整单会被能力校验拦下。
     await submitWith({
       prompt,
       agentPrompt: next.prompt,
-      ...(next.negativePrompt === undefined ? {} : { negativePrompt: next.negativePrompt }),
+      ...(next.negativePrompt === undefined || caps?.negativePrompt !== true
+        ? {}
+        : { negativePrompt: next.negativePrompt }),
     });
   }
 
   const dismissPlan = useCallback(() => setPlan(undefined), []);
+
+  /** 生成按钮旁边的一键优化：拿到改写结果直接替换输入框，并留一次撤销。 */
+  async function optimizeNow(): Promise<void> {
+    const text = prompt.trim();
+    if (text === "") {
+      setSubmitError("请先写好提示词");
+      return;
+    }
+    setOptimizeBusy(true);
+    const result = await window.imageAgent.optimizePrompt({ prompt: text });
+    setOptimizeBusy(false);
+    if (result.ok) {
+      setOptimizeUndo(prompt);
+      setPrompt(result.prompt);
+      setSubmitError(undefined);
+    } else {
+      setSubmitError(`优化失败：${result.error.message}`);
+    }
+  }
+
+  const undoOptimize = useCallback(() => {
+    setOptimizeUndo((previous) => {
+      if (previous !== undefined) setPrompt(previous);
+      return undefined;
+    });
+  }, [setPrompt]);
 
   async function submit(): Promise<void> {
     if (!validation.ok || pending) return;
@@ -341,6 +377,10 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
     planning,
     confirmPlan,
     dismissPlan,
+    optimizeNow,
+    optimizeBusy,
+    optimizeUndo,
+    undoOptimize,
     validation,
     canSubmit,
     pending,

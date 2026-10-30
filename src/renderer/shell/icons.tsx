@@ -146,3 +146,15 @@ export function HeartIcon({ size = 14, filled = false }: { readonly size?: numbe
     </svg>
   );
 }
+
+/** 一键优化：小星形，表示"让模型改写"。 */
+export function SparkIcon({ size = 14 }: { readonly size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path
+        d="M8 1.6 9.4 6l4.4 1.4L9.4 8.8 8 13.2 6.6 8.8 2.2 7.4 6.6 6Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
