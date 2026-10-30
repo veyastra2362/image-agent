@@ -216,7 +216,12 @@ export class ProviderSettingsStore {
       ...DEFAULT_PROVIDER_SETTINGS,
       id,
       purpose,
-      label: label?.trim() || `${purpose === "text" ? "语言模型" : "服务商"} ${this.#profiles.length + 1}`,
+      // 两类各自编号：语言模型 1、2、3；服务商 1、2、3，互不占号。
+      label:
+        label?.trim() ||
+        `${purpose === "text" ? "语言模型" : "服务商"} ${
+          this.#profiles.filter((profile) => (profile.purpose ?? "image") === purpose).length + 1
+        }`,
     };
     this.#profiles = [...this.#profiles, profile];
     this.#activeId = id;

@@ -92,7 +92,7 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
     setDraft(active === undefined ? undefined : { ...active });
     setApiKey("");
     setAddOpen(false);
-  }, [view]);
+  }, [view, purpose]);
 
   const keyStatus = draft === undefined ? undefined : view?.keys[draft.id];
   const dirty = useMemo(() => {
@@ -296,18 +296,22 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
         </p>
       )}
 
-      <div className="segmented segmented--purpose" role="tablist" aria-label="接口用途">
+      <div className="purpose-switch" role="tablist" aria-label="接口用途">
+        <span
+          className="purpose-switch__thumb"
+          aria-hidden="true"
+          style={{ transform: purpose === "text" ? "translateX(calc(100% + 4px))" : "none" }}
+        />
         {(["image", "text"] as const).map((entry) => (
           <button
             key={entry}
             type="button"
             role="tab"
             aria-selected={purpose === entry}
-            className={`segmented__item ${purpose === entry ? "is-active" : ""}`}
+            className={`purpose-switch__item ${purpose === entry ? "is-active" : ""}`}
             onClick={() => setPurpose(entry)}
           >
-            <span className="segmented__label">{entry === "image" ? "图片模型" : "语言模型"}</span>
-            <span className="segmented__hint">{entry === "image" ? "出图用的图片接口" : "改写提示词等文本任务"}</span>
+            {entry === "image" ? "图片模型" : "语言模型"}
           </button>
         ))}
       </div>
@@ -378,7 +382,10 @@ export function ApiSettingsPanel({ view, loading, onRefresh, onFooterChange }: A
           ariaLabel="服务商类型"
           value={draft.kind}
           onChange={(next) => patch({ kind: next as ProviderKind })}
-          options={PROVIDER_KINDS.map((kind) => ({ value: kind, label: PROVIDER_KIND_LABELS[kind] }))}
+          options={(draft.purpose === "text" ? (["openai-compatible"] as const) : PROVIDER_KINDS).map((kind) => ({
+            value: kind,
+            label: PROVIDER_KIND_LABELS[kind],
+          }))}
         />
         {draft.kind === "fal" && <span className="field__hint">{FAL_QUEUE_NOTE}</span>}
       </label>
