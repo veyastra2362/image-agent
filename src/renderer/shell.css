@@ -2721,3 +2721,67 @@ code {
   pointer-events: none;
   transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
+
+/* ---------------------------------------------------------------- 外观卡片 */
+
+/* 卡片式单选：底下有一块跟着选中项左右滑动的底色 */
+.choice-cards {
+  position: relative;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.choice-cards__thumb {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: calc((100% - (var(--n) - 1) * 8px) / var(--n));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  transform: translateX(calc(var(--i) * (100% + 8px)));
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+
+.choice-card {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color 140ms ease,
+    border-color 140ms ease;
+}
+
+.choice-card:hover:not(.is-active) {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.choice-card.is-active {
+  color: var(--text);
+  /* 边框由滑块画，卡片自己透明，避免出现双线 */
+  border-color: transparent;
+}
+
+.choice-card__icon {
+  display: inline-flex;
+  color: inherit;
+}
+
+.choice-card__label {
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}

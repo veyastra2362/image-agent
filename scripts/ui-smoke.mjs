@@ -501,7 +501,7 @@ async function run() {
   const themeChips = await js("[...document.querySelectorAll('.settings__body [role=radio]')].map((n) => n.textContent)");
   check(
     "外观设置含跟随系统/白天/黑夜",
-    JSON.stringify(themeChips.slice(0, 3)) === JSON.stringify(["跟随系统", "白天", "黑夜"]),
+    JSON.stringify(themeChips.slice(0, 3)) === JSON.stringify(["白天", "黑夜", "跟随系统"]),
     themeChips,
   );
   await js("(() => { [...document.querySelectorAll('.settings__body [role=radio]')].find((n) => n.textContent === '白天').click(); return true; })()");

@@ -4,7 +4,8 @@
  * API 设置的密钥只由 main 保存与使用：界面可以填一把新的，但读回来永远是空的，
  * 因此不存在"密钥进 localStorage、截图或 React DevTools"的可能。
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { MonitorIcon, MoonIcon, RowsCompactIcon, RowsIcon, SunIcon } from "../shell/icons.tsx";
 import type { AppEnvironment } from "../../shared/app-shell.ts";
 import type { ProviderSettingsView } from "../../shared/provider-settings.ts";
 import { ApiSettingsPanel, type FooterAction } from "./ApiSettingsPanel.tsx";
@@ -41,6 +42,44 @@ const TABS: readonly { readonly id: SettingsTab; readonly labelKey: I18nKey }[] 
   { id: "data", labelKey: "settings.tab.data" },
   { id: "about", labelKey: "settings.tab.about" },
 ];
+
+/** 外观选择：卡片式，下面有一块跟着选项左右滑动的底色。 */
+function ChoiceCards<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  readonly label: string;
+  readonly value: T;
+  readonly options: readonly { readonly value: T; readonly label: string; readonly icon: ReactNode }[];
+  readonly onChange: (value: T) => void;
+}) {
+  const index = Math.max(0, options.findIndex((option) => option.value === value));
+  return (
+    <div
+      className="choice-cards"
+      role="radiogroup"
+      aria-label={label}
+      style={{ "--n": options.length, "--i": index } as CSSProperties}
+    >
+      <span className="choice-cards__thumb" aria-hidden="true" />
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          role="radio"
+          aria-checked={value === option.value}
+          className={`choice-card ${value === option.value ? "is-active" : ""}`}
+          onClick={() => onChange(option.value)}
+        >
+          <span className="choice-card__icon">{option.icon}</span>
+          <span className="choice-card__label">{option.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export function SettingsDialog({
   initialTab,
@@ -160,46 +199,26 @@ export function SettingsDialog({
             {tab === "appearance" && (
               <section className="settings__section" aria-label="通用设置">
                 <h3>{t("general.theme")}</h3>
-                <div className="chips" role="radiogroup" aria-label={t("general.theme")}>
-                  {(
-                    [
-                      { value: "auto", label: t("general.theme.auto") },
-                      { value: "light", label: t("general.theme.light") },
-                      { value: "dark", label: t("general.theme.dark") },
-                    ] as const
-                  ).map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      role="radio"
-                      aria-checked={theme === option.value}
-                      className={`chip ${theme === option.value ? "is-active" : ""}`}
-                      onClick={() => onThemeChange(option.value)}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
+                <ChoiceCards
+                  label={t("general.theme")}
+                  value={theme}
+                  onChange={onThemeChange}
+                  options={[
+                    { value: "light", label: t("general.theme.light"), icon: <SunIcon /> },
+                    { value: "dark", label: t("general.theme.dark"), icon: <MoonIcon /> },
+                    { value: "auto", label: t("general.theme.auto"), icon: <MonitorIcon /> },
+                  ]}
+                />
                 <h3>{t("general.density")}</h3>
-                <div className="chips" role="radiogroup" aria-label={t("general.density")}>
-                  {(
-                    [
-                      { value: "comfortable", label: t("general.density.comfortable") },
-                      { value: "compact", label: t("general.density.compact") },
-                    ] as const
-                  ).map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      role="radio"
-                      aria-checked={density === option.value}
-                      className={`chip ${density === option.value ? "is-active" : ""}`}
-                      onClick={() => onDensityChange(option.value)}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
+                <ChoiceCards
+                  label={t("general.density")}
+                  value={density}
+                  onChange={onDensityChange}
+                  options={[
+                    { value: "comfortable", label: t("general.density.comfortable"), icon: <RowsIcon /> },
+                    { value: "compact", label: t("general.density.compact"), icon: <RowsCompactIcon /> },
+                  ]}
+                />
                 <div className="settings__row settings__row--field">
                   <div>
                     <div className="field__label">{t("general.fontSize")}</div>
