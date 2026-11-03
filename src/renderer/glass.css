@@ -693,3 +693,35 @@ body::after {
  * 不用 overflow:hidden 裁切：它会顺手把侧栏的投影切出一条直边（左下角那个直角就是它）。
  * 收起时侧栏本来就是 opacity:0 + visibility:hidden，不需要靠裁切藏起来。
  */
+/* ---------------------------------------------------------------- 选模型弹窗 */
+
+/*
+ * 列表留出内边距：滚动容器会裁到 padding box，行贴着顶边时圆角和描边会被切掉，
+ * 看起来就像"第一项边框缺了一角"。
+ */
+.picker-list {
+  gap: 6px;
+  padding: 4px;
+  margin: 0 -4px;
+}
+
+.picker-row {
+  padding: 11px 12px;
+  min-height: 42px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--text) 3%, transparent);
+}
+
+.picker-row:hover {
+  border-color: var(--border-strong);
+}
+
+.picker-row.is-checked {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.picker-row__kind {
+  padding: 2px 8px;
+}
