@@ -307,7 +307,14 @@ export function SettingsDialog({
                     <div className="field__label">默认显示几行图片</div>
                     <div className="field__hint">1~3 行；一次出图更多时折叠成「查看全部」。</div>
                   </div>
-                  <div className="row-choices" role="group" aria-label="结果区默认显示行数">
+                  <div
+                    className="row-choices"
+                    role="group"
+                    aria-label="结果区默认显示行数"
+                    style={{ "--row-index": resultRows - 1 } as CSSProperties}
+                  >
+                    {/* 滑块：跟着选中项平移，不要突然跳过去 */}
+                    <span className="row-choices__thumb" aria-hidden="true" />
                     {[1, 2, 3].map((rows) => (
                       <button
                         key={rows}
