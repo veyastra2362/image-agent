@@ -14,7 +14,9 @@
     "test": "node --import ./scripts/test-main-ts-hooks.mjs --test --test-concurrency=1 \"src/test/image-*.test.ts\"",
     "start": "electron .",
     "icon": "node scripts/make-icon.mjs",
-    "smoke": "node scripts/ui-smoke.mjs"
+    "smoke": "node scripts/ui-smoke.mjs",
+    "verify-notes": "npx --yes tsx C:/Users/ASUS/.agents/skills/write-notes-like-deepseek/scripts/verify-agent-note-tree.ts && npx --yes tsx C:/Users/ASUS/.agents/skills/write-notes-like-deepseek/scripts/verify-agent-note-format.ts && npx --yes tsx C:/Users/ASUS/.agents/skills/write-notes-like-deepseek/scripts/verify-archived-agent-notes.ts",
+    "archive-note": "npx --yes tsx C:/Users/ASUS/.agents/skills/write-notes-like-deepseek/scripts/archive-agent-note.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
