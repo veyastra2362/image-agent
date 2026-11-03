@@ -5,6 +5,10 @@ export type ThemePreference = "auto" | "light" | "dark";
 export type DensityPreference = "comfortable" | "compact";
 export type FontPreference = "system" | "serif" | "mono";
 export type LanguagePreference = "zh" | "en";
+/** 主界面一次显示几行结果（1~3），超出部分折叠。 */
+export type ResultRowsPreference = 1 | 2 | 3;
+export const RESULT_ROWS_RANGE = { min: 1, max: 3, default: 2 } as const;
+
 /** 配色方案：石墨蓝 / 素墨 / 冷灰苔绿。 */
 export type PalettePreference = "graphite" | "ink" | "sage";
 
@@ -44,6 +48,8 @@ export interface Appearance {
   readonly language: LanguagePreference;
   /** 配色方案。 */
   readonly palette: PalettePreference;
+  /** 结果区默认显示几行（1~3）。 */
+  readonly resultRows: ResultRowsPreference;
 }
 
 const DEFAULT: Appearance = {
@@ -54,6 +60,7 @@ const DEFAULT: Appearance = {
   fontFamily: "system",
   language: "zh",
   palette: "graphite",
+  resultRows: RESULT_ROWS_RANGE.default,
 };
 
 export function loadAppearance(): Appearance {
@@ -72,6 +79,7 @@ export function loadAppearance(): Appearance {
       fontFamily: parseFont((parsed as { fontFamily?: unknown }).fontFamily),
       language: (parsed as { language?: unknown }).language === "en" ? "en" : "zh",
       palette: parsePalette((parsed as { palette?: unknown }).palette),
+      resultRows: parseResultRows((parsed as { resultRows?: unknown }).resultRows),
     };
   } catch {
     return DEFAULT;
@@ -92,6 +100,16 @@ export function saveAppearance(appearance: Appearance): void {
  * "跟随系统"不留 data-theme：样式表用 prefers-color-scheme 判断，
  * 系统主题一变界面立刻跟着变，不需要应用重启或重新渲染。
  */
+/** 结果行数只接受 1~3 的整数，其他值回落到默认。 */
+export function parseResultRows(value: unknown): ResultRowsPreference {
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(parsed)) return RESULT_ROWS_RANGE.default;
+  const rounded = Math.round(parsed);
+  if (rounded < RESULT_ROWS_RANGE.min) return RESULT_ROWS_RANGE.min;
+  if (rounded > RESULT_ROWS_RANGE.max) return RESULT_ROWS_RANGE.max;
+  return rounded as ResultRowsPreference;
+}
+
 export function applyAppearance(appearance: Appearance): void {
   const root = document.documentElement;
   if (appearance.theme === "auto") delete root.dataset.theme;

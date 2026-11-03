@@ -5,7 +5,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import type { AppEnvironment } from "../shared/app-shell.ts";
-import { applyAppearance, loadAppearance, saveAppearance, type Appearance } from "./lib/appearance.ts";
+import { applyAppearance, loadAppearance, parseResultRows, saveAppearance, type Appearance } from "./lib/appearance.ts";
 import { setLang, useT } from "./lib/i18n.ts";
 import { ComposerProvider } from "./image/composer-state.tsx";
 import { ConfigSidebar } from "./image/ConfigSidebar.tsx";
@@ -201,7 +201,7 @@ export function App() {
             </aside>
 
             <main className="workspace">
-              <ResultCanvas state={state} onOpenAsset={state.openAsset} />
+              <ResultCanvas state={state} onOpenAsset={state.openAsset} resultRows={appearance.resultRows} />
               <PromptDock />
             </main>
           </div>
@@ -231,6 +231,8 @@ export function App() {
           onDensityChange={(density) => setAppearance((current) => ({ ...current, density }))}
           palette={appearance.palette}
           onPaletteChange={(palette) => setAppearance((current) => ({ ...current, palette }))}
+          resultRows={appearance.resultRows}
+          onResultRowsChange={(rows) => setAppearance((current) => ({ ...current, resultRows: parseResultRows(rows) }))}
           fontSize={appearance.fontSize}
           onFontSizeChange={(size) => setAppearance((current) => ({ ...current, fontSize: size }))}
           fontFamily={appearance.fontFamily}

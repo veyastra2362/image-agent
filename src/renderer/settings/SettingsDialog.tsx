@@ -31,6 +31,8 @@ export interface SettingsDialogProps {
   readonly density: "comfortable" | "compact";
   readonly onDensityChange: (density: "comfortable" | "compact") => void;
   readonly palette: PalettePreference;
+  readonly resultRows: number;
+  readonly onResultRowsChange: (rows: number) => void;
   readonly onPaletteChange: (palette: PalettePreference) => void;
   readonly fontSize: number;
   readonly onFontSizeChange: (size: number) => void;
@@ -164,6 +166,8 @@ export function SettingsDialog({
   onDensityChange,
   palette,
   onPaletteChange,
+  resultRows,
+  onResultRowsChange,
   fontSize,
   onFontSizeChange,
   fontFamily,
@@ -297,6 +301,26 @@ export function SettingsDialog({
                 />
                 <h3>配色</h3>
                 <PaletteCards value={palette} onChange={onPaletteChange} />
+                <h3>结果区行数</h3>
+                <div className="settings__row settings__row--field">
+                  <div>
+                    <div className="field__label">默认显示几行图片</div>
+                    <div className="field__hint">1~3 行；一次出图更多时折叠成「查看全部」。</div>
+                  </div>
+                  <div className="row-choices" role="group" aria-label="结果区默认显示行数">
+                    {[1, 2, 3].map((rows) => (
+                      <button
+                        key={rows}
+                        type="button"
+                        className={`row-choices__item ${resultRows === rows ? "is-active" : ""}`}
+                        aria-pressed={resultRows === rows}
+                        onClick={() => onResultRowsChange(rows)}
+                      >
+                        {rows} 行
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <h3>{t("general.density")}</h3>
                 <Select
                   ariaLabel={t("general.density")}

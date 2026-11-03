@@ -71,16 +71,12 @@ export function GearIcon({ size = 14 }: { readonly size?: number }) {
   // 圆头齿轮：齿是短的圆头线段（不是尖角），14px 下也不扎眼
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-      <circle cx="8" cy="8" r="4.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
-      <circle cx="8" cy="8" r="1.7" fill="none" stroke="currentColor" strokeWidth="1.4" />
-      <path
-        d="M8 2.2v1M8 12.8v1M2.2 8h1M12.8 8h1M3.9 3.9l.72.72M11.38 11.38l.72.72M12.1 3.9l-.72.72M4.62 11.38l-.72.72"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      {/* 6 根粗圆头短齿贴着内圈，整体是圆的，不像尖齿轮那样扎眼 */}
+      <circle cx="8" cy="8" r="3.9" fill="none" stroke="currentColor" strokeWidth="2.2" />
+      <g stroke="currentColor" strokeWidth="2.1" strokeLinecap="round">
+        <path d="M8 3.4V2.2M12 5.9l1 .6M12 10.1l1-.6M8 12.6v1.2M4 10.1l-1 .6M4 5.9l-1-.6" fill="none" />
+      </g>
+      <circle cx="8" cy="8" r="1.9" fill="none" stroke="currentColor" strokeWidth="1.6" />
     </svg>
   );
 }

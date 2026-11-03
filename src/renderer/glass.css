@@ -1164,3 +1164,56 @@ body::after {
 :root[data-theme="dark"] .sidebar__brand-mark {
   filter: invert(1);
 }
+/* ---------------------------------------------------------------- 结果折叠 */
+
+.result-group__more {
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+.result-group__more:hover {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+/* 设置里的"几行"分段选择 */
+.row-choices {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+
+.row-choices__item {
+  min-width: 52px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.row-choices__item:hover {
+  color: var(--text);
+}
+
+.row-choices__item.is-active {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--text);
+  font-weight: 600;
+}

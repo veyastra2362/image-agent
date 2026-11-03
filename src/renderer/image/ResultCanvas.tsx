@@ -14,13 +14,15 @@ import { EyeOffIcon, FolderIcon, RetryIcon } from "../shell/icons.tsx";
 interface ResultCanvasProps {
   readonly state: ImageAgentState;
   readonly onOpenAsset: (assetId: string) => void;
+  /** 结果区默认显示几行（1~3），超出折叠成「查看全部」。 */
+  readonly resultRows: number;
 }
 
 function openZoom(src: string, alt: string): void {
   window.dispatchEvent(new CustomEvent("image-agent:zoom", { detail: { src, alt } }));
 }
 
-export function ResultCanvas({ state, onOpenAsset }: ResultCanvasProps) {
+export function ResultCanvas({ state, onOpenAsset, resultRows }: ResultCanvasProps) {
   const onRetry = (jobId: string) => void state.retry(jobId);
   const onHide = (jobId: string) => state.hideJob(jobId);
 
@@ -97,6 +99,7 @@ export function ResultCanvas({ state, onOpenAsset }: ResultCanvasProps) {
                 onOpenAsset={onOpenAsset}
                 onRetry={onRetry}
                 onHide={onHide}
+                resultRows={resultRows}
               />
             ),
           )}
@@ -226,13 +229,23 @@ function ResultGroup({
   onOpenAsset,
   onRetry,
   onHide,
+  resultRows,
 }: {
   readonly event: ImageTaskEvent;
   readonly isLatest: boolean;
   readonly onOpenAsset: (assetId: string) => void;
   readonly onRetry: (jobId: string) => void;
   readonly onHide: (jobId: string) => void;
+  readonly resultRows: number;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  // 一行放几张由 CSS 的 auto-fill 决定，这里按最窄情况 App 的 4 列上限算，
+  // 少排几张不算错（只是"更早折叠"），多排则会溢出，所以取上限。
+  const columns = Math.max(1, Math.min(event.assets.length, 4));
+  const capacity = columns * Math.max(1, resultRows);
+  const clamped = !expanded && event.assets.length > capacity;
+  const visibleAssets = clamped ? event.assets.slice(0, capacity) : event.assets;
+
   return (
     <article className="result-group" aria-label="一次生成的结果">
       <header className="result-group__head">
@@ -264,7 +277,7 @@ function ResultGroup({
         </div>
       </header>
       <div className="result-grid" style={{ "--cols": Math.min(event.assets.length, 4) } as CSSProperties}>
-        {event.assets.map((asset) => (
+        {visibleAssets.map((asset) => (
           <figure key={asset.id} className="result-card">
             <button
               type="button"
@@ -296,6 +309,11 @@ function ResultGroup({
           </figure>
         ))}
       </div>
+      {clamped && (
+        <button type="button" className="result-group__more" onClick={() => setExpanded(true)}>
+          查看全部 {event.assets.length} 张（还有 {event.assets.length - capacity} 张）
+        </button>
+      )}
     </article>
   );
 }
