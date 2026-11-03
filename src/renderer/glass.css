@@ -725,3 +725,51 @@ body::after {
 .picker-row__kind {
   padding: 2px 8px;
 }
+/* ---------------------------------------------------------------- 结果卡片 */
+
+/*
+ * 图和信息分成两块，各占各的高度：图片在卡片里裁圆角，
+ * 下面那条信息栏自带底色和内边距，不会被图片盖住（也不会显得半透）。
+ */
+.result-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.result-card__button {
+  border: 0;
+  border-radius: 0;
+  overflow: hidden;
+}
+
+.result-card__button img {
+  display: block;
+}
+
+.result-card figcaption {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 8px 10px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+
+.result-card__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.result-card__actions .button {
+  border-color: transparent;
+  background: transparent;
+}
