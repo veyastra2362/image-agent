@@ -59,9 +59,13 @@ body::after {
   background: transparent;
 }
 
-/* 创作页的外壳已经用 padding 撑好了间距，工作区不再重复加 margin */
+/*
+ * 创作页的外壳已经用 padding 撑好了间距，工作区不再重复加 margin。
+ * overflow 也要放开：输入区和工作区底边重合时，hidden 会把圆角裁成直角。
+ */
 .workspace {
   margin: 0;
+  overflow: visible;
 }
 
 .workspace--page {
@@ -652,6 +656,24 @@ body::after {
 .modal__foot .button--primary:hover:not(:disabled) {
   background: var(--accent-strong);
   border-color: transparent;
+}
+
+/* 设置弹窗的「保存」：只要文字，不要底色（和关闭按钮同一套静态外观，靠颜色区分主次） */
+.modal:has(.settings) .modal__foot .button--primary {
+  background: transparent;
+  border-color: transparent;
+  color: var(--accent);
+  font-weight: 600;
+  box-shadow: none;
+}
+
+.modal:has(.settings) .modal__foot .button--primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+}
+
+.modal:has(.settings) .modal__foot .button--primary:active:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .modal__foot .button--ghost {
