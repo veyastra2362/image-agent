@@ -35,6 +35,12 @@ export function ResultCanvas({ state, onOpenAsset, resultRows }: ResultCanvasPro
   const completed = state.jobs.filter((entry) => entry.job.status === "succeeded" && entry.assets.length > 0);
   const problems = state.jobs.filter((entry) => entry.job.status === "failed");
 
+  /** 时间线一次渲染多少个任务，以及"加载更早"每次追加多少。 */
+  const TIMELINE_PAGE = 10;
+  const [historyLimit, setHistoryLimit] = useState(TIMELINE_PAGE);
+  const visibleTimeline = timeline.length > historyLimit ? timeline.slice(0, historyLimit) : timeline;
+  const olderCount = timeline.length - visibleTimeline.length;
+
   const latest = latestSucceededJob(state.jobs);
   const knownIds = new Set(state.jobs.flatMap((entry) => entry.assets.map((asset) => asset.id)));
   const historyOnly = state.remembered.filter((asset) => !knownIds.has(asset.id));
@@ -88,7 +94,7 @@ export function ResultCanvas({ state, onOpenAsset, resultRows }: ResultCanvasPro
 
       {timeline.length > 0 && (
         <section className="results" aria-label="生成结果">
-          {timeline.map((entry) =>
+          {visibleTimeline.map((entry) =>
             entry.job.status === "failed" ? (
               <FailureCard key={entry.job.id} event={entry} onRetry={onRetry} onHide={onHide} />
             ) : (
@@ -102,6 +108,16 @@ export function ResultCanvas({ state, onOpenAsset, resultRows }: ResultCanvasPro
                 resultRows={resultRows}
               />
             ),
+          )}
+          {olderCount > 0 && (
+            <button
+              type="button"
+              className="results__more"
+              onClick={() => setHistoryLimit((current) => current + TIMELINE_PAGE)}
+              title={`再显示 ${Math.min(TIMELINE_PAGE, olderCount)} 个更早的任务`}
+            >
+              加载更早的 {Math.min(TIMELINE_PAGE, olderCount)} 个任务（还有 {olderCount} 个）
+            </button>
           )}
         </section>
       )}
@@ -239,12 +255,18 @@ function ResultGroup({
   readonly resultRows: number;
 }) {
   const gridRef = useRef<HTMLDivElement>(null);
-  const [expanded, setExpanded] = useState(false);
+  /** 每次点「加载更多」多显示的张数。 */
+  const PAGE_SIZE = 10;
+  const [extra, setExtra] = useState(0);
   // 一行放几张由 CSS 的 auto-fill 决定，这里按最窄情况 App 的 4 列上限算，
   // 少排几张不算错（只是"更早折叠"），多排则会溢出，所以取上限。
   const columns = Math.max(1, Math.min(event.assets.length, 4));
   const capacity = columns * Math.max(1, resultRows);
-  const overflows = event.assets.length > capacity;
+  const total = event.assets.length;
+  const overflows = total > capacity;
+  const visibleCount = Math.min(total, capacity + Math.max(0, extra));
+  const hasMore = visibleCount < total;
+  const expanded = visibleCount > capacity;
   const [cardHeight, setCardHeight] = useState(240);
   const [fullHeight, setFullHeight] = useState(0);
   useLayoutEffect(() => {
@@ -254,11 +276,12 @@ function ResultGroup({
     if (card instanceof HTMLElement && card.offsetHeight > 0) setCardHeight(card.offsetHeight);
     // scrollHeight 给的是"没被 max-height 裁掉"的完整高度，展开/收起都靠它做终点值
     setFullHeight(grid.scrollHeight);
-  }, [event.assets.length, resultRows, expanded]);
+  }, [visibleCount, resultRows, extra]);
+  // 显示高度按"当前显示的张数"折算行数，点一次加载更多就长高一段
   const clampedHeight = useMemo(() => {
-    const rows = Math.max(1, resultRows);
+    const rows = Math.max(1, Math.min(Math.ceil(visibleCount / columns), Math.ceil(total / columns)));
     return rows * cardHeight + (rows - 1) * 12;
-  }, [cardHeight, resultRows]);
+  }, [cardHeight, columns, visibleCount, total]);
 
   return (
     <article className="result-group" aria-label="一次生成的结果">
@@ -280,13 +303,13 @@ function ResultGroup({
             <RetryIcon size={13} />
           </button>
           {/* 展开后底部徽章可能滚出视野，标题栏再放一个收起入口 */}
-          {expanded && overflows && (
+          {expanded && (
             <button
               type="button"
               className="button button--icon"
               title="收起"
               aria-label="收起这组图片"
-              onClick={() => setExpanded(false)}
+              onClick={() => setExtra(0)}
             >
               <ChevronDownIcon size={13} up />
             </button>
@@ -309,12 +332,12 @@ function ResultGroup({
           style={
             {
               "--cols": Math.min(event.assets.length, 4),
-              // 两个状态都给像素值：从 492px 过渡到 744px，而不是 px → none 的瞬跳
-              maxHeight: overflows ? (expanded ? fullHeight : clampedHeight) : undefined,
+              // 始终给像素值，点「加载更多」时是平滑长高，而不是瞬跳
+              maxHeight: overflows ? Math.min(clampedHeight, fullHeight || clampedHeight) : undefined,
             } as CSSProperties
           }
         >
-          {event.assets.map((asset) => (
+          {event.assets.slice(0, visibleCount).map((asset) => (
           <figure key={asset.id} className="result-card">
             <button
               type="button"
@@ -349,14 +372,14 @@ function ResultGroup({
         {overflows && (
           <button
             type="button"
-            className={`result-group__toggle ${expanded ? "is-expanded" : ""}`}
-            onClick={() => setExpanded((current) => !current)}
-            aria-expanded={expanded}
-            title={expanded ? "收起" : `展开全部 ${event.assets.length} 张`}
+            className={`result-group__toggle ${hasMore ? "" : "is-expanded"}`}
+            onClick={() => setExtra((current) => (hasMore ? current + PAGE_SIZE : 0))}
+            aria-expanded={!hasMore}
+            title={hasMore ? `再加载 ${Math.min(PAGE_SIZE, total - visibleCount)} 张` : "收起"}
           >
-            <ChevronDownIcon size={13} up={expanded} />
+            <ChevronDownIcon size={13} up={!hasMore} />
             <span className="result-group__toggle-count">
-              {expanded ? "收起" : `+${event.assets.length - capacity}`}
+              {hasMore ? `+${total - visibleCount}` : "收起"}
             </span>
           </button>
         )}

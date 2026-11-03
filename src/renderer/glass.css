@@ -1197,9 +1197,11 @@ body::after {
   z-index: 2;
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  justify-content: center;
+  gap: 2px;
   height: 26px;
-  padding: 0 9px 0 6px;
+  padding: 0 10px 0 7px;
+  line-height: 1;
   border: 1px solid color-mix(in srgb, var(--text) 14%, transparent);
   border-radius: 999px;
   background: color-mix(in srgb, var(--text) 9%, transparent);
@@ -1231,8 +1233,15 @@ body::after {
   transform: none;
 }
 
+/* 数字和箭头基线对齐：SVG 去掉 inline 基线偏移，文字固定行高 */
+.result-group__toggle svg {
+  display: block;
+}
+
 .result-group__toggle-count {
   font-variant-numeric: tabular-nums;
+  line-height: 1;
+  transform: translateY(0.5px);
 }
 
 /* 设置里的"几行"分段选择：选中态是一块会滑动的指示器 */
@@ -1290,4 +1299,28 @@ body::after {
   .row-choices__thumb {
     transition: none;
   }
+}
+/* 时间线"加载更早的任务"：和折叠徽章同一套淡玻璃语言 */
+.results__more {
+  align-self: center;
+  margin: 0 auto 10px;
+  display: flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 14px;
+  border: 1px solid color-mix(in srgb, var(--text) 14%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+  backdrop-filter: blur(12px) saturate(150%);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition: background-color 160ms ease, color 150ms ease, border-color 160ms ease;
+}
+
+.results__more:hover {
+  background: color-mix(in srgb, var(--text) 14%, transparent);
+  border-color: color-mix(in srgb, var(--text) 22%, transparent);
+  color: var(--text);
 }
