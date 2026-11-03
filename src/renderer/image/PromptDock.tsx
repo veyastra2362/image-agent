@@ -4,7 +4,7 @@
  * 参考图有两个入口：点击上传按钮选文件，或者直接 Ctrl+V 把剪贴板里的图片贴进来。
  * 缩略图放在输入框上方，点击看原图（走全局 lightbox）。
  */
-import { useId, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 import { LIMITS } from "../../shared/image-generation.ts";
 import { useComposer, type OptimizeMode } from "./composer-state.tsx";
 import { ModelSelect } from "../shell/ModelSelect.tsx";
@@ -46,6 +46,20 @@ export function PromptDock() {
   } = useComposer();
 
   const invalid = !validation.ok && prompt.trim() !== "";
+
+  /**
+   * 输入框随内容向上长高，长到上限就改成内部滚动。
+   * 高度上限取窗口的 34%（至少 120px、最多 320px），保证画布还能看到内容。
+   */
+  useEffect(() => {
+    const el = promptRef.current;
+    if (!el) return;
+    const max = Math.min(320, Math.max(120, Math.round(window.innerHeight * 0.34)));
+    el.style.height = "auto";
+    const next = Math.min(el.scrollHeight, max);
+    el.style.height = `${next}px`;
+    el.style.overflowY = el.scrollHeight > max ? "auto" : "hidden";
+  }, [prompt, promptRef]);
   const referenceEnabled = caps?.imageToImage === true;
 
   return (

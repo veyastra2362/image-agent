@@ -217,18 +217,18 @@ async function run() {
     collapsedProbe !== null && (collapsedProbe.visibility === "hidden" || collapsedProbe.width === 0),
     collapsedProbe,
   );
-  const collapsedWidth = await js("document.querySelector('.canvas').getBoundingClientRect().width");
+  const collapsedCol = await js("getComputedStyle(document.querySelector('.shell')).gridTemplateColumns.split(' ')[0]");
   await shot("14-sidebar-collapsed");
   await js("document.querySelector('.titlebar__toggle').click(); true");
   // 展开是 220ms 的列宽过渡：等它能稳定小于收起宽度再断言，别用固定 sleep 卡在动画中间
-  let expandedWidth = collapsedWidth;
+  let expandedCol = collapsedCol;
   for (let i = 0; i < 12; i += 1) {
     await sleep(80);
-    expandedWidth = await js("document.querySelector('.canvas').getBoundingClientRect().width");
-    if (expandedWidth < collapsedWidth) break;
+    expandedCol = await js("getComputedStyle(document.querySelector('.shell')).gridTemplateColumns.split(' ')[0]");
+    if (expandedCol !== collapsedCol) break;
   }
   check("展开后侧栏回来", (await js("Boolean(document.querySelector('.sidebar') && document.querySelector('.sidebar').offsetParent)")) === true, "");
-  check("展开后画布变窄", expandedWidth < collapsedWidth, JSON.stringify({ collapsedWidth, expandedWidth }));
+  check("展开后画布变窄", parseFloat(expandedCol) > parseFloat(collapsedCol), JSON.stringify({ collapsedCol, expandedCol }));
 
   // 导航和应用/编辑同一套文字按钮样式（比未选中项，选中项本来就有底色）
   // 自绘下拉：点开后有选项列表和勾选标记
@@ -515,7 +515,7 @@ async function run() {
   const keyState = await js("window.appSettings.view().then((v) => v.keys[v.activeId])");
   check("密钥状态有加密标记字段", keyState !== undefined && typeof keyState.apiKeyEncrypted === "boolean", keyState);
   await shot("08-settings-api");
-  await js("(() => { [...document.querySelectorAll('.settings__tab')].find((n) => n.textContent === '通用设置').click(); return true; })()");
+  await js("(() => { [...document.querySelectorAll('.settings__tab')].find((n) => n.textContent.trim() === '通用设置').click(); return true; })()");
   await sleep(150);
   const themeChips = await js("[...document.querySelectorAll('.settings__body [role=radio]')].map((n) => n.textContent)");
   check(
@@ -588,6 +588,9 @@ async function run() {
   // ---- 模型参数：箭头展开后显示能力/尺寸/格式 ----
   await js("document.querySelector('.titlebar__icon').click(); true");
   await waitFor("document.querySelector('.profile-tabs')", "API 面板");
+  // 老配置可能停在语言模型页，先切回图片模型再验模型行
+  await js("(() => { const sw = document.querySelectorAll('.purpose-switch__item'); if (sw[0]) sw[0].click(); return true; })()");
+  await sleep(300);
   const hasDetailToggle = await js("Boolean(document.querySelector('.chosen-models__detail-toggle'))");
   if (hasDetailToggle) {
     await js("document.querySelector('.chosen-models__detail-toggle').click(); true");
@@ -596,7 +599,7 @@ async function run() {
     check("模型参数可以展开", /能力/.test(details) && /尺寸/.test(details), details.slice(0, 80));
     check("删除是垃圾桶图标", (await js("Boolean(document.querySelector('.chosen-models__remove svg'))")) === true, "");
   }
-  await js("(() => { [...document.querySelectorAll('.settings__tab')].find((n) => n.textContent === '通用设置').click(); return true; })()");
+  await js("(() => { [...document.querySelectorAll('.settings__tab')].find((n) => n.textContent.trim() === '通用设置').click(); return true; })()");
   await sleep(200);
   const langSelect = await js(
     "(() => { const s = [...document.querySelectorAll('.settings__body .select__trigger')].map((n) => n.textContent); return s; })()",

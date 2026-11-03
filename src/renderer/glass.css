@@ -457,6 +457,10 @@ body::after {
  * 只有光标和文字浮在上面（对齐 Claude / Codex 那种"整块玻璃 + 底部工具行"）。
  */
 .dock__input {
+  /* 高度由 JS 按内容算（见 PromptDock），这里只兜底一个最小值 */
+  min-height: 54px;
+  resize: none;
+  scrollbar-gutter: stable;
   padding: 4px 2px 6px;
   border: 0;
   border-radius: 0;
