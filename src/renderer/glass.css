@@ -574,9 +574,13 @@ body::after {
  * 弹窗内部不再分层设色：标题栏 / 底部按钮栏 / 内容区全部透明，
  * 视觉上是一整块玻璃；头和脚各自的顶/底分隔线仍然保留。
  */
+/*
+ * 头部和底部按钮栏给实色（不是半透明）：这两条是操作区，
+ * 底下的图片/文字透上来会显脏。
+ */
 .modal__head,
 .modal__foot {
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  background: light-dark(#fafaf9, #16191d);
 }
 
 .modal__body,
