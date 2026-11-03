@@ -34,6 +34,22 @@ export function ChevronIcon({ size = 12, open = false }: { readonly size?: numbe
 }
 
 /** 窗口控制图标：10×10 细线，居中由 flex 保证。 */
+/** 上下箭头：折叠/展开用。up=true 时转 180°，带过渡。 */
+export function ChevronDownIcon({ size = 12, up = false }: { readonly size?: number; readonly up?: boolean }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      aria-hidden="true"
+      focusable="false"
+      style={{ transform: up ? "rotate(180deg)" : "none", transition: "transform 220ms cubic-bezier(0.22, 1, 0.36, 1)" }}
+    >
+      <path d="m4 6.4 4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export function MinimizeIcon({ size = 10 }: { readonly size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 10 10" aria-hidden="true" focusable="false">

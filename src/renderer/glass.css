@@ -1201,35 +1201,40 @@ body::after {
   );
 }
 
+/*
+ * 折叠徽章：不要"实心小方块"，做成一层很淡的玻璃，
+ * 让底下的渐隐透过来，视觉上像是从图片里浮出来的一条。
+ */
 .result-group__toggle {
   position: absolute;
   left: 50%;
-  bottom: 10px;
+  bottom: 8px;
   z-index: 2;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  height: 30px;
-  padding: 0 11px 0 9px;
-  border: 1px solid var(--border-strong);
+  gap: 3px;
+  height: 26px;
+  padding: 0 9px 0 6px;
+  border: 1px solid color-mix(in srgb, var(--text) 14%, transparent);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-  backdrop-filter: blur(10px) saturate(140%);
+  background: color-mix(in srgb, var(--text) 9%, transparent);
+  backdrop-filter: blur(14px) saturate(160%);
   color: var(--text-muted);
   font: inherit;
   font-size: var(--fs-xs);
   cursor: pointer;
   transform: translateX(-50%);
-  box-shadow: var(--shadow-panel);
+  box-shadow: none;
   transition:
-    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
     color 150ms ease,
-    background-color 150ms ease;
+    background-color 160ms ease,
+    border-color 160ms ease;
 }
 
 .result-group__toggle:hover {
   color: var(--text);
-  background: color-mix(in srgb, var(--surface) 98%, transparent);
+  background: color-mix(in srgb, var(--text) 16%, transparent);
+  border-color: color-mix(in srgb, var(--text) 24%, transparent);
 }
 
 /* 展开后按钮落到网格下方，不再压着图 */

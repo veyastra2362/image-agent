@@ -9,7 +9,7 @@ import { formatDuration } from "../lib/format.ts";
 import { describeStatus } from "../lib/job-status.ts";
 import { cancellable, latestSucceededJob, type ImageAgentState } from "./use-image-agent.ts";
 import { formatElapsed, useTick } from "../lib/use-tick.ts";
-import { ChevronIcon, EyeOffIcon, FolderIcon, RetryIcon } from "../shell/icons.tsx";
+import { ChevronDownIcon, EyeOffIcon, FolderIcon, RetryIcon } from "../shell/icons.tsx";
 
 interface ResultCanvasProps {
   readonly state: ImageAgentState;
@@ -246,10 +246,15 @@ function ResultGroup({
   const capacity = columns * Math.max(1, resultRows);
   const overflows = event.assets.length > capacity;
   const [cardHeight, setCardHeight] = useState(240);
+  const [fullHeight, setFullHeight] = useState(0);
   useLayoutEffect(() => {
-    const card = gridRef.current?.firstElementChild;
+    const grid = gridRef.current;
+    if (grid === null) return;
+    const card = grid.firstElementChild;
     if (card instanceof HTMLElement && card.offsetHeight > 0) setCardHeight(card.offsetHeight);
-  }, [event.assets.length, resultRows]);
+    // scrollHeight 给的是"没被 max-height 裁掉"的完整高度，展开/收起都靠它做终点值
+    setFullHeight(grid.scrollHeight);
+  }, [event.assets.length, resultRows, expanded]);
   const clampedHeight = useMemo(() => {
     const rows = Math.max(1, resultRows);
     return rows * cardHeight + (rows - 1) * 12;
@@ -274,6 +279,18 @@ function ResultGroup({
           >
             <RetryIcon size={13} />
           </button>
+          {/* 展开后底部徽章可能滚出视野，标题栏再放一个收起入口 */}
+          {expanded && overflows && (
+            <button
+              type="button"
+              className="button button--icon"
+              title="收起"
+              aria-label="收起这组图片"
+              onClick={() => setExpanded(false)}
+            >
+              <ChevronDownIcon size={13} up />
+            </button>
+          )}
           <button
             type="button"
             className="button button--icon"
@@ -292,7 +309,8 @@ function ResultGroup({
           style={
             {
               "--cols": Math.min(event.assets.length, 4),
-              maxHeight: overflows && !expanded ? clampedHeight : undefined,
+              // 两个状态都给像素值：从 492px 过渡到 744px，而不是 px → none 的瞬跳
+              maxHeight: overflows ? (expanded ? fullHeight : clampedHeight) : undefined,
             } as CSSProperties
           }
         >
@@ -336,7 +354,7 @@ function ResultGroup({
             aria-expanded={expanded}
             title={expanded ? "收起" : `展开全部 ${event.assets.length} 张`}
           >
-            <ChevronIcon size={13} open={expanded} />
+            <ChevronDownIcon size={13} up={expanded} />
             <span className="result-group__toggle-count">
               {expanded ? "收起" : `+${event.assets.length - capacity}`}
             </span>
