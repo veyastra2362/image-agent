@@ -6,6 +6,7 @@ import type { ImageTaskEvent } from "../../shared/image-generation.ts";
 import { formatTime } from "../lib/format.ts";
 import { describeStatus } from "../lib/job-status.ts";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { cancellable, type ImageAgentState } from "./use-image-agent.ts";
 
 interface JobListProps {
@@ -92,8 +93,15 @@ function RowContextMenu({
     };
   }, [onClose]);
 
-  return (
-    <div ref={ref} className="ctx-menu" role="menu" style={{ left: x, top: y }}>
+  // 侧栏有 backdrop-filter（会成为 fixed 的包含块）和 overflow:auto，
+  // 菜单留在里面会被裁掉一半，所以挂到 body 上，并按视口边界收一收位置。
+  const MENU_W = 148;
+  const MENU_H = items.length * 32 + 10;
+  const left = Math.min(Math.max(4, x), window.innerWidth - MENU_W - 4);
+  const top = Math.min(Math.max(4, y), window.innerHeight - MENU_H - 4);
+
+  return createPortal(
+    <div ref={ref} className="ctx-menu" role="menu" style={{ left, top }}>
       {items.map((item) => (
         <button
           key={item.label}
@@ -108,7 +116,8 @@ function RowContextMenu({
           {item.label}
         </button>
       ))}
-    </div>
+    </div>,
+    document.body,
   );
 }
 

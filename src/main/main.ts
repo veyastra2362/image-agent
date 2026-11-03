@@ -429,8 +429,14 @@ function createWindow(): BrowserWindow {
 async function openRenderer(window: BrowserWindow): Promise<void> {
   const devTarget = parseDevTarget(process.argv);
   if (devTarget?.kind === "url") {
-    await window.loadURL(devTarget.url);
-    return;
+    try {
+      await window.loadURL(devTarget.url);
+      return;
+    } catch (error) {
+      // dev server 没起来（端口被占、刚崩过）时不要停在一张 "localhost 拒绝连接"，
+      // 直接退回构建产物，至少界面能用。
+      console.warn("[image-agent] 开发地址打不开，改用构建产物：", (error as Error).message);
+    }
   }
   if (devTarget?.kind === "spawn") {
     const devServer = await startDevServer({ repoRoot: APP_ROOT });
