@@ -180,6 +180,8 @@ export function PromptDock() {
             value={optimizeMode}
             disabled={!agentAvailable}
             leading={<SparkIcon size={13} />}
+            /* 触发器现在是纯文字（很窄），菜单得自己撑开，否则选项会被截成"不…/优…" */
+            menuMinWidth={248}
             onChange={(next: string) => setOptimizeMode(next as OptimizeMode)}
             options={[
               { value: "off", label: "不优化" },

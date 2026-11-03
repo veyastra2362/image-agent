@@ -299,8 +299,16 @@ export function ComposerProvider({ state, models, onSubmitted, focusPromptToken,
     setSubmitError(undefined);
     const result = await state.submit(payload);
     setPending(false);
-    if (!result.ok) setSubmitError(result.message ?? "提交失败");
-    else setRequestId(newRequestId());
+    if (!result.ok) {
+      setSubmitError(result.message ?? "提交失败");
+      return;
+    }
+    setRequestId(newRequestId());
+    // 提交成功后清空输入框：提示词已经进任务了，留着容易让人以为没发出去，
+    // 也方便直接写下一句。参考图保留（通常是对同一张图继续迭代）。
+    setPrompt("");
+    setPendingOptimized(undefined);
+    setSubmitError(undefined);
   }
 
   /** 生成按钮旁边的一键优化：拿到改写结果直接替换输入框，并留一次撤销。 */

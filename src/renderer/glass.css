@@ -1093,3 +1093,8 @@ body::after {
   background: color-mix(in srgb, var(--text) 8%, transparent);
   color: var(--text);
 }
+/* 非 portal 的下拉（贴在触发器下方）给一个宽度下限，避免文字被截断 */
+.select__menu:not(.select__menu--portal) {
+  min-width: 188px;
+  max-width: min(340px, 90vw);
+}
