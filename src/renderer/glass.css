@@ -785,3 +785,47 @@ body::after {
   border-color: transparent;
   color: var(--text);
 }
+/* ---------------------------------------------------------------- 滚动条：静止时隐形 */
+
+/*
+ * 平时几乎看不见，鼠标移到该滚动区域（或键盘聚焦进去）时浮出来。
+ * 仍然只用 ::-webkit-scrollbar 定制，不碰 scrollbar-width / scrollbar-color ——
+ * 那两个属性在 Chromium 里优先级更高，一设就把这里全部接管掉。
+ */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+  background: transparent;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: transparent;
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+  transition: background-color 180ms ease;
+}
+
+/*
+ * 只有"正在滚动"的元素才显示滑块：JS 会给它加上 data-scrolling，
+ * 停手 900ms 后移除，滑块随之淡回透明（见 lib/scrollbars.ts）。
+ * 不用 :hover —— 滚动条伪元素只认滚动容器自身状态，而滚动容器层级太杂。
+ */
+*[data-scrolling]::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--text) 22%, transparent);
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *::-webkit-scrollbar-thumb {
+    transition: none;
+  }
+}
