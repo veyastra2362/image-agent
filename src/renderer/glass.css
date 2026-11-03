@@ -253,6 +253,171 @@ body::after {
   font-weight: 600;
 }
 
+.settings__tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: var(--radius-sm);
+}
+
+.settings__tab-icon {
+  display: inline-flex;
+  color: var(--text-faint);
+  transition: color 140ms ease;
+}
+
+.settings__tab.is-active .settings__tab-icon,
+.settings__tab:hover .settings__tab-icon {
+  color: var(--accent);
+}
+
+/* ---------------------------------------------------------------- 动效 */
+
+/*
+ * 动效原则：只在"状态变化"时动，150–220ms、ease-out；
+ * 装饰性循环一律不做。prefers-reduced-motion 下全部关掉。
+ */
+.button,
+.button--icon,
+.icon-btn,
+.menubar__button,
+.navitem,
+.settings__tab,
+.chip,
+.palette-card,
+.library-item__fav,
+.library-item__delete,
+.library-item__reveal,
+.control,
+.select__trigger,
+.album-card__cover {
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    border-radius 150ms ease,
+    transform 150ms ease;
+}
+
+/* 可点的圆形/方形图标按钮按下时轻微内缩，给一张"按到了"的反馈 */
+.button:active:not(:disabled),
+.icon-btn:active:not(:disabled),
+.button--icon:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+/* 弹窗：淡入 + 轻微上浮 */
+.modal-backdrop {
+  animation: backdrop-in 160ms ease-out;
+}
+
+.modal {
+  animation: modal-in 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.modal__body {
+  scroll-behavior: smooth;
+}
+
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* 抽屉从右侧滑入 */
+.drawer {
+  animation: drawer-in 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes drawer-in {
+  from {
+    opacity: 0.6;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Toast：从下方浮起 */
+.toast {
+  animation: toast-in 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 新出现的结果卡淡入 */
+.result-card,
+.active-job,
+.result-group {
+  animation: card-in 200ms ease-out;
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 作品库卡片悬停：图片轻微放大 + 卡片抬起 */
+.library-item:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-strong);
+}
+
+.library-item__open img {
+  transition: transform 260ms ease;
+}
+
+.library-item:hover .library-item__open img {
+  transform: scale(1.03);
+}
+
+/* 侧栏 / 输入区出现时不跳动：只做一次很轻的淡入 */
+.sidebar,
+.dock {
+  animation: panel-in 200ms ease-out;
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .app::before,
   .navitem,

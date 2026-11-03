@@ -10,6 +10,7 @@ import { SizeDialog } from "./SizeDialog.tsx";
 import { PanelLeftIcon } from "../shell/PanelLeftIcon.tsx";
 import { Select } from "../shell/Select.tsx";
 import { ModelSelect } from "../shell/ModelSelect.tsx";
+import { createPortal } from "react-dom";
 import { MaskEditor } from "./MaskEditor.tsx";
 
 export interface ConfigSidebarProps {
@@ -247,11 +248,15 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
         </div>
       </details>
 
-      {maskOpen && maskPreview !== undefined && (
-        <MaskEditor referenceSrc={maskPreview} onCancel={() => setMaskOpen(false)} onCommit={commitMask} />
-      )}
+      {maskOpen &&
+        maskPreview !== undefined &&
+        createPortal(
+          <MaskEditor referenceSrc={maskPreview} onCancel={() => setMaskOpen(false)} onCommit={commitMask} />,
+          document.body,
+        )}
 
-      {sizeDialogOpen && (
+      {sizeDialogOpen &&
+        createPortal(
         <SizeDialog
           spec={effectiveSpec}
           customRatioLabel={customRatio}
@@ -262,7 +267,8 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
             setCustomRatio(ratioLabel);
             setSizeDialogOpen(false);
           }}
-        />
+        />,
+        document.body,
       )}
     </div>
   );

@@ -15,6 +15,7 @@ import { Select } from "../shell/Select.tsx";
 import { FONT_OPTIONS, FONT_SIZE_RANGE, type FontPreference as FontFamily, type LanguagePreference } from "../lib/appearance.ts";
 import { LANGUAGES, useT, type I18nKey } from "../lib/i18n.ts";
 import { PALETTE_OPTIONS, type PalettePreference } from "../lib/appearance.ts";
+import { FolderIcon, GearIcon } from "../shell/icons.tsx";
 
 export type SettingsTab = "api" | "appearance" | "storage" | "data" | "about";
 
@@ -40,13 +41,44 @@ export interface SettingsDialogProps {
   readonly onClose: () => void;
 }
 
-const TABS: readonly { readonly id: SettingsTab; readonly labelKey: I18nKey }[] = [
-  { id: "api", labelKey: "settings.tab.api" },
-  { id: "appearance", labelKey: "settings.tab.general" },
-  { id: "storage", labelKey: "settings.tab.storage" },
-  { id: "data", labelKey: "settings.tab.data" },
-  { id: "about", labelKey: "settings.tab.about" },
+const TABS: readonly { readonly id: SettingsTab; readonly labelKey: I18nKey; readonly icon: ReactNode }[] = [
+  { id: "api", labelKey: "settings.tab.api", icon: <PlugIcon /> },
+  { id: "appearance", labelKey: "settings.tab.general", icon: <GearIcon size={13} /> },
+  { id: "storage", labelKey: "settings.tab.storage", icon: <FolderIcon size={13} /> },
+  { id: "data", labelKey: "settings.tab.data", icon: <DatabaseIcon /> },
+  { id: "about", labelKey: "settings.tab.about", icon: <InfoIcon /> },
 ];
+
+/** 设置页签用的小图标：统一 13px、1.3 线宽，和别处图标一致。 */
+function PlugIcon({ size = 13 }: { readonly size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path d="M6 2v3M10 2v3" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+      <path d="M4 5h8v2.4a4 4 0 0 1-8 0Z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+      <path d="M8 11.4V14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function DatabaseIcon({ size = 13 }: { readonly size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <ellipse cx="8" cy="4" rx="5" ry="2" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M3 8c0 1.1 2.2 2 5 2s5-.9 5-2" fill="none" stroke="currentColor" strokeWidth="1.3" />
+    </svg>
+  );
+}
+
+function InfoIcon({ size = 13 }: { readonly size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <circle cx="8" cy="8" r="5.8" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M8 7.2v4" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+      <circle cx="8" cy="5" r="0.9" fill="currentColor" />
+    </svg>
+  );
+}
 
 /** 外观选择：卡片式，下面有一块跟着选项左右滑动的底色。 */
 function ChoiceCards<T extends string>({
@@ -203,7 +235,10 @@ export function SettingsDialog({
                 aria-current={tab === entry.id ? "page" : undefined}
                 onClick={() => setTab(entry.id)}
               >
-                {t(entry.labelKey)}
+                <span className="settings__tab-icon" aria-hidden="true">
+                  {entry.icon}
+                </span>
+                <span>{t(entry.labelKey)}</span>
               </button>
             ))}
           </nav>
