@@ -268,14 +268,11 @@ function ResultGroup({
   const hasMore = visibleCount < total;
   const expanded = visibleCount > capacity;
   const [cardHeight, setCardHeight] = useState(240);
-  const [fullHeight, setFullHeight] = useState(0);
   useLayoutEffect(() => {
     const grid = gridRef.current;
     if (grid === null) return;
     const card = grid.firstElementChild;
     if (card instanceof HTMLElement && card.offsetHeight > 0) setCardHeight(card.offsetHeight);
-    // scrollHeight 给的是"没被 max-height 裁掉"的完整高度，展开/收起都靠它做终点值
-    setFullHeight(grid.scrollHeight);
   }, [visibleCount, resultRows, extra]);
   // 显示高度按"当前显示的张数"折算行数，点一次加载更多就长高一段
   const clampedHeight = useMemo(() => {
@@ -333,11 +330,11 @@ function ResultGroup({
             {
               "--cols": Math.min(event.assets.length, 4),
               // 始终给像素值，点「加载更多」时是平滑长高，而不是瞬跳
-              maxHeight: overflows ? Math.min(clampedHeight, fullHeight || clampedHeight) : undefined,
+              maxHeight: overflows ? clampedHeight : undefined,
             } as CSSProperties
           }
         >
-          {event.assets.slice(0, visibleCount).map((asset) => (
+          {event.assets.map((asset) => (
           <figure key={asset.id} className="result-card">
             <button
               type="button"
@@ -377,7 +374,9 @@ function ResultGroup({
             aria-expanded={!hasMore}
             title={hasMore ? `再加载 ${Math.min(PAGE_SIZE, total - visibleCount)} 张` : "收起"}
           >
-            <ChevronDownIcon size={13} up={!hasMore} />
+            <span className="result-group__toggle-icon" aria-hidden="true">
+              <ChevronDownIcon size={13} up={!hasMore} />
+            </span>
             <span className="result-group__toggle-count">
               {hasMore ? `+${total - visibleCount}` : "收起"}
             </span>

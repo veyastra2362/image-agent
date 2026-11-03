@@ -1198,7 +1198,7 @@ body::after {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: 1px;
   height: 26px;
   padding: 0 10px 0 7px;
   line-height: 1;
@@ -1234,6 +1234,16 @@ body::after {
 }
 
 /* 数字和箭头基线对齐：SVG 去掉 inline 基线偏移，文字固定行高 */
+/*
+ * 箭头的光学中心比文字中心高约 1.4px（6 倍放大实测：191.5 vs 200），
+ * 所以单独给图标补一点向下位移，两个元素才看着在一条线上。
+ */
+/* 图标本身带 inline 的 rotate（展开时翻转），位移必须加在外层 span 上 */
+.result-group__toggle-icon {
+  display: inline-flex;
+  transform: translateY(0.45px);
+}
+
 .result-group__toggle svg {
   display: block;
 }
@@ -1241,7 +1251,6 @@ body::after {
 .result-group__toggle-count {
   font-variant-numeric: tabular-nums;
   line-height: 1;
-  transform: translateY(0.5px);
 }
 
 /* 设置里的"几行"分段选择：选中态是一块会滑动的指示器 */
