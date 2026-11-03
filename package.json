@@ -13,6 +13,7 @@
     "typecheck": "node scripts/run-tsc.mjs -p tsconfig.json --noEmit && node scripts/run-tsc.mjs -p tsconfig.main.json --noEmit",
     "test": "node --import ./scripts/test-main-ts-hooks.mjs --test --test-concurrency=1 \"src/test/image-*.test.ts\"",
     "start": "electron .",
+    "icon": "node scripts/make-icon.mjs",
     "smoke": "node scripts/ui-smoke.mjs"
   },
   "devDependencies": {

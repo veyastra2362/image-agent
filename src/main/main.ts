@@ -382,6 +382,8 @@ function createWindow(): BrowserWindow {
     show: false,
     backgroundColor: "#1b1b19",
     title: "Image Agent",
+    // 窗口/任务栏图标；打包后 resources 会随应用一起分发
+    icon: path.resolve(APP_ROOT, "resources", "icon.png"),
     // 标题栏交给 renderer 自绘：应用名 + 设置 + 窗口按钮都在顶部同一行，
     // 不再有 File/Edit/View 菜单，也不出现系统那条独立的标题。
     titleBarStyle: "hidden",
