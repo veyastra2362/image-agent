@@ -1015,3 +1015,81 @@ body::after {
   align-items: center;
   gap: 2px;
 }
+
+/* ---------------------------------------------------------------- 失败卡片 */
+
+/*
+ * 原来左侧有一条 3px 彩条（.notice 的 border-left-width: 3px），像老式后台 alert。
+ * 改成和提示框一致的做法：状态图标 + 极淡的同色底 + 中性边框。
+ */
+.notice {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-left-width: 1px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.notice--error {
+  background: color-mix(in srgb, var(--danger) 7%, var(--surface));
+  border-color: color-mix(in srgb, var(--danger) 26%, var(--border));
+}
+
+.notice--warn {
+  background: color-mix(in srgb, var(--warning) 8%, var(--surface));
+  border-color: color-mix(in srgb, var(--warning) 26%, var(--border));
+}
+
+.notice__head {
+  align-items: flex-start;
+}
+
+.notice__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text);
+}
+
+.notice__title strong {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.notice__icon {
+  display: inline-flex;
+  color: var(--danger);
+}
+
+.notice--warn .notice__icon {
+  color: var(--warning);
+}
+
+.notice__prompt {
+  color: var(--text-muted);
+}
+
+.notice p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+}
+
+.notice__meta {
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+}
+
+.notice__actions .button--icon {
+  color: var(--text-faint);
+}
+
+.notice__actions .button--icon:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text);
+}

@@ -180,7 +180,15 @@ function FailureCard({
   return (
     <article className="notice notice--error" role="status" aria-label="生成失败的任务">
       <div className="notice__head">
-        <strong>生成失败</strong>
+        <span className="notice__title">
+          <span className="notice__icon" aria-hidden="true">
+            <svg viewBox="0 0 16 16" width="14" height="14" focusable="false">
+              <circle cx="8" cy="8" r="6.4" fill="none" stroke="currentColor" strokeWidth="1.4" />
+              <path d="m5.9 5.9 4.2 4.2M10.1 5.9l-4.2 4.2" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+            </svg>
+          </span>
+          <strong>生成失败</strong>
+        </span>
         <span className="notice__actions">
           <button
             type="button"
