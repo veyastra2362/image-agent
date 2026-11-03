@@ -516,7 +516,15 @@ body::after {
   visibility: hidden;
   transform: translateX(-8px);
   pointer-events: none;
-  overflow: hidden;
+}
+
+/*
+ * 不要在收起时改 overflow：从 hidden 切回 auto 会让滚动条突然出现/消失，
+ * 里面的任务缩略图就会"抖一下"。裁剪交给外层 .shell（已 overflow:hidden）。
+ */
+.shell > .sidebar {
+  will-change: opacity;
+  contain: paint;
 }
 
 @media (prefers-reduced-motion: reduce) {
