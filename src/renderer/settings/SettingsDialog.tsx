@@ -14,6 +14,7 @@ import { DataSettingsPanel } from "./DataSettingsPanel.tsx";
 import { Select } from "../shell/Select.tsx";
 import { FONT_OPTIONS, FONT_SIZE_RANGE, type FontPreference as FontFamily, type LanguagePreference } from "../lib/appearance.ts";
 import { LANGUAGES, useT, type I18nKey } from "../lib/i18n.ts";
+import { PALETTE_OPTIONS, type PalettePreference } from "../lib/appearance.ts";
 
 export type SettingsTab = "api" | "appearance" | "storage" | "data" | "about";
 
@@ -28,6 +29,8 @@ export interface SettingsDialogProps {
   readonly onThemeChange: (theme: "auto" | "light" | "dark") => void;
   readonly density: "comfortable" | "compact";
   readonly onDensityChange: (density: "comfortable" | "compact") => void;
+  readonly palette: PalettePreference;
+  readonly onPaletteChange: (palette: PalettePreference) => void;
   readonly fontSize: number;
   readonly onFontSizeChange: (size: number) => void;
   readonly fontFamily: FontFamily;
@@ -83,6 +86,40 @@ function ChoiceCards<T extends string>({
   );
 }
 
+
+/** 配色选择：每个选项画两个小色块（底 + 强调），选中态与主题卡片一致。 */
+function PaletteCards({
+  value,
+  onChange,
+}: {
+  readonly value: PalettePreference;
+  readonly onChange: (next: PalettePreference) => void;
+}) {
+  return (
+    <div className="palette-cards" role="radiogroup" aria-label="配色">
+      {PALETTE_OPTIONS.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          role="radio"
+          aria-checked={value === option.value}
+          className={`palette-card ${value === option.value ? "is-active" : ""}`}
+          onClick={() => onChange(option.value)}
+        >
+          <span className={`palette-card__swatch palette-card__swatch--${option.value}`} aria-hidden="true">
+            <i></i>
+            <i></i>
+          </span>
+          <span className="palette-card__text">
+            <span className="palette-card__label">{option.label}</span>
+            <span className="field__hint">{option.hint}</span>
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function SettingsDialog({
   initialTab,
   environment,
@@ -93,6 +130,8 @@ export function SettingsDialog({
   onThemeChange,
   density,
   onDensityChange,
+  palette,
+  onPaletteChange,
   fontSize,
   onFontSizeChange,
   fontFamily,
@@ -221,6 +260,8 @@ export function SettingsDialog({
                     { value: "auto", label: t("general.theme.auto"), icon: <MonitorIcon /> },
                   ]}
                 />
+                <h3>配色</h3>
+                <PaletteCards value={palette} onChange={onPaletteChange} />
                 <h3>{t("general.density")}</h3>
                 <Select
                   ariaLabel={t("general.density")}

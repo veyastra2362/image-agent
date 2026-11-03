@@ -4,6 +4,8 @@ import "../shared/image-api.ts";
 import { App } from "./App.tsx";
 import "./styles.css";
 import "./shell.css";
+import "./palette.css";
+import "./glass.css";
 
 const container = document.getElementById("root");
 if (!container) throw new Error("缺少 #root 容器");

@@ -1,0 +1,262 @@
+/*
+ * 视觉升级层：液态玻璃 + 统一圆角与间距。
+ *
+ * 放在最后加载，专门覆盖前面两个样式表里的"平板感"规则。
+ * 只动外观，不改布局结构，出问题时把这一份删掉就能回到旧观感。
+ */
+
+:root {
+  /* 圆角分三级：控件 / 面板 / 胶囊 */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-panel: 16px;
+  --titlebar-height: 42px;
+}
+
+/* ---------------------------------------------------------------- 环境底色 */
+
+/*
+ * 玻璃要"透出东西"才成立：在整窗背后铺一层极低饱和的暖冷双光，
+ * 侧栏/标题栏/输入区的半透明才有内容可透。
+ */
+/*
+ * 环境光：铺在 body 之上、.app 之下的一层固定渐变。
+ * 负 z-index 会被 body 背景挡住，所以用 z-index 0 + .app 抬到 1 —— 玻璃才有东西可透。
+ */
+html,
+body {
+  background: var(--bg);
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: -18% -12% auto -12%;
+  height: 136%;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(40% 36% at 12% 6%, var(--ambient-1) 0%, transparent 66%),
+    radial-gradient(38% 40% at 88% 2%, var(--ambient-2) 0%, transparent 68%),
+    radial-gradient(50% 42% at 46% 102%, var(--ambient-1) 0%, transparent 66%),
+    radial-gradient(30% 26% at 74% 46%, var(--ambient-2) 0%, transparent 70%);
+  filter: saturate(1.05);
+}
+
+.app {
+  position: relative;
+  z-index: 1;
+}
+
+/* 内容区自身必须是透明的，否则会把环境光整片盖住，玻璃就白做了 */
+.app,
+.workspace,
+.workspace--page,
+.workspace > .canvas,
+.canvas,
+.library {
+  background: transparent;
+}
+
+/* ---------------------------------------------------------------- 玻璃层 */
+
+.titlebar,
+.sidebar,
+.dock,
+.modal,
+.drawer {
+  background: var(--glass);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border-color: var(--border);
+}
+
+.titlebar {
+  background: var(--glass-soft);
+  border-bottom: 1px solid var(--border);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+}
+
+/* 侧栏：从"贴边的一整块板"变成浮起来的圆角面板 */
+.sidebar {
+  margin: 10px 0 10px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel), inset 0 1px 0 var(--glass-highlight);
+}
+
+.workspace {
+  margin: 10px 10px 10px 10px;
+}
+
+.workspace:has(.sidebar) {
+  margin-left: 0;
+}
+
+/* 输入区：一块圆角玻璃，内部不再有线框嵌套 */
+.dock {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel), inset 0 1px 0 var(--glass-highlight);
+}
+
+.modal {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-float), inset 0 1px 0 var(--glass-highlight);
+}
+
+.drawer {
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow-float);
+}
+
+.modal-backdrop {
+  background: light-dark(rgba(30, 34, 38, 0.28), rgba(0, 0, 0, 0.42));
+  backdrop-filter: blur(6px);
+}
+
+/* 下拉菜单也跟玻璃，但更淡一点，避免盖住底下的图 */
+.select__menu {
+  background: var(--glass);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-panel);
+}
+
+/* ---------------------------------------------------------------- 控件观感 */
+
+.menubar__button,
+.navitem {
+  border-radius: 999px;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.navitem.is-active {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--text);
+}
+
+.navitem:hover:not(.is-active) {
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+}
+
+/* 实体内容不透明：结果卡、作品卡保持实底，靠玻璃层透出的环境色做层次 */
+.result-card,
+.library-item,
+.album-card__cover,
+.tile {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+.result-card,
+.library-item {
+  border-radius: var(--radius-md);
+}
+
+.btn,
+.button {
+  border-radius: var(--radius-md);
+}
+
+.field__input,
+.select__trigger {
+  border-radius: var(--radius-md);
+}
+
+/* ---------------------------------------------------------------- 配色选择 */
+
+.palette-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-2);
+}
+
+.palette-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.palette-card:hover {
+  border-color: var(--border-strong);
+}
+
+.palette-card.is-active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.palette-card__swatch {
+  position: relative;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.palette-card__swatch i {
+  position: absolute;
+  inset: 0;
+}
+
+.palette-card__swatch i:last-child {
+  inset: auto 4px 4px auto;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+}
+
+.palette-card__swatch--graphite i:first-child {
+  background: linear-gradient(150deg, #f3f5f6, #0b0d10);
+}
+.palette-card__swatch--graphite i:last-child {
+  background: #93b3c9;
+}
+
+.palette-card__swatch--ink i:first-child {
+  background: linear-gradient(150deg, #f5f5f4, #0b0b0b);
+}
+.palette-card__swatch--ink i:last-child {
+  background: #ececeb;
+}
+
+.palette-card__swatch--sage i:first-child {
+  background: linear-gradient(150deg, #f2f4f2, #0b0e0c);
+}
+.palette-card__swatch--sage i:last-child {
+  background: #a6c3ac;
+}
+
+.palette-card__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.palette-card__label {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app::before,
+  .navitem,
+  .palette-card {
+    transition: none !important;
+  }
+}

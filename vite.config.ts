@@ -28,6 +28,8 @@ export default defineConfig({
     outDir: "../../out/renderer",
     emptyOutDir: true,
     target: "chrome130",
+    // CSS 也要按 Chromium 目标编译：默认目标过旧，会把 backdrop-filter 直接剥掉。
+    cssTarget: "chrome130",
     sourcemap: true,
   },
   server: {

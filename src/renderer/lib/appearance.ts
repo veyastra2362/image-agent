@@ -5,6 +5,18 @@ export type ThemePreference = "auto" | "light" | "dark";
 export type DensityPreference = "comfortable" | "compact";
 export type FontPreference = "system" | "serif" | "mono";
 export type LanguagePreference = "zh" | "en";
+/** 配色方案：石墨蓝 / 素墨 / 冷灰苔绿。 */
+export type PalettePreference = "graphite" | "ink" | "sage";
+
+export const PALETTE_OPTIONS: readonly {
+  readonly value: PalettePreference;
+  readonly label: string;
+  readonly hint: string;
+}[] = [
+  { value: "graphite", label: "石墨蓝", hint: "冷灰底 + 钢蓝强调，偏技术感" },
+  { value: "ink", label: "素墨", hint: "纯中性灰，强调色即墨色，最克制" },
+  { value: "sage", label: "冷灰苔绿", hint: "冷灰 + 苔绿，柔和耐看" },
+];
 
 export const FONT_OPTIONS: readonly { readonly value: FontPreference; readonly label: string; readonly stack: string }[] = [
   {
@@ -30,6 +42,8 @@ export interface Appearance {
   readonly fontFamily: FontPreference;
   /** 界面语言。 */
   readonly language: LanguagePreference;
+  /** 配色方案。 */
+  readonly palette: PalettePreference;
 }
 
 const DEFAULT: Appearance = {
@@ -39,6 +53,7 @@ const DEFAULT: Appearance = {
   fontSize: FONT_SIZE_RANGE.default,
   fontFamily: "system",
   language: "zh",
+  palette: "graphite",
 };
 
 export function loadAppearance(): Appearance {
@@ -56,6 +71,7 @@ export function loadAppearance(): Appearance {
       fontSize: clampFontSize((parsed as { fontSize?: unknown }).fontSize),
       fontFamily: parseFont((parsed as { fontFamily?: unknown }).fontFamily),
       language: (parsed as { language?: unknown }).language === "en" ? "en" : "zh",
+      palette: parsePalette((parsed as { palette?: unknown }).palette),
     };
   } catch {
     return DEFAULT;
@@ -81,6 +97,7 @@ export function applyAppearance(appearance: Appearance): void {
   if (appearance.theme === "auto") delete root.dataset.theme;
   else root.dataset.theme = appearance.theme;
   root.dataset.density = appearance.density;
+  root.dataset.palette = appearance.palette;
 
   // 字号：以 --fs-md 为基准等比缩放其余档位，避免只改一处导致层级错乱。
   const base = clampFontSize(appearance.fontSize);
@@ -98,6 +115,10 @@ export function applyAppearance(appearance: Appearance): void {
 function clampFontSize(raw: unknown): number {
   if (typeof raw !== "number" || !Number.isFinite(raw)) return FONT_SIZE_RANGE.default;
   return Math.min(FONT_SIZE_RANGE.max, Math.max(FONT_SIZE_RANGE.min, Math.round(raw)));
+}
+
+function parsePalette(raw: unknown): PalettePreference {
+  return raw === "ink" || raw === "sage" ? raw : "graphite";
 }
 
 function parseFont(raw: unknown): FontPreference {

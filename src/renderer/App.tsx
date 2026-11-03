@@ -229,6 +229,8 @@ export function App() {
           density={appearance.density}
           onThemeChange={(theme) => setAppearance((current) => ({ ...current, theme }))}
           onDensityChange={(density) => setAppearance((current) => ({ ...current, density }))}
+          palette={appearance.palette}
+          onPaletteChange={(palette) => setAppearance((current) => ({ ...current, palette }))}
           fontSize={appearance.fontSize}
           onFontSizeChange={(size) => setAppearance((current) => ({ ...current, fontSize: size }))}
           fontFamily={appearance.fontFamily}

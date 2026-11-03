@@ -293,7 +293,8 @@ async function run() {
       "return { sidebar: box('.sidebar'), dock: box('.dock'), canvas: box('.canvas'), win: [window.innerWidth, window.innerHeight] };" +
       "})()",
   );
-  check("左侧是配置栏", layout.sidebar !== null && layout.sidebar.x === 0 && layout.sidebar.w > 200, layout.sidebar);
+  // 侧栏改成浮起来的圆角面板，左边留 10px 外边距属于设计，不再贴边。
+  check("左侧是配置栏", layout.sidebar !== null && layout.sidebar.x <= 12 && layout.sidebar.w > 200, layout.sidebar);
   check(
     "提示词输入框在右下（画布下方、靠窗口底部）",
     layout.dock !== null && layout.dock.y > layout.sidebar.y + 200 && layout.dock.bottom > layout.win[1] - 12,
