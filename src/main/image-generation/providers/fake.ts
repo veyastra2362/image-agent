@@ -26,13 +26,20 @@ const SIZE_CAPABILITIES = {
   transcode: false,
 } as const;
 
+/**
+ * 单次张数上限：默认 4。冒烟/自测时可以用 IMAGE_AGENT_FAKE_LIMIT 放宽
+ * （只在 driver 模式下生效），方便检查"一次出十几张"时结果区的布局。
+ */
+const DRIVER_LIMIT = Number(process.env.IMAGE_AGENT_SMOKE_DRIVER === "1" ? process.env.IMAGE_AGENT_FAKE_LIMIT : NaN);
+const OUTPUT_LIMIT = Number.isFinite(DRIVER_LIMIT) && DRIVER_LIMIT > 0 ? DRIVER_LIMIT : 4;
+
 const CAPABILITIES: ImageCapabilities = {
   textToImage: true,
   imageToImage: true,
   masks: false,
   referenceImageLimit: 2,
   aspectRatios: PRESET_RATIOS,
-  outputCountLimit: 4,
+  outputCountLimit: OUTPUT_LIMIT,
   seed: true,
   negativePrompt: true,
   async: true,
