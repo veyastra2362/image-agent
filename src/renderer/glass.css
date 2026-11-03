@@ -833,3 +833,85 @@ body::after {
     transition: none;
   }
 }
+/* ---------------------------------------------------------------- 提示框（toast） */
+
+/*
+ * 原来用左侧 3px 彩色竖条区分类型，看着像老式后台系统的 alert。
+ * 改成：一个小的状态图标 + 极淡的同色底，边框保持中性。
+ */
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 10px 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  box-shadow: var(--shadow-panel);
+  backdrop-filter: blur(12px) saturate(140%);
+}
+
+.toast--info,
+.toast--success,
+.toast--warning,
+.toast--error {
+  border-left-width: 1px;
+}
+
+.toast__icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: var(--text-muted);
+}
+
+.toast__message {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.toast--warning {
+  background: color-mix(in srgb, var(--warning) 10%, var(--surface));
+  border-color: color-mix(in srgb, var(--warning) 32%, var(--border));
+}
+
+.toast--warning .toast__icon {
+  color: var(--warning);
+}
+
+.toast--error {
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface));
+  border-color: color-mix(in srgb, var(--danger) 32%, var(--border));
+}
+
+.toast--error .toast__icon {
+  color: var(--danger);
+}
+
+.toast--info .toast__icon,
+.toast--success .toast__icon {
+  color: var(--accent);
+}
+
+.toast__close {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  margin: -1px -2px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-faint);
+  font-size: var(--fs-md);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.toast__close:hover {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text);
+}

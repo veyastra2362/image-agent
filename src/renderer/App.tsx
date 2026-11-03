@@ -251,7 +251,27 @@ export function App() {
       <div className="toasts" aria-live="polite">
         {state.toasts.map((toast) => (
           <div key={toast.id} className={`toast toast--${toast.level}`} role="status">
-            <span>{toast.message}</span>
+            <span className="toast__icon" aria-hidden="true">
+              {toast.level === "error" ? (
+                <svg viewBox="0 0 16 16" width="13" height="13" focusable="false">
+                  <circle cx="8" cy="8" r="6.4" fill="none" stroke="currentColor" strokeWidth="1.4" />
+                  <path d="m5.9 5.9 4.2 4.2M10.1 5.9l-4.2 4.2" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                </svg>
+              ) : toast.level === "warning" ? (
+                <svg viewBox="0 0 16 16" width="13" height="13" focusable="false">
+                  <path d="M8 2.4 14.2 13H1.8Z" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+                  <path d="M8 6.4v3.2" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                  <circle cx="8" cy="11.4" r="0.8" fill="currentColor" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 16 16" width="13" height="13" focusable="false">
+                  <circle cx="8" cy="8" r="6.4" fill="none" stroke="currentColor" strokeWidth="1.4" />
+                  <path d="M8 7v4.2" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                  <circle cx="8" cy="4.8" r="0.8" fill="currentColor" />
+                </svg>
+              )}
+            </span>
+            <span className="toast__message">{toast.message}</span>
             <button type="button" className="toast__close" onClick={() => state.dismissToast(toast.id)} aria-label="关闭提示">
               ×
             </button>
