@@ -454,6 +454,44 @@ body::after {
   padding-top: 4px;
 }
 
+/*
+ * 工具行里的下拉和尺寸提示：不画边框、不铺底色，
+ * 看起来就是一行文字，只有悬停时给一格淡底，避免"一排胶囊按钮"的模板感。
+ */
+.dock .select__trigger {
+  border: 0;
+  background: transparent;
+  padding: 0 4px 0 6px;
+}
+
+/* 触发器原来靠 1px 边框撑高，去掉后给个最小高度，保持和图标按钮对齐 */
+.dock .select__trigger {
+  min-height: 26px;
+  border-radius: 8px;
+}
+
+.dock .select__trigger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+  border-color: transparent;
+}
+
+.dock .select__trigger[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--text) 9%, transparent);
+  border-color: transparent;
+}
+
+.dock__chip {
+  padding: 1px 4px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-faint);
+}
+
+.dock__count {
+  color: var(--text-faint);
+}
+
 /* ---------------------------------------------------------------- 侧栏收起的过渡 */
 
 /*
