@@ -59,6 +59,15 @@ body::after {
   background: transparent;
 }
 
+/* 创作页的外壳已经用 padding 撑好了间距，工作区不再重复加 margin */
+.workspace {
+  margin: 0;
+}
+
+.workspace--page {
+  margin: 10px;
+}
+
 /* ---------------------------------------------------------------- 玻璃层 */
 
 .titlebar,
@@ -77,21 +86,32 @@ body::after {
   box-shadow: inset 0 1px 0 var(--glass-highlight);
 }
 
-/* 侧栏：从"贴边的一整块板"变成浮起来的圆角面板 */
+/*
+ * 外壳统一用 padding + gap 撑出四周和两栏之间的 10px，
+ * 侧栏自己不再带 margin —— 带 margin 时会撑出自己的网格列，把间距挤没。
+ */
+.shell {
+  padding: 10px;
+  gap: 10px;
+  /* 列宽和侧栏实际宽度一致，否则列比面板宽，右边会多出一段空隙 */
+  grid-template-columns: 290px minmax(0, 1fr);
+}
+
+.shell.is-collapsed {
+  grid-template-columns: 0 minmax(0, 1fr);
+}
+
 .sidebar {
-  margin: 10px 0 10px 10px;
+  margin: 0;
+  width: 290px;
+  min-width: 290px;
   border: 1px solid var(--border);
   border-radius: var(--radius-panel);
   box-shadow: var(--shadow-panel), inset 0 1px 0 var(--glass-highlight);
 }
 
-.workspace {
-  margin: 10px 10px 10px 10px;
-}
 
-.workspace:has(.sidebar) {
-  margin-left: 0;
-}
+
 
 /* 输入区：一块圆角玻璃，内部不再有线框嵌套 */
 .dock {
@@ -655,11 +675,9 @@ body::after {
  * 列宽在动画，但侧栏内容保持固定宽度：文字不会因为"变窄"而重新折行，
  * 看起来是整个面板滑出来/被裁掉，而不是内容在里面跳动。
  */
-.shell > .sidebar {
-  width: var(--sidebar-width);
-  min-width: var(--sidebar-width);
-}
 
-.shell {
-  overflow: hidden;
-}
+
+/*
+ * 不用 overflow:hidden 裁切：它会顺手把侧栏的投影切出一条直边（左下角那个直角就是它）。
+ * 收起时侧栏本来就是 opacity:0 + visibility:hidden，不需要靠裁切藏起来。
+ */
