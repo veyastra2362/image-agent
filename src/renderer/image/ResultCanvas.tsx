@@ -3,13 +3,13 @@
  *
  * 空态不是控制台：一张图都没有时说明下一步；有任务时优先展示进行中的进度和取消入口。
  */
-import { useState, type CSSProperties } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { ImageTaskEvent } from "../../shared/image-generation.ts";
 import { formatDuration } from "../lib/format.ts";
 import { describeStatus } from "../lib/job-status.ts";
 import { cancellable, latestSucceededJob, type ImageAgentState } from "./use-image-agent.ts";
 import { formatElapsed, useTick } from "../lib/use-tick.ts";
-import { EyeOffIcon, FolderIcon, RetryIcon } from "../shell/icons.tsx";
+import { ChevronIcon, EyeOffIcon, FolderIcon, RetryIcon } from "../shell/icons.tsx";
 
 interface ResultCanvasProps {
   readonly state: ImageAgentState;
@@ -238,13 +238,22 @@ function ResultGroup({
   readonly onHide: (jobId: string) => void;
   readonly resultRows: number;
 }) {
+  const gridRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
   // 一行放几张由 CSS 的 auto-fill 决定，这里按最窄情况 App 的 4 列上限算，
   // 少排几张不算错（只是"更早折叠"），多排则会溢出，所以取上限。
   const columns = Math.max(1, Math.min(event.assets.length, 4));
   const capacity = columns * Math.max(1, resultRows);
-  const clamped = !expanded && event.assets.length > capacity;
-  const visibleAssets = clamped ? event.assets.slice(0, capacity) : event.assets;
+  const overflows = event.assets.length > capacity;
+  const [cardHeight, setCardHeight] = useState(240);
+  useLayoutEffect(() => {
+    const card = gridRef.current?.firstElementChild;
+    if (card instanceof HTMLElement && card.offsetHeight > 0) setCardHeight(card.offsetHeight);
+  }, [event.assets.length, resultRows]);
+  const clampedHeight = useMemo(() => {
+    const rows = Math.max(1, resultRows);
+    return rows * cardHeight + (rows - 1) * 12;
+  }, [cardHeight, resultRows]);
 
   return (
     <article className="result-group" aria-label="一次生成的结果">
@@ -276,8 +285,18 @@ function ResultGroup({
           </button>
         </div>
       </header>
-      <div className="result-grid" style={{ "--cols": Math.min(event.assets.length, 4) } as CSSProperties}>
-        {visibleAssets.map((asset) => (
+      <div className={`result-group__grid ${overflows && !expanded ? "is-clamped" : ""}`}>
+        <div
+          ref={gridRef}
+          className="result-grid"
+          style={
+            {
+              "--cols": Math.min(event.assets.length, 4),
+              maxHeight: overflows && !expanded ? clampedHeight : undefined,
+            } as CSSProperties
+          }
+        >
+          {event.assets.map((asset) => (
           <figure key={asset.id} className="result-card">
             <button
               type="button"
@@ -308,12 +327,22 @@ function ResultGroup({
             </figcaption>
           </figure>
         ))}
+        </div>
+        {overflows && (
+          <button
+            type="button"
+            className={`result-group__toggle ${expanded ? "is-expanded" : ""}`}
+            onClick={() => setExpanded((current) => !current)}
+            aria-expanded={expanded}
+            title={expanded ? "收起" : `展开全部 ${event.assets.length} 张`}
+          >
+            <ChevronIcon size={13} open={expanded} />
+            <span className="result-group__toggle-count">
+              {expanded ? "收起" : `+${event.assets.length - capacity}`}
+            </span>
+          </button>
+        )}
       </div>
-      {clamped && (
-        <button type="button" className="result-group__more" onClick={() => setExpanded(true)}>
-          查看全部 {event.assets.length} 张（还有 {event.assets.length - capacity} 张）
-        </button>
-      )}
     </article>
   );
 }

@@ -1166,24 +1166,83 @@ body::after {
 }
 /* ---------------------------------------------------------------- 结果折叠 */
 
-.result-group__more {
-  align-self: flex-start;
-  margin-top: 2px;
-  padding: 5px 12px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--text) 4%, transparent);
-  color: var(--text-muted);
-  font: inherit;
-  font-size: var(--fs-sm);
-  cursor: pointer;
-  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+/*
+ * 折叠不再用"查看全部 N 张"的文字按钮：网格底部渐隐 + 一个居中的圆形箭头徽章，
+ * 展开/收起都是同一个按钮（箭头翻转），高度变化有过渡。
+ */
+.result-group__grid {
+  position: relative;
 }
 
-.result-group__more:hover {
-  background: color-mix(in srgb, var(--text) 8%, transparent);
-  border-color: var(--border-strong);
+.result-grid {
+  overflow: hidden;
+  transition: max-height 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* 收起时给底部留一条带子，箭头脑徽落在带子里，不压住最后一行的说明文字 */
+.result-group__grid.is-clamped {
+  padding-bottom: 34px;
+}
+
+/* 收起时底部渐隐，暗示"下面还有" */
+.result-group__grid.is-clamped::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 96px;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    color-mix(in srgb, var(--bg) 70%, transparent) 55%,
+    var(--bg) 100%
+  );
+}
+
+.result-group__toggle {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+  padding: 0 11px 0 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(10px) saturate(140%);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transform: translateX(-50%);
+  box-shadow: var(--shadow-panel);
+  transition:
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 150ms ease,
+    background-color 150ms ease;
+}
+
+.result-group__toggle:hover {
   color: var(--text);
+  background: color-mix(in srgb, var(--surface) 98%, transparent);
+}
+
+/* 展开后按钮落到网格下方，不再压着图 */
+.result-group__toggle.is-expanded {
+  position: static;
+  display: flex;
+  width: fit-content;
+  margin: 8px auto 0;
+  transform: none;
+}
+
+.result-group__toggle-count {
+  font-variant-numeric: tabular-nums;
 }
 
 /* 设置里的"几行"分段选择：选中态是一块会滑动的指示器 */
