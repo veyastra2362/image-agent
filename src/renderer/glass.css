@@ -525,3 +525,133 @@ body::after {
     transition: none;
   }
 }
+
+/* ---------------------------------------------------------------- 设置弹窗：一整块玻璃 */
+
+/*
+ * 之前弹窗本体半透明、内部侧栏和底栏却自带不透明底色，
+ * 结果"外面透、里面实"，看起来像三块拼接。这里统一成一块玻璃：
+ * 弹窗本体提高不透明度保证可读，内部结构全部透明，只留分隔线。
+ */
+.modal:has(.settings) {
+  background: light-dark(rgba(250, 250, 249, 0.9), rgba(22, 25, 29, 0.9));
+  backdrop-filter: blur(30px) saturate(170%);
+  border-color: var(--border);
+  box-shadow:
+    var(--shadow-float),
+    inset 0 1px 0 var(--glass-highlight);
+}
+
+.modal:has(.settings) .modal__head,
+.modal:has(.settings) .modal__foot,
+.modal:has(.settings) .settings__tabs,
+.modal:has(.settings) .settings__body,
+.modal:has(.settings) .settings__footer,
+.modal:has(.settings) .settings__section {
+  background: transparent;
+}
+
+.modal:has(.settings) .modal__head {
+  border-bottom: 1px solid var(--border);
+}
+
+.modal:has(.settings) .settings__tabs {
+  border-right: 1px solid var(--border);
+  padding: 10px 8px;
+  gap: 2px;
+}
+
+.modal:has(.settings) .modal__foot {
+  border-top: 1px solid var(--border);
+}
+
+.modal:has(.settings) .settings__footer {
+  border-top: 1px solid var(--border);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+/* 页签：选中用一层很淡的强调色，不画描边 */
+.modal:has(.settings) .settings__tab {
+  padding: 6px 10px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.modal:has(.settings) .settings__tab:hover {
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  color: var(--text);
+}
+
+.modal:has(.settings) .settings__tab.is-active {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.modal:has(.settings) .settings__tab.is-active .settings__tab-icon {
+  color: var(--accent);
+}
+
+/* ---------------------------------------------------------------- 底部按钮 */
+
+/*
+ * 保存 = 强调色实心；关闭 = 纯文字。两个按钮同一高度、同一圆角，
+ * 不再出现"一个描边一个实心、宽窄还不一样"的情况。
+ */
+.modal__foot .button {
+  min-width: 88px;
+  height: 34px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    transform 120ms ease;
+}
+
+.modal__foot .button--primary {
+  background: var(--accent);
+  border: 1px solid transparent;
+  color: var(--accent-ink);
+  font-weight: 600;
+  box-shadow: inset 0 1px 0 light-dark(rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.16));
+}
+
+.modal__foot .button--primary:hover:not(:disabled) {
+  background: var(--accent-strong);
+  border-color: transparent;
+}
+
+.modal__foot .button--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-muted);
+}
+
+.modal__foot .button--ghost:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+  color: var(--text);
+}
+
+.modal__foot .button:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+/* ---------------------------------------------------------------- 侧栏展开时不要重排文字 */
+
+/*
+ * 列宽在动画，但侧栏内容保持固定宽度：文字不会因为"变窄"而重新折行，
+ * 看起来是整个面板滑出来/被裁掉，而不是内容在里面跳动。
+ */
+.shell > .sidebar {
+  width: var(--sidebar-width);
+  min-width: var(--sidebar-width);
+}
+
+.shell {
+  overflow: hidden;
+}
