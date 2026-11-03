@@ -728,23 +728,29 @@ body::after {
 /* ---------------------------------------------------------------- 结果卡片 */
 
 /*
- * 图和信息分成两块，各占各的高度：图片在卡片里裁圆角，
- * 下面那条信息栏自带底色和内边距，不会被图片盖住（也不会显得半透）。
+ * 图片是一个独立的圆角块，信息行在它下面、不在框里：
+ * 卡片本身不画边框，只有图片承载边框和圆角，信息行直接贴在下面。
  */
 .result-card {
   display: flex;
   flex-direction: column;
-  gap: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  overflow: hidden;
+  gap: 6px;
+  border: 0;
+  background: none;
+  overflow: visible;
 }
 
 .result-card__button {
-  border: 0;
-  border-radius: 0;
+  display: block;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
   overflow: hidden;
+  transition: border-color 150ms ease;
+}
+
+.result-card__button:hover {
+  border-color: var(--border-strong);
 }
 
 .result-card__button img {
@@ -752,15 +758,13 @@ body::after {
 }
 
 .result-card figcaption {
-  position: relative;
-  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  padding: 8px 10px;
-  background: var(--surface);
-  border-top: 1px solid var(--border);
+  padding: 0 2px 2px;
+  background: none;
+  border: 0;
 }
 
 .result-card__actions {
@@ -769,7 +773,15 @@ body::after {
   gap: 2px;
 }
 
-.result-card__actions .button {
+.result-card__actions .button,
+.result-card__actions .button--icon {
   border-color: transparent;
   background: transparent;
+}
+
+.result-card__actions .button:hover:not(:disabled),
+.result-card__actions .button--icon:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+  border-color: transparent;
+  color: var(--text);
 }

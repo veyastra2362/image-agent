@@ -220,9 +220,15 @@ async function run() {
   const collapsedWidth = await js("document.querySelector('.canvas').getBoundingClientRect().width");
   await shot("14-sidebar-collapsed");
   await js("document.querySelector('.titlebar__toggle').click(); true");
-  await sleep(250);
+  // 展开是 220ms 的列宽过渡：等它能稳定小于收起宽度再断言，别用固定 sleep 卡在动画中间
+  let expandedWidth = collapsedWidth;
+  for (let i = 0; i < 12; i += 1) {
+    await sleep(80);
+    expandedWidth = await js("document.querySelector('.canvas').getBoundingClientRect().width");
+    if (expandedWidth < collapsedWidth) break;
+  }
   check("展开后侧栏回来", (await js("Boolean(document.querySelector('.sidebar') && document.querySelector('.sidebar').offsetParent)")) === true, "");
-  check("展开后画布变窄", (await js("document.querySelector('.canvas').getBoundingClientRect().width")) < collapsedWidth, JSON.stringify({ collapsedWidth }));
+  check("展开后画布变窄", expandedWidth < collapsedWidth, JSON.stringify({ collapsedWidth, expandedWidth }));
 
   // 导航和应用/编辑同一套文字按钮样式（比未选中项，选中项本来就有底色）
   // 自绘下拉：点开后有选项列表和勾选标记
