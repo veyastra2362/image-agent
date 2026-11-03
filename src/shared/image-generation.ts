@@ -65,6 +65,12 @@ export const SIZE_MODE_AUTO = "auto";
 export type SizeMode = "auto" | "ratio" | "custom";
 
 export const MAX_IMAGE_EDGE = 8192;
+/**
+ * 比例模式下长边的硬上限。
+ * 实测：请求 7280×4096（16:9 / 4K 档，短边 4096）时上游只肯给 4096×2305，
+ * 直接判失败。所以按长边收口，16:9 的 4K 档请求 4096×2304。
+ */
+export const MAX_RATIO_LONG_EDGE = 4096;
 export const MIN_IMAGE_EDGE = 64;
 
 export interface OutputSpec {
@@ -115,9 +121,17 @@ export function resolveRatioSize(ratio: AspectRatio, resolution: number): { widt
   const short = Math.max(MIN_IMAGE_EDGE, Math.min(MAX_IMAGE_EDGE, Math.round(resolution)));
   const align = (value: number) => Math.round(value / 8) * 8;
   // 长边按短边比例放大，保证短边等于档位值。
-  return w >= h
-    ? { width: align(Math.round((short * w) / h)), height: align(short) }
-    : { width: align(short), height: align(Math.round((short * h) / w)) };
+  const raw =
+    w >= h
+      ? { width: (short * w) / h, height: short }
+      : { width: short, height: (short * h) / w };
+  // 长边超过上限时整体等比缩小：比例不能变，只能把短边让一点。
+  const longEdge = Math.max(raw.width, raw.height);
+  const scale = longEdge > MAX_RATIO_LONG_EDGE ? MAX_RATIO_LONG_EDGE / longEdge : 1;
+  return {
+    width: Math.max(MIN_IMAGE_EDGE, align(Math.round(raw.width * scale))),
+    height: Math.max(MIN_IMAGE_EDGE, align(Math.round(raw.height * scale))),
+  };
 }
 
 /** 解析用户输入的自定义比例（允许 "16:10"、"16/10"、"1.6"）；不合法返回 undefined。 */
@@ -233,6 +247,8 @@ export interface CreateImageJobInput {
   /** 自定义宽高（sizeMode = "custom" 时必填）。 */
   readonly width?: number;
   readonly height?: number;
+  /** 比例模式的短边像素目标（1K/1.5K/2K/4K）；省略时按 1024。 */
+  readonly resolution?: ResolutionTier | number;
   readonly format?: OutputFormat;
   readonly compression?: number;
 }
@@ -390,6 +406,7 @@ const ALLOWED_INPUT_KEYS = new Set([
   "sizeMode",
   "width",
   "height",
+  "resolution",
   "format",
   "compression",
 ]);
@@ -559,6 +576,17 @@ export function validateCreateJobInput(raw: unknown): ValidationResult<CreateIma
     return fail("invalid-request", "只有自定义尺寸模式可以带宽高");
   }
 
+  let resolution: ResolutionTier | undefined;
+  if (raw.resolution !== undefined) {
+    if (
+      typeof raw.resolution !== "number" ||
+      !(RESOLUTION_TIERS as readonly number[]).includes(raw.resolution)
+    ) {
+      return fail("invalid-request", `不支持的分辨率档位：${String(raw.resolution)}`);
+    }
+    resolution = raw.resolution as ResolutionTier;
+  }
+
   let format: OutputFormat | undefined;
   if (raw.format !== undefined) {
     if (typeof raw.format !== "string" || !(OUTPUT_FORMATS as readonly string[]).includes(raw.format)) {
@@ -595,6 +623,7 @@ export function validateCreateJobInput(raw: unknown): ValidationResult<CreateIma
       ...(seed === undefined ? {} : { seed }),
       ...(negativePrompt === undefined ? {} : { negativePrompt }),
       ...(sizeMode === undefined ? {} : { sizeMode }),
+      ...(resolution === undefined ? {} : { resolution }),
       ...(widthResult.value === undefined ? {} : { width: widthResult.value }),
       ...(heightResult.value === undefined ? {} : { height: heightResult.value }),
       ...(format === undefined ? {} : { format }),

@@ -799,14 +799,53 @@ body::after {
   display: block;
 }
 
+/*
+ * 信息行默认藏起来：一次 10 张时，10 组「768×768 🗀 详情」是最吵的部分。
+ * 改成悬停在卡片上（或键盘聚焦到卡内按钮）时，作为浮层压在图片底部出现。
+ * 卡片高度因此只剩图片本身，折叠高度换算也更简单。
+ */
+.result-card {
+  position: relative;
+}
+
 .result-card figcaption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  padding: 0 2px 2px;
-  background: none;
+  padding: 18px 10px 8px;
   border: 0;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  background: linear-gradient(to top, rgba(8, 10, 12, 0.72), rgba(8, 10, 12, 0));
+  color: #eef1f4;
+  opacity: 0;
+  transition: opacity 140ms ease;
+  pointer-events: none;
+}
+
+.result-card:hover figcaption,
+.result-card:focus-within figcaption {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.result-card figcaption .button {
+  color: #eef1f4;
+}
+
+.result-card figcaption .button:hover:not(:disabled) {
+  background: color-mix(in srgb, #ffffff 18%, transparent);
+  color: #ffffff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .result-card figcaption {
+    transition: none;
+  }
 }
 
 .result-card__actions {

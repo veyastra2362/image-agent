@@ -197,6 +197,15 @@ test("上游回显的尺寸与请求不一致时明确报错，而不是静默�
   );
 });
 
+test("尺寸只差取整误差时放行（真实网关会把 4096×2304 回显成 4096×2305）", async () => {
+  const sized = { ...request, size: { width: 4096, height: 2304 } };
+  const { provider } = makeProvider(() =>
+    jsonResponse(200, { data: [{ b64_json: PNG_B64, size: "4096x2305" }] }),
+  );
+  const result = await provider.submit(sized, new AbortController().signal);
+  assert.equal(result.state, "completed");
+});
+
 test("尺寸一致时正常通过（真实网关会回显 size 字段）", async () => {
   const { provider } = makeProvider(() =>
     jsonResponse(200, { data: [{ b64_json: PNG_B64, size: "1024x1024", revised_prompt: "a cat" }] }),

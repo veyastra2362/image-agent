@@ -386,14 +386,25 @@ export class OpenAICompatibleProvider implements ImageProvider {
 
     // 上游会回显实际出图尺寸；与请求不一致时至少留下可诊断的痕迹（任务详情里能看到）。
     // auto 模式没有请求尺寸，跳过这项检查——此时上游给什么就是什么。
-    const expected =
-      request.size === undefined ? undefined : `${request.size.width}x${request.size.height}`;
+    // 上游会回显实际出图尺寸。只拦"差得离谱"的：比例被换掉、或明显降档。
+    // 取整误差（如 16:9 的 4096×2304 回显 4096×2305）不算问题，否则任务会被白白判失败。
+    const expected = request.size;
     if (expected !== undefined) {
-      const mismatched = data
-        .map((entry) => (isRecord(entry) && typeof entry.size === "string" ? entry.size : undefined))
-        .filter((size) => size !== undefined && size !== expected);
-      if (mismatched.length > 0) {
-        throw new Error(`上游返回的尺寸 ${mismatched.join("、")} 与请求的 ${expected} 不一致`);
+      const tolerances = (want: number) => Math.max(8, Math.round(want * 0.02));
+      const off = data.find((entry) => {
+        if (!isRecord(entry) || typeof entry.size !== "string") return false;
+        const parsed = /^(\d+)x(\d+)$/.exec(entry.size);
+        if (parsed === null) return true;
+        const width = Number(parsed[1]);
+        const height = Number(parsed[2]);
+        return (
+          Math.abs(width - expected.width) > tolerances(expected.width) ||
+          Math.abs(height - expected.height) > tolerances(expected.height)
+        );
+      });
+      if (off !== undefined) {
+        const size = isRecord(off) ? String(off.size) : "?";
+        throw new Error(`上游返回的尺寸 ${size} 与请求的 ${expected.width}x${expected.height} 不一致（相差超过 2%）`);
       }
     }
     return images;

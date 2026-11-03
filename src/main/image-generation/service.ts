@@ -11,6 +11,7 @@ import {
   validateCreateJobInput,
   validateJobId,
   resolveRatioSize,
+  RESOLUTION_TIERS,
   type AspectRatio,
   type ImageAsset,
   type ImageBootstrap,
@@ -57,6 +58,12 @@ interface ActiveRun {
 
 /** 老请求不带分辨率时的缺省档位（1K）。 */
 const DEFAULT_RESOLUTION = 1024;
+
+/** 只接受 1024/1536/2048/4096 这几档，其他值一律回落到 1024。 */
+function clampResolution(value: number | undefined): number {
+  if (value === undefined) return DEFAULT_RESOLUTION;
+  return (RESOLUTION_TIERS as readonly number[]).includes(value) ? value : DEFAULT_RESOLUTION;
+}
 
 const MAX_DOWNLOAD_ATTEMPTS = 3;
 const MAX_POLL_TRANSIENT_FAILURES = 3;
@@ -153,6 +160,9 @@ export class ImageGenerationService {
 
     const aspectRatio: AspectRatio = input.aspectRatio ?? model.capabilities.aspectRatios[0] ?? "1:1";
     const sizeMode = input.sizeMode ?? "ratio";
+    // 画面档位（1K/1.5K/2K/4K）必须原样传给尺寸推导：以前这里写死 1024，
+    // 界面上选 4K 实际仍然按 1024 出图。
+    const resolution = clampResolution(input.resolution);
     const format = input.format ?? "png";
     const compression = input.compression ?? 0;
 
@@ -163,7 +173,7 @@ export class ImageGenerationService {
           ? { width: input.width, height: input.height }
           : undefined
         : sizeMode === "ratio"
-          ? resolveRatioSize(aspectRatio, DEFAULT_RESOLUTION)
+          ? resolveRatioSize(aspectRatio, resolution)
           : undefined;
 
     if (format !== "png" && !model.capabilities.transcode) {

@@ -258,9 +258,9 @@ function ResultGroup({
   /** 每次点「加载更多」多显示的张数。 */
   const PAGE_SIZE = 10;
   const [extra, setExtra] = useState(0);
-  // 一行放几张由 CSS 的 auto-fill 决定，这里按最窄情况 App 的 4 列上限算，
-  // 少排几张不算错（只是"更早折叠"），多排则会溢出，所以取上限。
-  const columns = Math.max(1, Math.min(event.assets.length, 4));
+  // 一行放几张完全由 CSS 的 auto-fill 决定，这里在挂载后实测一次真实列数
+  // （窗口宽度变化时重测），否则折叠高度会按错的行数算。
+  const [columns, setColumns] = useState(() => Math.max(1, Math.min(event.assets.length, 4)));
   const capacity = columns * Math.max(1, resultRows);
   const total = event.assets.length;
   const overflows = total > capacity;
@@ -271,9 +271,11 @@ function ResultGroup({
   useLayoutEffect(() => {
     const grid = gridRef.current;
     if (grid === null) return;
+    const tracks = getComputedStyle(grid).gridTemplateColumns.split(" ").filter((track) => track !== "");
+    if (tracks.length > 0) setColumns(tracks.length);
     const card = grid.firstElementChild;
     if (card instanceof HTMLElement && card.offsetHeight > 0) setCardHeight(card.offsetHeight);
-  }, [visibleCount, resultRows, extra]);
+  }, [visibleCount, resultRows, extra, event.assets.length]);
   // 显示高度按"当前显示的张数"折算行数，点一次加载更多就长高一段
   const clampedHeight = useMemo(() => {
     const rows = Math.max(1, Math.min(Math.ceil(visibleCount / columns), Math.ceil(total / columns)));

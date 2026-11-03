@@ -2213,19 +2213,23 @@ code {
 /* ---------------------------------------------------------------- 结果缩略图 */
 
 /* 结果图固定尺寸，不再撑满画布；点开看原图 */
+/*
+ * 列宽自适应：窗口越宽排得越多，不再固定 200px 留一条空白。
+ * 180px 是最小可用尺寸（正方形缩略图 + 悬停信息仍能放下）。
+ */
 .result-grid {
-  grid-template-columns: repeat(auto-fill, 200px);
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: var(--space-3);
 }
 
 .result-card {
-  width: 200px;
+  width: auto;
 }
 
 .result-card__button {
-  width: 200px;
-  height: 200px;
-  aspect-ratio: auto;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
   cursor: zoom-in;
 }
 
