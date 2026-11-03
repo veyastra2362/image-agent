@@ -67,8 +67,8 @@ export function useImageAgent(): ImageAgentState {
   const [agentAvailable, setAgentAvailable] = useState(false);
   const [allJobs, setJobs] = useState<readonly ImageTaskEvent[]>([]);
   const [toasts, setToasts] = useState<readonly ToastItem[]>([]);
-  /** 被“从列表移除”的任务：只过滤显示，作品文件仍在。 */
-  const [hiddenJobIds, setHiddenJobIds] = useState<ReadonlySet<string>>(() => new Set());
+  /** 被“从列表移除”的任务：只过滤显示，作品文件仍在；记在本机，重启后保持。 */
+  const [hiddenJobIds, setHiddenJobIds] = useState<ReadonlySet<string>>(loadHiddenJobs);
   const [remembered, setRemembered] = useState<readonly RememberedAsset[]>([]);
   const [selectedAssetId, setSelectedAssetId] = useState<string>();
   const jobsRef = useRef<readonly ImageTaskEvent[]>([]);
@@ -198,6 +198,7 @@ export function useImageAgent(): ImageAgentState {
     setHiddenJobIds((current) => {
       const next = new Set(current);
       next.add(jobId);
+      saveHiddenJobs(next);
       return next;
     });
   }, []);
@@ -249,4 +250,30 @@ export function latestSucceededJob(jobs: readonly ImageTaskEvent[]): ImageTaskEv
 
 function latestSuccessfulAsset(event: ImageTaskEvent | undefined): string | undefined {
   return event?.assets[0]?.id;
+}
+
+/**
+ * "从列表移除"的任务 id：只存本机（localStorage），不进数据备份。
+ * 作品文件和索引都不动，所以清掉这个键就能让它们重新出现。
+ */
+const HIDDEN_JOBS_KEY = "image-agent:hidden-jobs:v1";
+
+function loadHiddenJobs(): ReadonlySet<string> {
+  try {
+    const raw = localStorage.getItem(HIDDEN_JOBS_KEY);
+    if (raw === null) return new Set();
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter((id): id is string => typeof id === "string" && id !== ""));
+  } catch {
+    return new Set();
+  }
+}
+
+function saveHiddenJobs(ids: ReadonlySet<string>): void {
+  try {
+    localStorage.setItem(HIDDEN_JOBS_KEY, JSON.stringify([...ids]));
+  } catch {
+    // 存储不可用时静默降级：只是"移除"不会记住而已。
+  }
 }

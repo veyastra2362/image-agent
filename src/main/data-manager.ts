@@ -95,7 +95,12 @@ export class DataManager {
       const assets = store.allAssets();
       const index = {
         version: 1,
-        jobs,
+        // 遮罩是 base64 PNG，单条任务可能上百 KB；备份里只留"有没有遮罩"的标记，
+        // 不带字节（导入后仍能看到记录，只是重试时不会带原遮罩）。
+        jobs: jobs.map((job) => {
+          const { maskDataUrl: _dropped, ...rest } = job as typeof job & { readonly maskDataUrl?: string };
+          return _dropped === undefined ? rest : { ...rest, hasMask: true };
+        }),
         favorites: this.deps.getFavorites().list(),
         assets: assets.map((asset) => {
           const file = store.fileForAsset(asset.id);

@@ -15,7 +15,7 @@ import { Select } from "../shell/Select.tsx";
 import { FONT_OPTIONS, FONT_SIZE_RANGE, type FontPreference as FontFamily, type LanguagePreference } from "../lib/appearance.ts";
 import { LANGUAGES, useT, type I18nKey } from "../lib/i18n.ts";
 import { PALETTE_OPTIONS, type PalettePreference } from "../lib/appearance.ts";
-import { FolderIcon, GearIcon } from "../shell/icons.tsx";
+import { FolderIcon, SlidersIcon } from "../shell/icons.tsx";
 
 export type SettingsTab = "api" | "appearance" | "storage" | "data" | "about";
 
@@ -43,7 +43,7 @@ export interface SettingsDialogProps {
 
 const TABS: readonly { readonly id: SettingsTab; readonly labelKey: I18nKey; readonly icon: ReactNode }[] = [
   { id: "api", labelKey: "settings.tab.api", icon: <PlugIcon /> },
-  { id: "appearance", labelKey: "settings.tab.general", icon: <GearIcon size={13} /> },
+  { id: "appearance", labelKey: "settings.tab.general", icon: <SlidersIcon size={13} /> },
   { id: "storage", labelKey: "settings.tab.storage", icon: <FolderIcon size={13} /> },
   { id: "data", labelKey: "settings.tab.data", icon: <DatabaseIcon /> },
   { id: "about", labelKey: "settings.tab.about", icon: <InfoIcon /> },

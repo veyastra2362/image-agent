@@ -68,7 +68,24 @@ export function CloseIcon({ size = 10 }: { readonly size?: number }) {
 }
 
 export function GearIcon({ size = 14 }: { readonly size?: number }) {
-  // 14px 下齿轮的齿容易糊成一团，用"滑杆"表示设置更清晰。
+  // 8 齿齿轮：外圈 + 8 根短齿 + 内圈，14px 下也能认出是"设置"
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <circle cx="8" cy="8" r="4.6" fill="none" stroke="currentColor" strokeWidth="1.2" />
+      <circle cx="8" cy="8" r="1.8" fill="none" stroke="currentColor" strokeWidth="1.2" />
+      <path
+        d="M8 1.3v2M8 12.7v2M1.3 8h2M12.7 8h2M3.3 3.3l1.4 1.4M11.3 11.3l1.4 1.4M12.7 3.3l-1.4 1.4M4.7 11.3l-1.4 1.4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/** 滑杆：给"外观/偏好"这类设置用。 */
+export function SlidersIcon({ size = 14 }: { readonly size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" focusable="false">
       <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" opacity="0.55" />
