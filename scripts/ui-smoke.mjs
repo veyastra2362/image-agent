@@ -208,7 +208,15 @@ async function run() {
   check("侧栏内有收起按钮", toggleProbe.collapse === true, toggleProbe);
   await js("document.querySelector('.sidebar__collapse').click(); true");
   await sleep(250);
-  check("收起后侧栏不可见", !(await js("Boolean(document.querySelector('.sidebar') && document.querySelector('.sidebar').offsetParent)")), "");
+  // 收起改成"列宽归零 + 透明 + visibility:hidden"，不再是 display:none，所以按可见性判断
+  const collapsedProbe = await js(
+    "(() => { const s = document.querySelector('.sidebar'); if (!s) return null; const cs = getComputedStyle(s); return { visibility: cs.visibility, opacity: Number(cs.opacity), width: Math.round(s.getBoundingClientRect().width) }; })()",
+  );
+  check(
+    "收起后侧栏不可见",
+    collapsedProbe !== null && (collapsedProbe.visibility === "hidden" || collapsedProbe.width === 0),
+    collapsedProbe,
+  );
   const collapsedWidth = await js("document.querySelector('.canvas').getBoundingClientRect().width");
   await shot("14-sidebar-collapsed");
   await js("document.querySelector('.titlebar__toggle').click(); true");

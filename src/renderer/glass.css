@@ -425,3 +425,65 @@ body::after {
     transition: none !important;
   }
 }
+
+/* ---------------------------------------------------------------- 输入区：整块一个底色 */
+
+/*
+ * 输入框不再自带边框和底色：它和 dock 是同一块面，
+ * 只有光标和文字浮在上面（对齐 Claude / Codex 那种"整块玻璃 + 底部工具行"）。
+ */
+.dock__input {
+  padding: 4px 2px 6px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+}
+
+.dock__input:focus {
+  border: 0;
+  outline: none;
+}
+
+.dock__input::placeholder {
+  color: var(--text-faint);
+}
+
+/* 工具行与输入之间只留间距，不再画分隔线 */
+.dock__bar {
+  padding-top: 4px;
+}
+
+/* ---------------------------------------------------------------- 侧栏收起的过渡 */
+
+/*
+ * 原来收起是 display:none，没有过渡。现在保持元素在文档里，
+ * 用网格列宽 + 透明度做动画，画布宽度会跟着平滑变化。
+ */
+.shell {
+  transition: grid-template-columns 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.shell > .sidebar {
+  transition:
+    opacity 160ms ease,
+    margin 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.shell.is-collapsed > .sidebar {
+  display: block;
+  margin: 0;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(-8px);
+  pointer-events: none;
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell,
+  .shell > .sidebar {
+    transition: none;
+  }
+}
