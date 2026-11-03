@@ -267,3 +267,43 @@ test("摘要反映当前数据量", () => {
     rmSync(h.root, { recursive: true, force: true });
   }
 });
+test("隐藏任务列表跟着作品库一起导出、导入", () => {
+  const h = harness();
+  try {
+    h.store.saveJob(job());
+    h.store.saveAsset(asset(), new Uint8Array([1, 2, 3, 4]));
+
+    const file = path.join(h.root, "backup-with-hidden.zip");
+    const exported = h.manager.exportTo(file, { settings: false, library: true }, undefined, ["job-1", "job-2"]);
+    assert.equal(exported.ok, true, JSON.stringify(exported));
+    assert.equal(
+      exported.ok && exported.entries?.some((entry) => entry.label.includes("已移除")),
+      true,
+      "导出清单里要能看到界面偏好那一条",
+    );
+
+    const imported = h.manager.importFrom(file, { settings: false, library: true });
+    assert.equal(imported.ok, true, JSON.stringify(imported));
+    assert.deepEqual(imported.ok && imported.hiddenJobIds, ["job-1", "job-2"]);
+    assert.equal(imported.ok && imported.message.includes("界面偏好"), true);
+  } finally {
+    rmSync(h.root, { recursive: true, force: true });
+  }
+});
+
+test("没有隐藏任务时不写偏好条目，导入也不会带出空数组", () => {
+  const h = harness();
+  try {
+    h.store.saveJob(job());
+    h.store.saveAsset(asset(), new Uint8Array([1, 2, 3, 4]));
+
+    const file = path.join(h.root, "backup-no-hidden.zip");
+    assert.equal(h.manager.exportTo(file, { settings: false, library: true }).ok, true);
+
+    const imported = h.manager.importFrom(file, { settings: false, library: true });
+    assert.equal(imported.ok, true, JSON.stringify(imported));
+    assert.deepEqual(imported.ok && imported.hiddenJobIds, [], "空列表也要能读出来（覆盖旧备份里没有该条目的情况）");
+  } finally {
+    rmSync(h.root, { recursive: true, force: true });
+  }
+});

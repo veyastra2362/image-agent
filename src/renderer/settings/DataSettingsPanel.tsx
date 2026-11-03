@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { DataSelection, DataSummary } from "../../shared/data-management.ts";
 import { Select } from "../shell/Select.tsx";
+import { loadHiddenJobs, replaceHiddenJobs } from "../lib/hidden-jobs.ts";
 
 function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
@@ -87,6 +88,8 @@ export function DataSettingsPanel() {
     }
     const payload = {
       ...selection,
+      // 隐藏列表跟着作品库一起走：只在导出且勾了"任务与图片"时带
+      ...(kind === "export" && selection.library ? { hiddenJobIds: [...loadHiddenJobs()] } : {}),
       ...(kind === "export" && mode === "encrypted" ? { passphrase: passphrase.trim() } : {}),
       ...(kind === "import" && passphrase.trim() !== "" ? { passphrase: passphrase.trim() } : {}),
     };
@@ -96,7 +99,13 @@ export function DataSettingsPanel() {
       setNeedPassphrase(false);
       setNotice({ kind: "ok", text: result.message });
       refresh();
-      if (kind === "import") window.dispatchEvent(new Event("image-agent:data-changed"));
+      if (kind === "import") {
+        if (result.hiddenJobIds !== undefined) {
+          replaceHiddenJobs(result.hiddenJobIds);
+          window.dispatchEvent(new Event("image-agent:hidden-changed"));
+        }
+        window.dispatchEvent(new Event("image-agent:data-changed"));
+      }
     } else if (result?.needsPassphrase === true) {
       setNeedPassphrase(true);
       setNotice({ kind: "error", text: result.error });

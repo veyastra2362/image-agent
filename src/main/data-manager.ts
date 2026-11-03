@@ -17,6 +17,7 @@ import {
   DATA_MANIFEST_NAME,
   type DataManifest,
   type DataResult,
+  PREFERENCES_ENTRY,
   type DataSelection,
   type DataSummary,
 } from "@shared/data-management";
@@ -77,7 +78,7 @@ export class DataManager {
     };
   }
 
-  exportTo(target: string, selection: DataSelection, passphrase?: string): DataResult {
+  exportTo(target: string, selection: DataSelection, passphrase?: string, hiddenJobIds: readonly string[] = []): DataResult {
     if (!selection.settings && !selection.library) return { ok: false, error: "至少勾选一项要导出的数据" };
     const zip = new AdmZip();
     const entries: { label: string; bytes: number }[] = [];
@@ -122,6 +123,13 @@ export class DataManager {
         imageCount += 1;
       }
       if (imageCount > 0) entries.push({ label: `图片文件（${imageCount} 个）`, bytes: imageBytes });
+
+      // 界面偏好：哪些任务被"从列表移除"了。跟作品库一起走，导入后视图保持一致。
+      const uiState = JSON.stringify({ version: 1, hiddenJobIds });
+      zip.addFile(PREFERENCES_ENTRY, Buffer.from(uiState, "utf8"));
+      if (hiddenJobIds.length > 0) {
+        entries.push({ label: `界面偏好（已移除 ${hiddenJobIds.length} 条任务的显示）`, bytes: Buffer.byteLength(uiState) });
+      }
     }
 
     const manifest: DataManifest = {
@@ -186,6 +194,19 @@ export class DataManager {
     }
 
     const restored: string[] = [];
+    let importedHiddenJobIds: readonly string[] | undefined;
+
+    const preferencesEntry = zip.getEntry(PREFERENCES_ENTRY);
+    if (preferencesEntry !== null) {
+      try {
+        const parsed = JSON.parse(preferencesEntry.getData().toString("utf8")) as { hiddenJobIds?: unknown };
+        if (Array.isArray(parsed.hiddenJobIds)) {
+          importedHiddenJobIds = parsed.hiddenJobIds.filter((id): id is string => typeof id === "string" && id !== "");
+        }
+      } catch {
+        // 偏好条目坏了不影响主体数据导入，直接忽略。
+      }
+    }
 
     if (selection.settings && manifest.includes.settings) {
       const entry = zip.getEntry(SETTINGS_ENTRY);
@@ -223,7 +244,16 @@ export class DataManager {
     }
 
     if (restored.length === 0) return { ok: false, error: "勾选的数据在备份里不存在，未做任何修改" };
-    return { ok: true, path: source, message: `已导入：${restored.join("、")}` };
+    if (importedHiddenJobIds !== undefined && importedHiddenJobIds.length > 0) {
+      restored.push(`界面偏好（${importedHiddenJobIds.length} 条任务保持已移除）`);
+    }
+
+    return {
+      ok: true,
+      path: source,
+      message: `已导入：${restored.join("、")}`,
+      ...(importedHiddenJobIds === undefined ? {} : { hiddenJobIds: importedHiddenJobIds }),
+    };
   }
 
   clear(selection: DataSelection): DataResult {

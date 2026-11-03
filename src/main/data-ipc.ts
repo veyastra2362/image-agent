@@ -39,6 +39,13 @@ function isTrusted(deps: DataIpcDeps, event: IpcMainInvokeEvent): boolean {
   return window !== undefined && !window.isDestroyed() && event.sender.id === window.webContents.id;
 }
 
+/** 界面偏好里的隐藏任务 id：只接受字符串数组，顺手截断防止异常数据把 IPC 撑爆。 */
+function readHiddenJobIds(raw: unknown): readonly string[] {
+  const value = (raw as { hiddenJobIds?: unknown }).hiddenJobIds;
+  if (!Array.isArray(value)) return [];
+  return value.filter((id): id is string => typeof id === "string" && id !== "" && id.length <= 120).slice(0, 5000);
+}
+
 /** 口令从同一个 payload 里带过来；空字符串等于没设。 */
 function readPassphrase(raw: unknown): string | undefined {
   const value = (raw as { passphrase?: unknown }).passphrase;
@@ -62,6 +69,7 @@ export function registerDataIpc(deps: DataIpcDeps): () => void {
     if (window === undefined) return { ok: false, error: "窗口不可用" };
 
     const passphrase = readPassphrase(raw);
+    const hiddenJobIds = readHiddenJobIds(raw);
     const encrypted = passphrase !== undefined;
     const picked = await dialog.showSaveDialog(window, {
       title: encrypted ? "导出加密备份" : "导出数据",

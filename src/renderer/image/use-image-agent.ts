@@ -3,6 +3,7 @@
  *
  * 所有校验都只是"提前给用户一个提示"；真正的边界在 main。
  */
+import { loadHiddenJobs, saveHiddenJobs } from "../lib/hidden-jobs.ts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   ImageBootstrap,
@@ -203,6 +204,13 @@ export function useImageAgent(): ImageAgentState {
     });
   }, []);
 
+  // 导入备份后隐藏列表会被整体替换：监听同一个事件把内存状态同步过来。
+  useEffect(() => {
+    const onHiddenChanged = () => setHiddenJobIds(loadHiddenJobs());
+    window.addEventListener("image-agent:hidden-changed", onHiddenChanged);
+    return () => window.removeEventListener("image-agent:hidden-changed", onHiddenChanged);
+  }, []);
+
   const selected = useMemo(
     () => allJobs.flatMap((entry) => entry.assets).find((asset) => asset.id === selectedAssetId),
     [allJobs, selectedAssetId],
@@ -250,30 +258,4 @@ export function latestSucceededJob(jobs: readonly ImageTaskEvent[]): ImageTaskEv
 
 function latestSuccessfulAsset(event: ImageTaskEvent | undefined): string | undefined {
   return event?.assets[0]?.id;
-}
-
-/**
- * "从列表移除"的任务 id：只存本机（localStorage），不进数据备份。
- * 作品文件和索引都不动，所以清掉这个键就能让它们重新出现。
- */
-const HIDDEN_JOBS_KEY = "image-agent:hidden-jobs:v1";
-
-function loadHiddenJobs(): ReadonlySet<string> {
-  try {
-    const raw = localStorage.getItem(HIDDEN_JOBS_KEY);
-    if (raw === null) return new Set();
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return new Set();
-    return new Set(parsed.filter((id): id is string => typeof id === "string" && id !== ""));
-  } catch {
-    return new Set();
-  }
-}
-
-function saveHiddenJobs(ids: ReadonlySet<string>): void {
-  try {
-    localStorage.setItem(HIDDEN_JOBS_KEY, JSON.stringify([...ids]));
-  } catch {
-    // 存储不可用时静默降级：只是"移除"不会记住而已。
-  }
 }

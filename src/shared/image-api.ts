@@ -52,7 +52,7 @@ declare global {
     /** 数据导出/导入/清除；文件路径只能来自系统对话框。 */
     readonly appData?: {
       readonly summary: () => Promise<DataSummary | undefined>;
-      readonly export: (selection: DataSelection) => Promise<DataResult>;
+      readonly export: (selection: DataSelection & { readonly hiddenJobIds?: readonly string[] }) => Promise<DataResult>;
       readonly import: (selection: DataSelection) => Promise<DataResult>;
       readonly clear: (selection: DataSelection) => Promise<DataResult>;
     };

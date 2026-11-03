@@ -40,6 +40,8 @@ export type DataResult =
       /** 导出/导入的文件路径。 */
       readonly path?: string;
       readonly entries?: readonly DataArchiveEntry[];
+      /** 仅导入时有值：备份里记录的"已从界面移除"的任务 id。 */
+      readonly hiddenJobIds?: readonly string[];
     }
   | {
       readonly ok: false;
@@ -53,6 +55,8 @@ export const DATA_ENCRYPTED_EXTENSION = "iaz";
 
 export const DATA_ARCHIVE_VERSION = 1;
 export const DATA_MANIFEST_NAME = "manifest.json";
+/** 备份里的界面偏好（目前只有"已移除的任务"）。 */
+export const PREFERENCES_ENTRY = "preferences/ui-state.json";
 
 export interface DataManifest {
   readonly app: "image-agent";
