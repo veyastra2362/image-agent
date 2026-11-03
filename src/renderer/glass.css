@@ -820,8 +820,18 @@ body::after {
  * 不用 :hover —— 滚动条伪元素只认滚动容器自身状态，而滚动容器层级太杂。
  */
 *[data-scrolling]::-webkit-scrollbar-thumb {
-  background-color: color-mix(in srgb, var(--text) 22%, transparent);
+  background-color: color-mix(in srgb, var(--text) 26%, transparent);
   background-clip: content-box;
+}
+
+/* 鼠标停在这块可滚区域上：先淡淡地露出一条，提示"这里能滚" */
+*[data-scroll-hover]::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--text) 16%, transparent);
+  background-clip: content-box;
+}
+
+*[data-scroll-hover]:hover::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--text) 20%, transparent);
 }
 
 *::-webkit-scrollbar-corner {
