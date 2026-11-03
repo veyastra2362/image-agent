@@ -1184,20 +1184,22 @@ body::after {
   padding-bottom: 34px;
 }
 
-/* 收起时底部渐隐，暗示"下面还有" */
+/*
+ * 收起时底部渐隐：只压淡图片，不要糊出一整块实色板
+ * （底色一旦画成不透明的 --bg，在带环境光的画布上就是一块明显的黑板）。
+ */
 .result-group__grid.is-clamped::after {
   content: "";
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  height: 96px;
+  height: 56px;
   pointer-events: none;
   background: linear-gradient(
     to bottom,
     transparent 0%,
-    color-mix(in srgb, var(--bg) 70%, transparent) 55%,
-    var(--bg) 100%
+    color-mix(in srgb, var(--bg) 42%, transparent) 70%
   );
 }
 
