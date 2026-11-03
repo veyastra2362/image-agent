@@ -68,15 +68,15 @@ export function CloseIcon({ size = 10 }: { readonly size?: number }) {
 }
 
 export function GearIcon({ size = 14 }: { readonly size?: number }) {
-  // 圆头齿轮：齿是短的圆头线段（不是尖角），14px 下也不扎眼
+  // 8 瓣圆齿轮：外圈是浅波浪轮廓，内圈是正圆（evenodd 挖空），中心再加一个小圆环
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-      {/* 6 根粗圆头短齿贴着内圈，整体是圆的，不像尖齿轮那样扎眼 */}
-      <circle cx="8" cy="8" r="3.9" fill="none" stroke="currentColor" strokeWidth="2.2" />
-      <g stroke="currentColor" strokeWidth="2.1" strokeLinecap="round">
-        <path d="M8 3.4V2.2M12 5.9l1 .6M12 10.1l1-.6M8 12.6v1.2M4 10.1l-1 .6M4 5.9l-1-.6" fill="none" />
-      </g>
-      <circle cx="8" cy="8" r="1.9" fill="none" stroke="currentColor" strokeWidth="1.6" />
+      <path
+        d="M13.05 8.00L12.76 8.63L12.15 9.11L11.74 9.55L11.72 10.15L11.81 10.92L11.57 11.57L10.92 11.81L10.15 11.72L9.55 11.74L9.11 12.15L8.63 12.76L8.00 13.05L7.37 12.76L6.89 12.15L6.45 11.74L5.85 11.72L5.08 11.81L4.43 11.57L4.19 10.92L4.28 10.15L4.26 9.55L3.85 9.11L3.24 8.63L2.95 8.00L3.24 7.37L3.85 6.89L4.26 6.45L4.28 5.85L4.19 5.08L4.43 4.43L5.08 4.19L5.85 4.28L6.45 4.26L6.89 3.85L7.37 3.24L8.00 2.95L8.63 3.24L9.11 3.85L9.55 4.26L10.15 4.28L10.92 4.19L11.57 4.43L11.81 5.08L11.72 5.85L11.74 6.45L12.15 6.89L12.76 7.37Z M8 5.55A2.45 2.45 0 1 0 8 10.45A2.45 2.45 0 1 0 8 5.55Z"
+        fill="currentColor"
+        fillRule="evenodd"
+      />
+      <circle cx="8" cy="8" r="1.15" fill="none" stroke="currentColor" strokeWidth="1.1" />
     </svg>
   );
 }
