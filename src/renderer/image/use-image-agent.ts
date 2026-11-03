@@ -37,6 +37,8 @@ export interface ImageAgentState {
   /** 按原参数重试（成功/失败的任务都可以）。 */
   readonly retry: (jobId: string) => Promise<void>;
   readonly dismissToast: (id: number) => void;
+  /** 从界面移除一次任务的显示（不动磁盘上的作品与索引）。 */
+  readonly hideJob: (jobId: string) => void;
   readonly openAsset: (assetId: string) => void;
   readonly closeDrawer: () => void;
   /** 最近一次成功任务的第一张图；用于"查看最新结果"。 */
@@ -63,8 +65,10 @@ export function useImageAgent(): ImageAgentState {
   const [loadError, setLoadError] = useState<string>();
   const [models, setModels] = useState<readonly ProviderRef[]>([]);
   const [agentAvailable, setAgentAvailable] = useState(false);
-  const [jobs, setJobs] = useState<readonly ImageTaskEvent[]>([]);
+  const [allJobs, setJobs] = useState<readonly ImageTaskEvent[]>([]);
   const [toasts, setToasts] = useState<readonly ToastItem[]>([]);
+  /** 被“从列表移除”的任务：只过滤显示，作品文件仍在。 */
+  const [hiddenJobIds, setHiddenJobIds] = useState<ReadonlySet<string>>(() => new Set());
   const [remembered, setRemembered] = useState<readonly RememberedAsset[]>([]);
   const [selectedAssetId, setSelectedAssetId] = useState<string>();
   const jobsRef = useRef<readonly ImageTaskEvent[]>([]);
@@ -185,9 +189,22 @@ export function useImageAgent(): ImageAgentState {
     return () => clearTimeout(timer);
   }, [toasts]);
 
+  const jobs = useMemo(
+    () => allJobs.filter((entry) => !hiddenJobIds.has(entry.job.id)),
+    [allJobs, hiddenJobIds],
+  );
+
+  const hideJob = useCallback((jobId: string) => {
+    setHiddenJobIds((current) => {
+      const next = new Set(current);
+      next.add(jobId);
+      return next;
+    });
+  }, []);
+
   const selected = useMemo(
-    () => jobs.flatMap((entry) => entry.assets).find((asset) => asset.id === selectedAssetId),
-    [jobs, selectedAssetId],
+    () => allJobs.flatMap((entry) => entry.assets).find((asset) => asset.id === selectedAssetId),
+    [allJobs, selectedAssetId],
   );
   const selectedPreview =
     selected?.previewUrl ?? remembered.find((asset) => asset.id === selectedAssetId)?.previewUrl;
@@ -208,6 +225,7 @@ export function useImageAgent(): ImageAgentState {
     cancel,
     retry,
     dismissToast,
+    hideJob,
     openAsset,
     closeDrawer,
     ...(latestAssetId === undefined ? {} : { latestAssetId }),

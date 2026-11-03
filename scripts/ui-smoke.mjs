@@ -206,8 +206,18 @@ async function run() {
   const toggleProbe = await js("({ toggle: Boolean(document.querySelector('.titlebar__toggle')), collapse: Boolean(document.querySelector('.sidebar__collapse')) })");
   check("顶栏有侧栏开关", toggleProbe.toggle === true, toggleProbe);
   check("侧栏内有收起按钮", toggleProbe.collapse === true, toggleProbe);
-  await js("document.querySelector('.sidebar__collapse').click(); true");
-  await sleep(250);
+  // 收起靠点侧栏内的收起按钮；如果被别的层挡住（比如设置弹窗刚关），退回用标题栏开关，直到真的收起
+  const ensureCollapsed = async () => {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await js("(document.querySelector('.sidebar__collapse') ?? document.querySelector('.titlebar__toggle'))?.click(), true");
+      for (let i = 0; i < 10; i += 1) {
+        await sleep(80);
+        if (await js("document.querySelector('.shell')?.classList.contains('is-collapsed') === true")) return true;
+      }
+    }
+    return false;
+  };
+  check("可以收起侧栏", (await ensureCollapsed()) === true, "");
   // 收起改成"列宽归零 + 透明 + visibility:hidden"，不再是 display:none，所以按可见性判断
   const collapsedProbe = await js(
     "(() => { const s = document.querySelector('.sidebar'); if (!s) return null; const cs = getComputedStyle(s); return { visibility: cs.visibility, opacity: Number(cs.opacity), width: Math.round(s.getBoundingClientRect().width) }; })()",

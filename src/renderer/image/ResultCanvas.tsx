@@ -9,7 +9,7 @@ import { formatDuration } from "../lib/format.ts";
 import { describeStatus } from "../lib/job-status.ts";
 import { cancellable, latestSucceededJob, type ImageAgentState } from "./use-image-agent.ts";
 import { formatElapsed, useTick } from "../lib/use-tick.ts";
-import { FolderIcon, RetryIcon } from "../shell/icons.tsx";
+import { EyeOffIcon, FolderIcon, RetryIcon } from "../shell/icons.tsx";
 
 interface ResultCanvasProps {
   readonly state: ImageAgentState;
@@ -22,6 +22,7 @@ function openZoom(src: string, alt: string): void {
 
 export function ResultCanvas({ state, onOpenAsset }: ResultCanvasProps) {
   const onRetry = (jobId: string) => void state.retry(jobId);
+  const onHide = (jobId: string) => state.hideJob(jobId);
 
   const active = state.jobs.filter((entry) => describeStatus(entry.job.status).active);
   // 成功与失败放在同一条时间线上按时间排，失败不再单独堆在顶部。
@@ -87,7 +88,7 @@ export function ResultCanvas({ state, onOpenAsset }: ResultCanvasProps) {
         <section className="results" aria-label="生成结果">
           {timeline.map((entry) =>
             entry.job.status === "failed" ? (
-              <FailureCard key={entry.job.id} event={entry} onRetry={onRetry} />
+              <FailureCard key={entry.job.id} event={entry} onRetry={onRetry} onHide={onHide} />
             ) : (
               <ResultGroup
                 key={entry.job.id}
@@ -95,6 +96,7 @@ export function ResultCanvas({ state, onOpenAsset }: ResultCanvasProps) {
                 isLatest={entry === latest}
                 onOpenAsset={onOpenAsset}
                 onRetry={onRetry}
+                onHide={onHide}
               />
             ),
           )}
@@ -169,23 +171,36 @@ function ActiveJob({ event, onCancel }: { readonly event: ImageTaskEvent; readon
 function FailureCard({
   event,
   onRetry,
+  onHide,
 }: {
   readonly event: ImageTaskEvent;
   readonly onRetry: (jobId: string) => void;
+  readonly onHide: (jobId: string) => void;
 }) {
   return (
     <article className="notice notice--error" role="status" aria-label="生成失败的任务">
       <div className="notice__head">
         <strong>生成失败</strong>
-        <button
-          type="button"
-          className="button button--icon"
-          title="重试这次请求"
-          aria-label="重试这次请求"
-          onClick={() => onRetry(event.job.id)}
-        >
-          <RetryIcon size={13} />
-        </button>
+        <span className="notice__actions">
+          <button
+            type="button"
+            className="button button--icon"
+            title="重试这次请求"
+            aria-label="重试这次请求"
+            onClick={() => onRetry(event.job.id)}
+          >
+            <RetryIcon size={13} />
+          </button>
+          <button
+            type="button"
+            className="button button--icon"
+            title="从界面移除（不删除本地文件）"
+            aria-label="从界面移除这次失败记录"
+            onClick={() => onHide(event.job.id)}
+          >
+            <EyeOffIcon size={13} />
+          </button>
+        </span>
       </div>
       <p className="notice__prompt">{event.job.submittedPrompt}</p>
       <p>{event.job.error?.message ?? "上游返回了未知错误"}</p>
@@ -202,11 +217,13 @@ function ResultGroup({
   isLatest,
   onOpenAsset,
   onRetry,
+  onHide,
 }: {
   readonly event: ImageTaskEvent;
   readonly isLatest: boolean;
   readonly onOpenAsset: (assetId: string) => void;
   readonly onRetry: (jobId: string) => void;
+  readonly onHide: (jobId: string) => void;
 }) {
   return (
     <article className="result-group" aria-label="一次生成的结果">
@@ -226,6 +243,15 @@ function ResultGroup({
             onClick={() => void onRetry(event.job.id)}
           >
             <RetryIcon size={13} />
+          </button>
+          <button
+            type="button"
+            className="button button--icon"
+            title="从界面移除（不删除本地文件）"
+            aria-label="从界面移除这次结果"
+            onClick={() => onHide(event.job.id)}
+          >
+            <EyeOffIcon size={13} />
           </button>
         </div>
       </header>
