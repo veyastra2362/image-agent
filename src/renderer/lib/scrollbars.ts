@@ -41,8 +41,34 @@ function markHover(event: Event): void {
   }
 }
 
+let lastPointer = { x: -1, y: -1 };
+
+/**
+ * 重新算一次"指针当前悬停在哪个可滚区域上"。
+ * 输入框自己会随内容长高、overflow 在 hidden/auto 之间切换，
+ * 指针没动但它底下已经变成可滚了 —— 这时候要主动刷新，否则要等用户挪一下鼠标。
+ */
+export function refreshScrollHover(): void {
+  if (lastPointer.x < 0) return;
+  const element = document.elementFromPoint(lastPointer.x, lastPointer.y);
+  clearHover();
+  if (element === null) return;
+  for (let node: Element | null = element; node !== null; node = node.parentElement) {
+    if (isScrollable(node)) {
+      node.setAttribute("data-scroll-hover", "");
+      hovered.push(node);
+      return;
+    }
+  }
+}
+
 function markScrollActivity(target: EventTarget | null): void {
   const node = target instanceof Element ? target : document.documentElement;
+  // 不可滚的元素不要留标记：否则清空内容后会挂着一个永远不消失的滑块状态
+  if (!isScrollable(node)) {
+    node.removeAttribute("data-scrolling");
+    return;
+  }
   node.setAttribute("data-scrolling", "");
   const existing = timers.get(node);
   if (existing !== undefined) window.clearTimeout(existing);
@@ -57,6 +83,10 @@ export function enableAutoHideScrollbars(): () => void {
   const onScroll = (event: Event) => markScrollActivity(event.target);
   // capture：滚动事件不冒泡，必须用捕获阶段才能收到任意容器的滚动。
   document.addEventListener("scroll", onScroll, { capture: true, passive: true });
+  const trackPointer = (event: PointerEvent) => {
+    lastPointer = { x: event.clientX, y: event.clientY };
+  };
+  document.addEventListener("pointermove", trackPointer, { passive: true });
   document.addEventListener("pointerover", markHover, { passive: true });
   document.addEventListener("pointerout", (event) => {
     if (event.relatedTarget === null) clearHover();
@@ -65,6 +95,7 @@ export function enableAutoHideScrollbars(): () => void {
 
   return () => {
     document.removeEventListener("scroll", onScroll, { capture: true });
+    document.removeEventListener("pointermove", trackPointer);
     document.removeEventListener("pointerover", markHover);
     window.removeEventListener("blur", clearHover);
     clearHover();

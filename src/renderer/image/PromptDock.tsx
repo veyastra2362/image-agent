@@ -10,6 +10,7 @@ import { useComposer, type OptimizeMode } from "./composer-state.tsx";
 import { ModelSelect } from "../shell/ModelSelect.tsx";
 import { useT } from "../lib/i18n.ts";
 import { Select } from "../shell/Select.tsx";
+import { refreshScrollHover } from "../lib/scrollbars.ts";
 import { CloseIcon, ImagePlusIcon, SendIcon, SparkIcon, TrashIcon } from "../shell/icons.tsx";
 
 export function PromptDock() {
@@ -59,6 +60,8 @@ export function PromptDock() {
     const next = Math.min(el.scrollHeight, max);
     el.style.height = `${next}px`;
     el.style.overflowY = el.scrollHeight > max ? "auto" : "hidden";
+    // overflow 刚从 hidden 变成 auto（或反过来）时，指针没动也要重算一次悬停状态
+    refreshScrollHover();
   }, [prompt, promptRef]);
   const referenceEnabled = caps?.imageToImage === true;
 
