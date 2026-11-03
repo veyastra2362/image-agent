@@ -8,6 +8,7 @@ import { FORMAT_LABELS } from "../lib/output-spec.ts";
 import { useComposer, type OptimizeMode } from "./composer-state.tsx";
 import { SizeDialog } from "./SizeDialog.tsx";
 import { PanelLeftIcon } from "../shell/PanelLeftIcon.tsx";
+import appIcon from "../../../resources/icon.png";
 import { Select } from "../shell/Select.tsx";
 import { ModelSelect } from "../shell/ModelSelect.tsx";
 import { createPortal } from "react-dom";
@@ -61,7 +62,11 @@ export function ConfigSidebar({ onCollapse }: ConfigSidebarProps) {
   return (
     <div className="sidebar__body">
       <div className="sidebar__head">
-        <h2>配置</h2>
+        <div className="sidebar__brand">
+          {/* 用应用图标本身做标识，和任务栏/窗口图标一致 */}
+          <img className="sidebar__brand-mark" src={appIcon} alt="" aria-hidden="true" />
+          <span className="sidebar__brand-name">Image Agent</span>
+        </div>
         <button
           type="button"
           className="sidebar__collapse"

@@ -1123,3 +1123,41 @@ body::after {
   min-width: 188px;
   max-width: min(340px, 90vw);
 }
+
+/* ---------------------------------------------------------------- 侧栏品牌头 */
+
+.sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sidebar__brand-mark {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  flex: 0 0 auto;
+  /* 图标本体是黑底白字：深色界面下反相，才不会糊成一团黑 */
+  transition: filter 160ms ease;
+}
+
+.sidebar__brand-name {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .sidebar__brand-mark {
+    filter: invert(1);
+  }
+}
+
+:root[data-theme="dark"] .sidebar__brand-mark {
+  filter: invert(1);
+}
