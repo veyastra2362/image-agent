@@ -105,6 +105,12 @@ body::after {
 }
 
 .titlebar {
+  /*
+   * 标题栏要压在工作区之上：backdrop-filter 让每块面板都成了独立层叠上下文，
+   * 光靠 .menu 的 z-index 出不来的话，应用/编辑的下拉会被侧栏盖住。
+   */
+  position: relative;
+  z-index: 30;
   background: var(--glass-soft);
   border-bottom: 1px solid var(--border);
   box-shadow: inset 0 1px 0 var(--glass-highlight);

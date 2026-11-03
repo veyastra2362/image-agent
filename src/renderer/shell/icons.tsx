@@ -68,30 +68,37 @@ export function CloseIcon({ size = 10 }: { readonly size?: number }) {
 }
 
 export function GearIcon({ size = 14 }: { readonly size?: number }) {
-  // 8 齿齿轮：外圈 + 8 根短齿 + 内圈，14px 下也能认出是"设置"
+  // 圆头齿轮：齿是短的圆头线段（不是尖角），14px 下也不扎眼
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-      <circle cx="8" cy="8" r="4.6" fill="none" stroke="currentColor" strokeWidth="1.2" />
-      <circle cx="8" cy="8" r="1.8" fill="none" stroke="currentColor" strokeWidth="1.2" />
+      <circle cx="8" cy="8" r="4.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      <circle cx="8" cy="8" r="1.7" fill="none" stroke="currentColor" strokeWidth="1.4" />
       <path
-        d="M8 1.3v2M8 12.7v2M1.3 8h2M12.7 8h2M3.3 3.3l1.4 1.4M11.3 11.3l1.4 1.4M12.7 3.3l-1.4 1.4M4.7 11.3l-1.4 1.4"
+        d="M8 2.2v1M8 12.8v1M2.2 8h1M12.8 8h1M3.9 3.9l.72.72M11.38 11.38l.72.72M12.1 3.9l-.72.72M4.62 11.38l-.72.72"
         fill="none"
         stroke="currentColor"
-        strokeWidth="1.2"
+        strokeWidth="1.7"
         strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </svg>
   );
 }
 
-/** 滑杆：给"外观/偏好"这类设置用。 */
+/** 滑杆：给"外观/偏好"这类设置用。13px 下只放两条轨道，太密会糊成一团。 */
 export function SlidersIcon({ size = 14 }: { readonly size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-      <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" opacity="0.55" />
-      <circle cx="6" cy="4.5" r="1.6" fill="none" stroke="currentColor" strokeWidth="1.2" />
-      <circle cx="10.5" cy="8" r="1.6" fill="none" stroke="currentColor" strokeWidth="1.2" />
-      <circle cx="5" cy="11.5" r="1.6" fill="none" stroke="currentColor" strokeWidth="1.2" />
+      {/* 轨道在滑块两侧断开，不从圆圈里穿过去 */}
+      <path
+        d="M2.6 5h5.2M11.8 5h1.6M2.6 11h1.6M8.2 11h5.2"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        opacity="0.6"
+      />
+      <circle cx="9.8" cy="5" r="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      <circle cx="6.2" cy="11" r="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
     </svg>
   );
 }
