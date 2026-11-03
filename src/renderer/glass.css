@@ -645,34 +645,24 @@ body::after {
     transform 120ms ease;
 }
 
+/*
+ * 弹窗底部的主按钮一律不铺底色：靠"强调色文字 + 600 字重"和次要按钮区分，
+ * 悬停才浮出一层很淡的强调色。省掉实心块之后，弹窗整体更像原生对话框。
+ */
 .modal__foot .button--primary {
-  background: var(--accent);
-  border: 1px solid transparent;
-  color: var(--accent-ink);
-  font-weight: 600;
-  box-shadow: inset 0 1px 0 light-dark(rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.16));
-}
-
-.modal__foot .button--primary:hover:not(:disabled) {
-  background: var(--accent-strong);
-  border-color: transparent;
-}
-
-/* 设置弹窗的「保存」：只要文字，不要底色（和关闭按钮同一套静态外观，靠颜色区分主次） */
-.modal:has(.settings) .modal__foot .button--primary {
   background: transparent;
-  border-color: transparent;
+  border: 1px solid transparent;
   color: var(--accent);
   font-weight: 600;
   box-shadow: none;
 }
 
-.modal:has(.settings) .modal__foot .button--primary:hover:not(:disabled) {
+.modal__foot .button--primary:hover:not(:disabled) {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   color: var(--accent);
 }
 
-.modal:has(.settings) .modal__foot .button--primary:active:not(:disabled) {
+.modal__foot .button--primary:active:not(:disabled) {
   background: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
